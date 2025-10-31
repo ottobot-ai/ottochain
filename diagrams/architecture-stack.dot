@@ -1,0 +1,139 @@
+digraph ArchitectureStack {
+    rankdir=TB;
+    node [fontname="Arial", shape=box];
+    edge [fontname="Arial"];
+
+    // Layer 1: Blockchain
+    subgraph cluster_blockchain {
+        label = "Layer 0: Blockchain (Tessellation)";
+        style = filled;
+        fillcolor = "#E8F4F8";
+        fontsize = 14;
+
+        blockchain [shape=record, style=filled, fillcolor=white,
+                    label="{Blockchain Layer|{Consensus|Monotonic State Progression|Snapshot Ordering}|{Cryptographic Signatures|Immutable Audit Trail|Byzantine Fault Tolerance}}"];
+    }
+
+    // Layer 2: Metakit
+    subgraph cluster_metakit {
+        label = "Layer 1: Metakit (JSON Logic VM)";
+        style = filled;
+        fillcolor = "#FFF4E6";
+        fontsize = 14;
+
+        vm [shape=record, style=filled, fillcolor=white,
+            label="{JSON Logic VM|{50+ Operators|Two Execution Strategies|Gas Metering}|{Arbitrary Precision Math|Pure Functional|Deterministic Evaluation}}"];
+
+        vm_components [shape=record, style=filled, fillcolor=white,
+                       label="{Core Components|JsonLogicRuntime|JsonLogicSemantics|JsonLogicEvaluator|GasMetering|NumericOps}"];
+
+        vm -> vm_components [style=invis];
+    }
+
+    // Layer 3: Proofchain
+    subgraph cluster_proofchain {
+        label = "Layer 2: Proofchain (State Locking Primitives)";
+        style = filled;
+        fillcolor = "#F0F8E8";
+        fontsize = 14;
+
+        proofchain_owned [shape=record, style=filled, fillcolor=white,
+                          label="{Owned Records|Simple multi-sig ownership|All owners must sign|Use: Joint accounts, shared docs}"];
+
+        proofchain_unary [shape=record, style=filled, fillcolor=white,
+                          label="{Unary Contracts|Single JSON Logic validation + mutation|Programmatic authorization|Use: Spending limits, approval workflows}"];
+
+        proofchain_threshold [shape=record, style=filled, fillcolor=white,
+                              label="{Threshold Contracts|M-of-N JSON Logic rules|Complex multi-party governance|Use: DAO voting, redundant validation}"];
+
+        proofchain_versioning [shape=record, style=filled, fillcolor=white,
+                               label="{Versioning System|Content ID → Content Hash|Full history on calculated state|Tamper-proof audit trail}"];
+    }
+
+    // Layer 4: Workchain
+    subgraph cluster_workchain {
+        label = "Layer 3: Workchain (Fiber Orchestration + AI Agent Protocol)";
+        style = filled;
+        fillcolor = "#F8E8F4";
+        fontsize = 14;
+
+        workchain_fibers [shape=record, style=filled, fillcolor=white,
+                          label="{State Machine Fibers|Lightweight virtualized contexts|Current state + mutable data|Event-driven transitions|Parent-child hierarchy}"];
+
+        workchain_guards [shape=record, style=filled, fillcolor=white,
+                          label="{Guard Expressions|JSON Logic preconditions|Determine if transition allowed|Example: age greater than 18}"];
+
+        workchain_effects [shape=record, style=filled, fillcolor=white,
+                           label="{Effect Expressions|JSON Logic state mutations|Extract side effects|_triggers, _outputs, _spawn}"];
+
+        workchain_atomic [shape=record, style=filled, fillcolor=white,
+                          label="{Atomic Coordination|Cross-fiber trigger cascades|All-or-nothing semantics|Gas budget + depth limits|Cycle detection}"];
+
+        workchain_oracle [shape=record, style=filled, fillcolor=white,
+                          label="{Script Oracles|Persistent stateful programs|JSON Logic with internal state|Invoked by state machines}"];
+
+        workchain_integration [shape=record, style=filled, fillcolor=white,
+                               label="{Proofchain Integration|Fibers can reference contracts|Complex validation via contracts|Workflow + locking combined}"];
+    }
+
+    // Layer 5: AI Agents
+    subgraph cluster_agents {
+        label = "Layer 4: AI Agent Applications";
+        style = filled;
+        fillcolor = "#FFE8E8";
+        fontsize = 14;
+
+        agent_negotiation [shape=ellipse, style=filled, fillcolor=white,
+                           label="Inter-Business\nNegotiation"];
+
+        agent_supply_chain [shape=ellipse, style=filled, fillcolor=white,
+                            label="Autonomous\nSupply Chain"];
+
+        agent_marketplace [shape=ellipse, style=filled, fillcolor=white,
+                           label="AI Agent\nMarketplace"];
+
+        agent_compliance [shape=ellipse, style=filled, fillcolor=white,
+                          label="Regulatory\nCompliance"];
+
+        agent_coordination [shape=box, style=filled, fillcolor=white,
+                            label="AI agents generate JSON Logic expressions\nvia LLM function calling\n\nLLMs read and understand JSON Logic\nwithout training\n\nToken-efficient (50-70% cost reduction)\nDeterministic execution\nHuman-auditable decisions"];
+    }
+
+    // Dependencies
+    blockchain -> vm [label="Provides consensus\nand immutability"];
+    vm -> proofchain_owned [label="Evaluates\nJSON Logic"];
+    vm -> proofchain_unary;
+    vm -> proofchain_threshold;
+
+    proofchain_owned -> workchain_integration [label="Used within"];
+    proofchain_unary -> workchain_integration;
+    proofchain_threshold -> workchain_integration;
+
+    vm -> workchain_guards [label="Evaluates\nguards"];
+    vm -> workchain_effects [label="Evaluates\neffects"];
+    vm -> workchain_oracle [label="Executes\noracles"];
+
+    workchain_fibers -> agent_negotiation [label="Orchestrates"];
+    workchain_atomic -> agent_supply_chain;
+    workchain_oracle -> agent_marketplace;
+    workchain_integration -> agent_compliance;
+
+    agent_coordination -> agent_negotiation [style=dashed, label="LLM\ngeneration"];
+    agent_coordination -> agent_supply_chain [style=dashed];
+    agent_coordination -> agent_marketplace [style=dashed];
+    agent_coordination -> agent_compliance [style=dashed];
+
+    // Key properties annotation
+    properties [shape=note, style=filled, fillcolor=lightyellow,
+                label="Key Properties:\n\n\
+✓ JSON-native (LLM-friendly)\n\
+✓ Deterministic execution\n\
+✓ Resource-bounded (gas)\n\
+✓ Cryptographically authorized\n\
+✓ Immutable audit trail\n\
+✓ Atomic multi-agent coordination\n\
+✓ Human-readable logic\n\
+✓ Progressive complexity"];
+
+    properties -> blockchain [style=dashed, arrowhead=none];
+}

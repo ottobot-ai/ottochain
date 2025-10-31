@@ -1,0 +1,22 @@
+{
+  "value": {
+    "messageType": "Owner",
+    "address": "DAG2pw1tWFSsjgjciVaaXVsfgGxmS6yB7rPjzxS6",
+    "metagraphId": "DAG75NNPfK4H5aLxf5PL76sGv8QoYdmcxeJ3gKpE",
+    "parentOrdinal": 0
+  },
+  "proofs": [
+    {
+      "id": "8fa57b7b42db6cbf2efc7d43e59a9ff62e28e076243482a3249747f11c0244af1cd2356a8655c412e45dec5005684fa031cde92bd8a4288b6fa0146796f70073",
+      "signature": "3045022053bc4c51f89b798b643d5dbe31929d46c80a147243bd93c7cc050fd6ae0178cb022100ce062f9af7bd50386bd45e4265414cd92ed7fb5a40f04a2b3f62e7929b2b58d7"
+    },
+    {
+      "id": "65b2c19bc5b82faee477408dc28e4e31c2935b17561986d39c2e397784b0b1b97acc1b91b50cbedb534077dfceb4db672967696bd2a7de34252cb07bfe5a55e1",
+      "signature": "3045022027b538b8ff7a62234f852266bb2119f598bc8d599079d3ce4eac956a4d574ff9022100b2aecfac3c095728e13ae94b31497a7fa2de14aa9278cee3c68b9e16b465be07"
+    },
+    {
+      "id": "84e0f66fb5b5d017d7424418888fc8a9e81c81ea2a1960a09e9ba7792fb62014374190a433c8b712569032e10324fd8b4d275cfb6b06948926c81b908f9beeae",
+      "signature": "3046022100c15642fb3d527159d07dea72352c9eea5e686aed2403e41526cd5d139af55ebb022100be721cd14c91e148b5ea450c25830c237a46bfb0a4f0daa840a07757ff0cfc73"
+    }
+  ]
+}

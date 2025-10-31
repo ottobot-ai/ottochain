@@ -1,0 +1,23 @@
+{
+  "scriptProgram": {
+    "if": [
+      { "==": [{ "var": "method" }, "increment"] },
+      { "merge": [{ "var": "state" }, { "count": { "+": [{ "var": "state.count" }, 1] } }] },
+      { "if": [
+        { "==": [{ "var": "method" }, "decrement"] },
+        { "merge": [{ "var": "state" }, { "count": { "-": [{ "var": "state.count" }, 1] } }] },
+        { "if": [
+          { "==": [{ "var": "method" }, "reset"] },
+          { "count": 0 },
+          { "var": "state" }
+        ]}
+      ]}
+    ]
+  },
+  "initialState": {
+    "count": 0
+  },
+  "accessControl": {
+    "Public": {}
+  }
+}

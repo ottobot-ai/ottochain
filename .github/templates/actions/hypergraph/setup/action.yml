@@ -1,0 +1,147 @@
+name: Hypergraph jar build
+
+inputs:
+  GITHUB_TOKEN:
+    required: true
+  TESSELLATION_COMMIT_HASH:
+    required: false
+    description: 'Specific tessellation commit hash to use. If not provided, latest develop commit will be used'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get tessellation develop commit hash
+      shell: bash
+      id: get-commit-hash
+      run: |
+        if [ -n "${{ inputs.TESSELLATION_COMMIT_HASH }}" ]; then
+          COMMIT_HASH="${{ inputs.TESSELLATION_COMMIT_HASH }}"
+          echo "is_custom_hash=true" >> $GITHUB_OUTPUT
+        else
+          COMMIT_HASH=$(git ls-remote https://github.com/Constellation-Labs/tessellation.git develop | cut -f1)
+          echo "is_custom_hash=false" >> $GITHUB_OUTPUT
+        fi
+        echo "commit_hash=${COMMIT_HASH}" >> $GITHUB_OUTPUT
+
+    - name: Restore tessellation cache
+      uses: actions/cache/restore@v4
+      id: cache-tessellation
+      with:
+        path: |
+          .github/code/hypergraph/dag-l0.jar
+          .github/code/hypergraph/dag-l1.jar
+          .github/code/shared_jars/cl-keytool.jar
+          .github/code/shared_jars/cl-wallet.jar
+        key: tessellation-${{ runner.os }}-${{ steps.get-commit-hash.outputs.commit_hash }}
+        restore-keys: |
+          tessellation-${{ runner.os }}-
+
+    - name: Create hypergraph directories
+      shell: bash
+      run: |
+        cd .github
+        mkdir -p code/hypergraph/dag-l0/genesis-node
+        echo "empty" > code/hypergraph/dag-l0/genesis-node/placeholder.txt
+        
+        mkdir -p code/hypergraph/dag-l0/validator-1
+        echo "empty" > code/hypergraph/dag-l0/validator-1/placeholder.txt
+        
+        mkdir -p code/hypergraph/dag-l0/validator-2
+        echo "empty" > code/hypergraph/dag-l0/validator-2/placeholder.txt
+        
+        mkdir -p code/hypergraph/dag-l1/initial-validator
+        echo "empty" > code/hypergraph/dag-l1/initial-validator/placeholder.txt
+        
+        mkdir -p code/hypergraph/dag-l1/validator-1
+        echo "empty" > code/hypergraph/dag-l1/validator-1/placeholder.txt
+        
+        mkdir -p code/hypergraph/dag-l1/validator-2
+        echo "empty" > code/hypergraph/dag-l1/validator-2/placeholder.txt
+        
+        mkdir -p code/shared_jars
+
+    - name: Copy genesis to DAG L0
+      shell: bash
+      run: |  
+        cp .github/config/genesis.csv .github/code/hypergraph/dag-l0/genesis-node
+
+    - name: Validate cached artifacts
+      id: validate-artifacts
+      if: ${{ steps.cache-tessellation.outputs.cache-hit == 'true' }}
+      shell: bash
+      run: |
+        # Set default to true and change to false if any validation fails
+        CACHE_VALID=true
+        
+        # Check each JAR file
+        if [ ! -s .github/code/hypergraph/dag-l0.jar ]; then
+          echo "Missing or empty dag-l0.jar"
+          CACHE_VALID=false
+        fi
+        
+        if [ ! -s .github/code/hypergraph/dag-l1.jar ]; then
+          echo "Missing or empty dag-l1.jar"
+          CACHE_VALID=false
+        fi
+        
+        if [ ! -s .github/code/shared_jars/cl-keytool.jar ]; then
+          echo "Missing or empty cl-keytool.jar"
+          CACHE_VALID=false
+        fi
+        
+        if [ ! -s .github/code/shared_jars/cl-wallet.jar ]; then
+          echo "Missing or empty cl-wallet.jar"
+          CACHE_VALID=false
+        fi
+        
+        # Output the validation result
+        if [ "$CACHE_VALID" == "true" ]; then
+          echo "Cache validation successful - all required JARs exist"
+          echo "cache-valid=true" >> $GITHUB_OUTPUT
+        else
+          echo "Cache validation failed - some required JARs are missing"
+          echo "cache-valid=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Generate metagraph dependencies and hypergraph JARs 🔥
+      shell: bash
+      if: ${{ steps.cache-tessellation.outputs.cache-hit != 'true' || steps.validate-artifacts.outputs.cache-valid != 'true' }}
+      run: |
+        cd .github/code
+        
+        git clone https://github.com/Constellation-Labs/tessellation.git
+        cd tessellation
+        git checkout ${{ steps.get-commit-hash.outputs.commit_hash }}
+        
+        # Decide which SBT command to run based on whether a custom hash was provided
+        if [ "${{ steps.get-commit-hash.outputs.is_custom_hash }}" == "true" ]; then
+          # Custom hash provided - run without version override
+          echo "Running SBT with default versioning..."
+          sbt clean compile dagL0/assembly dagL1/assembly keytool/assembly wallet/assembly sdk/publishM2 shared/publishM2 kernel/publishM2 keytool/publishM2 nodeShared/publishM2 currencyL0/publishM2 currencyL1/publishM2 dagL1/publishM2
+        else
+          # No custom hash - use version override
+          echo "Running SBT with version override (99.99.99)..."
+          sbt -Dversion.override=99.99.99 clean compile dagL0/assembly dagL1/assembly keytool/assembly wallet/assembly sdk/publishM2
+        fi
+        
+        mv modules/dag-l0/target/scala-2.13/tessellation-dag-l0-assembly-* ../hypergraph/dag-l0.jar
+        mv modules/dag-l1/target/scala-2.13/tessellation-dag-l1-assembly-* ../hypergraph/dag-l1.jar
+        
+        mv modules/keytool/target/scala-2.13/tessellation-keytool-assembly-* ../shared_jars/cl-keytool.jar
+        mv modules/wallet/target/scala-2.13/tessellation-wallet-assembly-* ../shared_jars/cl-wallet.jar
+        
+        cd ..
+        rm -r tessellation
+      env:
+        GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
+
+    - name: Save tessellation cache
+      if: ${{ steps.cache-tessellation.outputs.cache-hit != 'true' || steps.validate-artifacts.outputs.cache-valid != 'true' }}
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          .github/code/hypergraph/dag-l0.jar
+          .github/code/hypergraph/dag-l1.jar
+          .github/code/shared_jars/cl-keytool.jar
+          .github/code/shared_jars/cl-wallet.jar
+        key: tessellation-${{ runner.os }}-${{ steps.get-commit-hash.outputs.commit_hash }}

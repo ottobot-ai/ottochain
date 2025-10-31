@@ -1,0 +1,405 @@
+package xyz.kd5ujc.shared_data
+
+import cats.effect.std.UUIDGen
+import cats.effect.{IO, Resource}
+import cats.syntax.all._
+
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
+import xyz.kd5ujc.shared_data.lifecycle.Combiner
+
+import io.circe.parser._
+import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
+import io.constellationnetwork.metagraph_sdk.json_logic._
+import io.constellationnetwork.security.SecurityProvider
+import io.constellationnetwork.security.signature.Signed
+import weaver.SimpleIOSuite
+import zyx.kd5ujc.shared_test.Mock.MockL0NodeContext
+import zyx.kd5ujc.shared_test.Participant._
+
+object ExecutionLimitsSuite extends SimpleIOSuite {
+
+  private val securityProviderResource: Resource[IO, SecurityProvider[IO]] = SecurityProvider.forAsync[IO]
+
+  test("depth exceeded: nested triggers hit maxDepth") {
+    securityProviderResource.use { implicit s =>
+      for {
+        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
+        registry                            <- ParticipantRegistry.create[IO](Set(Alice))
+        combiner                            <- Combiner.make[IO].pure[IO]
+
+        machine1Cid <- UUIDGen.randomUUID[IO]
+        machine2Cid <- UUIDGen.randomUUID[IO]
+
+        // Machine 1: triggers machine 2 on "ping"
+        machine1Json = s"""
+        {
+          "states": {
+            "idle": { "id": { "value": "idle" }, "isFinal": false },
+            "pinged": { "id": { "value": "pinged" }, "isFinal": false }
+          },
+          "initialState": { "value": "idle" },
+          "transitions": [
+            {
+              "from": { "value": "idle" },
+              "to": { "value": "pinged" },
+              "eventType": { "value": "ping" },
+              "guard": true,
+              "effect": {
+                "_triggers": [
+                  {
+                    "targetMachineId": "$machine2Cid",
+                    "eventType": "pong",
+                    "payload": { "var": "state" }
+                  }
+                ],
+                "count": { "+": [{ "var": "state.count" }, 1] }
+              },
+              "dependencies": []
+            }
+          ]
+        }
+        """
+
+        // Machine 2: triggers machine 1 on "pong"
+        machine2Json = s"""
+        {
+          "states": {
+            "idle": { "id": { "value": "idle" }, "isFinal": false },
+            "ponged": { "id": { "value": "ponged" }, "isFinal": false }
+          },
+          "initialState": { "value": "idle" },
+          "transitions": [
+            {
+              "from": { "value": "idle" },
+              "to": { "value": "ponged" },
+              "eventType": { "value": "pong" },
+              "guard": true,
+              "effect": {
+                "_triggers": [
+                  {
+                    "targetMachineId": "$machine1Cid",
+                    "eventType": "ping",
+                    "payload": { "var": "state" }
+                  }
+                ],
+                "count": { "+": [{ "var": "state.count" }, 1] }
+              },
+              "dependencies": []
+            },
+            {
+              "from": { "value": "ponged" },
+              "to": { "value": "idle" },
+              "eventType": { "value": "pong" },
+              "guard": true,
+              "effect": {
+                "_triggers": [
+                  {
+                    "targetMachineId": "$machine1Cid",
+                    "eventType": "ping",
+                    "payload": { "var": "state" }
+                  }
+                ],
+                "count": { "+": [{ "var": "state.count" }, 1] }
+              },
+              "dependencies": []
+            }
+          ]
+        }
+        """
+
+        machine1Def <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machine1Json))
+        machine2Def <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machine2Json))
+
+        initialData = MapValue(Map("count" -> IntValue(0)))
+
+        createMachine1 = Updates.CreateStateMachineFiber(machine1Cid, machine1Def, initialData)
+        machine1Proof <- registry.generateProofs(createMachine1, Set(Alice))
+        stateAfterMachine1 <- combiner.insert(
+          DataState(OnChain.genesis, CalculatedState.genesis),
+          Signed(createMachine1, machine1Proof)
+        )
+
+        createMachine2 = Updates.CreateStateMachineFiber(machine2Cid, machine2Def, initialData)
+        machine2Proof      <- registry.generateProofs(createMachine2, Set(Alice))
+        stateAfterMachine2 <- combiner.insert(stateAfterMachine1, Signed(createMachine2, machine2Proof))
+
+        // Send initial ping - should hit depth limit due to ping-pong loop
+        pingEvent = Updates.ProcessFiberEvent(
+          machine1Cid,
+          StateMachine.Event(
+            StateMachine.EventType("ping"),
+            MapValue(Map.empty)
+          )
+        )
+        pingProof  <- registry.generateProofs(pingEvent, Set(Alice))
+        finalState <- combiner.insert(stateAfterMachine2, Signed(pingEvent, pingProof))
+
+        machine1 = finalState.calculated.records
+          .get(machine1Cid)
+          .collect { case r: Records.StateMachineFiberRecord => r }
+
+        machine2 = finalState.calculated.records
+          .get(machine2Cid)
+          .collect { case r: Records.StateMachineFiberRecord => r }
+
+        // Atomic rollback: transaction should have aborted, no state changes
+        machine1Count = machine1.flatMap { f =>
+          f.stateData match {
+            case MapValue(m) => m.get("count").collect { case IntValue(c) => c }
+            case _           => None
+          }
+        }
+
+        machine2Count = machine2.flatMap { f =>
+          f.stateData match {
+            case MapValue(m) => m.get("count").collect { case IntValue(c) => c }
+            case _           => None
+          }
+        }
+
+      } yield expect.all(
+        machine1.isDefined,
+        machine2.isDefined,
+        machine1Count.contains(BigInt(0)),
+        machine2Count.contains(BigInt(0)),
+        machine1.map(_.currentState).contains(StateMachine.StateId("idle")),
+        machine2.map(_.currentState).contains(StateMachine.StateId("idle")),
+        machine1.map(_.lastEventStatus).exists {
+          case Records.EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
+          case _                                                            => false
+        }
+      )
+    }
+  }
+
+  test("gas exhausted: expensive computation hits maxGas") {
+    securityProviderResource.use { implicit s =>
+      for {
+        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
+        registry                            <- ParticipantRegistry.create[IO](Set(Alice))
+        combiner                            <- Combiner.make[IO].pure[IO]
+
+        machineCid <- UUIDGen.randomUUID[IO]
+
+        // Machine with many self-triggering transitions to exceed gas limit
+        // Each transition costs ~35 gas (10 guard + 20 effect + 5 trigger)
+        // With 30+ transitions, we'll exceed maxGas=1000
+        machineJson = s"""
+        {
+          "states": {
+            "s0": { "id": { "value": "s0" }, "isFinal": false },
+            "s1": { "id": { "value": "s1" }, "isFinal": false },
+            "s2": { "id": { "value": "s2" }, "isFinal": false },
+            "s3": { "id": { "value": "s3" }, "isFinal": false },
+            "s4": { "id": { "value": "s4" }, "isFinal": false },
+            "s5": { "id": { "value": "s5" }, "isFinal": false },
+            "s6": { "id": { "value": "s6" }, "isFinal": false },
+            "s7": { "id": { "value": "s7" }, "isFinal": false },
+            "s8": { "id": { "value": "s8" }, "isFinal": false },
+            "s9": { "id": { "value": "s9" }, "isFinal": false },
+            "s10": { "id": { "value": "s10" }, "isFinal": false },
+            "s11": { "id": { "value": "s11" }, "isFinal": false },
+            "s12": { "id": { "value": "s12" }, "isFinal": false },
+            "s13": { "id": { "value": "s13" }, "isFinal": false },
+            "s14": { "id": { "value": "s14" }, "isFinal": false },
+            "s15": { "id": { "value": "s15" }, "isFinal": false },
+            "s16": { "id": { "value": "s16" }, "isFinal": false },
+            "s17": { "id": { "value": "s17" }, "isFinal": false },
+            "s18": { "id": { "value": "s18" }, "isFinal": false },
+            "s19": { "id": { "value": "s19" }, "isFinal": false },
+            "s20": { "id": { "value": "s20" }, "isFinal": false },
+            "s21": { "id": { "value": "s21" }, "isFinal": false },
+            "s22": { "id": { "value": "s22" }, "isFinal": false },
+            "s23": { "id": { "value": "s23" }, "isFinal": false },
+            "s24": { "id": { "value": "s24" }, "isFinal": false },
+            "s25": { "id": { "value": "s25" }, "isFinal": false },
+            "s26": { "id": { "value": "s26" }, "isFinal": false },
+            "s27": { "id": { "value": "s27" }, "isFinal": false },
+            "s28": { "id": { "value": "s28" }, "isFinal": false },
+            "s29": { "id": { "value": "s29" }, "isFinal": false },
+            "s30": { "id": { "value": "s30" }, "isFinal": true }
+          },
+          "initialState": { "value": "s0" },
+          "transitions": [
+            { "from": { "value": "s0" }, "to": { "value": "s1" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 1 }, "dependencies": [] },
+            { "from": { "value": "s1" }, "to": { "value": "s2" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 2 }, "dependencies": [] },
+            { "from": { "value": "s2" }, "to": { "value": "s3" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 3 }, "dependencies": [] },
+            { "from": { "value": "s3" }, "to": { "value": "s4" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 4 }, "dependencies": [] },
+            { "from": { "value": "s4" }, "to": { "value": "s5" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 5 }, "dependencies": [] },
+            { "from": { "value": "s5" }, "to": { "value": "s6" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 6 }, "dependencies": [] },
+            { "from": { "value": "s6" }, "to": { "value": "s7" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 7 }, "dependencies": [] },
+            { "from": { "value": "s7" }, "to": { "value": "s8" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 8 }, "dependencies": [] },
+            { "from": { "value": "s8" }, "to": { "value": "s9" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 9 }, "dependencies": [] },
+            { "from": { "value": "s9" }, "to": { "value": "s10" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 10 }, "dependencies": [] },
+            { "from": { "value": "s10" }, "to": { "value": "s11" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 11 }, "dependencies": [] },
+            { "from": { "value": "s11" }, "to": { "value": "s12" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 12 }, "dependencies": [] },
+            { "from": { "value": "s12" }, "to": { "value": "s13" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 13 }, "dependencies": [] },
+            { "from": { "value": "s13" }, "to": { "value": "s14" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 14 }, "dependencies": [] },
+            { "from": { "value": "s14" }, "to": { "value": "s15" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 15 }, "dependencies": [] },
+            { "from": { "value": "s15" }, "to": { "value": "s16" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 16 }, "dependencies": [] },
+            { "from": { "value": "s16" }, "to": { "value": "s17" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 17 }, "dependencies": [] },
+            { "from": { "value": "s17" }, "to": { "value": "s18" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 18 }, "dependencies": [] },
+            { "from": { "value": "s18" }, "to": { "value": "s19" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 19 }, "dependencies": [] },
+            { "from": { "value": "s19" }, "to": { "value": "s20" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 20 }, "dependencies": [] },
+            { "from": { "value": "s20" }, "to": { "value": "s21" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 21 }, "dependencies": [] },
+            { "from": { "value": "s21" }, "to": { "value": "s22" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 22 }, "dependencies": [] },
+            { "from": { "value": "s22" }, "to": { "value": "s23" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 23 }, "dependencies": [] },
+            { "from": { "value": "s23" }, "to": { "value": "s24" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 24 }, "dependencies": [] },
+            { "from": { "value": "s24" }, "to": { "value": "s25" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 25 }, "dependencies": [] },
+            { "from": { "value": "s25" }, "to": { "value": "s26" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 26 }, "dependencies": [] },
+            { "from": { "value": "s26" }, "to": { "value": "s27" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 27 }, "dependencies": [] },
+            { "from": { "value": "s27" }, "to": { "value": "s28" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 28 }, "dependencies": [] },
+            { "from": { "value": "s28" }, "to": { "value": "s29" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 29 }, "dependencies": [] },
+            { "from": { "value": "s29" }, "to": { "value": "s30" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "step": 30 }, "dependencies": [] }
+          ]
+        }
+        """
+
+        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        initialData = MapValue(Map("step" -> IntValue(0)))
+
+        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        machineProof <- registry.generateProofs(createMachine, Set(Alice))
+        stateAfterCreate <- combiner.insert(
+          DataState(OnChain.genesis, CalculatedState.genesis),
+          Signed(createMachine, machineProof)
+        )
+
+        // Send advance event - should trigger chain but stop when gas exhausted
+        advanceEvent = Updates.ProcessFiberEvent(
+          machineCid,
+          StateMachine.Event(
+            StateMachine.EventType("advance"),
+            MapValue(Map.empty)
+          )
+        )
+        advanceProof <- registry.generateProofs(advanceEvent, Set(Alice))
+        finalState   <- combiner.insert(stateAfterCreate, Signed(advanceEvent, advanceProof))
+
+        machine = finalState.calculated.records
+          .get(machineCid)
+          .collect { case r: Records.StateMachineFiberRecord => r }
+
+        step = machine.flatMap { f =>
+          f.stateData match {
+            case MapValue(m) => m.get("step").collect { case IntValue(s) => s }
+            case _           => None
+          }
+        }
+
+      } yield expect.all(
+        machine.isDefined,
+        // Atomic rollback - transaction aborted due to gas exhaustion
+        step.contains(BigInt(0)), // No state changes
+        machine.map(_.currentState).contains(StateMachine.StateId("s0")), // Original state
+        machine.map(_.sequenceNumber).contains(0L), // Sequence not incremented
+        machine.map(_.lastEventStatus).exists {
+          case Records.EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
+          case _                                                            => false
+        }
+      )
+    }
+  }
+
+  test("cycle detection: same event processed twice on same fiber") {
+    securityProviderResource.use { implicit s =>
+      for {
+        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
+        registry                            <- ParticipantRegistry.create[IO](Set(Alice))
+        combiner                            <- Combiner.make[IO].pure[IO]
+
+        machineCid <- UUIDGen.randomUUID[IO]
+
+        // Machine that triggers itself with the same event (should be detected as cycle)
+        machineJson = s"""
+        {
+          "states": {
+            "idle": { "id": { "value": "idle" }, "isFinal": false },
+            "processing": { "id": { "value": "processing" }, "isFinal": false }
+          },
+          "initialState": { "value": "idle" },
+          "transitions": [
+            {
+              "from": { "value": "idle" },
+              "to": { "value": "processing" },
+              "eventType": { "value": "start" },
+              "guard": true,
+              "effect": {
+                "_triggers": [
+                  {
+                    "targetMachineId": "$machineCid",
+                    "eventType": "start",
+                    "payload": {}
+                  }
+                ],
+                "count": { "+": [{ "var": "state.count" }, 1] }
+              },
+              "dependencies": []
+            },
+            {
+              "from": { "value": "processing" },
+              "to": { "value": "processing" },
+              "eventType": { "value": "start" },
+              "guard": true,
+              "effect": {
+                "_triggers": [
+                  {
+                    "targetMachineId": "$machineCid",
+                    "eventType": "start",
+                    "payload": {}
+                  }
+                ],
+                "count": { "+": [{ "var": "state.count" }, 1] }
+              },
+              "dependencies": []
+            }
+          ]
+        }
+        """
+
+        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        initialData = MapValue(Map("count" -> IntValue(0)))
+
+        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        machineProof <- registry.generateProofs(createMachine, Set(Alice))
+        stateAfterCreate <- combiner.insert(
+          DataState(OnChain.genesis, CalculatedState.genesis),
+          Signed(createMachine, machineProof)
+        )
+
+        // Send start event - should detect cycle when trigger tries to send "start" again
+        startEvent = Updates.ProcessFiberEvent(
+          machineCid,
+          StateMachine.Event(
+            StateMachine.EventType("start"),
+            MapValue(Map.empty)
+          )
+        )
+        startProof <- registry.generateProofs(startEvent, Set(Alice))
+        finalState <- combiner.insert(stateAfterCreate, Signed(startEvent, startProof))
+
+        machine = finalState.calculated.records
+          .get(machineCid)
+          .collect { case r: Records.StateMachineFiberRecord => r }
+
+        count = machine.flatMap { f =>
+          f.stateData match {
+            case MapValue(m) => m.get("count").collect { case IntValue(c) => c }
+            case _           => None
+          }
+        }
+
+      } yield expect.all(
+        machine.isDefined,
+        // Atomic rollback - cycle detected, transaction aborted
+        count.contains(BigInt(0)), // No state changes
+        machine.map(_.currentState).contains(StateMachine.StateId("idle")), // Original state
+        machine.map(_.sequenceNumber).contains(0L), // Sequence not incremented
+        machine.map(_.lastEventStatus).exists {
+          case Records.EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
+          case _                                                            => false
+        }
+      )
+    }
+  }
+}

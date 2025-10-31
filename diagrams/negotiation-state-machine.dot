@@ -1,0 +1,53 @@
+digraph NegotiationStateMachine {
+    rankdir=LR;
+    node [shape=circle, style=filled, fillcolor=lightblue, fontname="Arial"];
+    edge [fontname="Arial", fontsize=10];
+
+    // States
+    idle [fillcolor=lightgreen, label="idle"];
+    proposed [label="proposed"];
+    counter_proposed [label="counter\nproposed"];
+    agreed [fillcolor=lightcoral, shape=doublecircle, label="agreed"];
+    rejected [fillcolor=gray, shape=doublecircle, label="rejected"];
+
+    // Transitions with guards and effects
+    idle -> proposed [label="submit_proposal\n\nGuard: always true\n\nEffect:\n  proposal = {...}\n  proposedAt = time"];
+
+    proposed -> counter_proposed [label="counter\n\nGuard:\n  {\">=\": [{\"var\": \"deltaPercent\"}, 0.05]}\n\nEffect:\n  counterProposal = {...}\n  rounds++"];
+
+    counter_proposed -> counter_proposed [label="counter\n\nGuard:\n  {\"and\": [\n    {\"<\": [{\"var\": \"rounds\"}, 5]},\n    {\">=\": [{\"var\": \"deltaPercent\"}, 0.05]}\n  ]}\n\nEffect:\n  counterProposal = {...}\n  rounds++"];
+
+    counter_proposed -> agreed [label="accept\n\nGuard:\n  {\"all\": [\n    {\"var\": \"proofs\"},\n    {\"in\": [{\"var\": \"address\"},\n           {\"var\": \"requiredSigners\"}]}\n  ]}\n\nEffect:\n  status = \"agreed\"\n  agreedAt = time\n  _triggers = [\n    {target: escrow,\n     event: \"lock_funds\"}\n  ]"];
+
+    proposed -> rejected [label="reject\n\nGuard: always true\n\nEffect:\n  reason = {...}\n  rejectedAt = time"];
+
+    counter_proposed -> rejected [label="reject\n\nGuard: always true\n\nEffect:\n  reason = {...}\n  rejectedAt = time"];
+
+    counter_proposed -> rejected [label="timeout\n\nGuard:\n  {\">=\": [{\"var\": \"currentTime\"},\n         {\"+\": [{\"var\": \"startTime\"}, 86400]}]}\n\nEffect:\n  reason = \"timeout\"\n  rejectedAt = time"];
+
+    // Legend
+    subgraph cluster_legend {
+        label = "Legend";
+        fontname = "Arial";
+        style = filled;
+        fillcolor = lightyellow;
+
+        legend_initial [fillcolor=lightgreen, label="Initial State"];
+        legend_intermediate [label="Intermediate\nState"];
+        legend_final [fillcolor=lightcoral, shape=doublecircle, label="Final State"];
+
+        legend_initial -> legend_intermediate [style=invis];
+        legend_intermediate -> legend_final [style=invis];
+    }
+
+    // Gas costs annotation
+    subgraph cluster_gas {
+        label = "Gas Costs";
+        fontname = "Arial";
+        style = filled;
+        fillcolor = lightgray;
+
+        gas_info [shape=box, style=filled, fillcolor=white,
+                  label="Guard evaluation: 10 gas\nEffect execution: 20 gas\nTrigger event: 5 gas\n\nTotal per transition: 30-35 gas"];
+    }
+}

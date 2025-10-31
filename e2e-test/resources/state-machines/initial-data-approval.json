@@ -1,0 +1,6 @@
+{
+  "requestId": "REQ-001",
+  "requestedBy": "bob@example.com",
+  "amount": 5000,
+  "purpose": "Equipment purchase"
+}

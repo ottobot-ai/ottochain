@@ -1,0 +1,7 @@
+{
+  "eventType": { "value": "cancel" },
+  "payload": {
+    "reason": "Customer requested cancellation"
+  },
+  "idempotencyKey": null
+}

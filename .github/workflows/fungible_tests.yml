@@ -1,0 +1,146 @@
+name: Fungible token tests
+
+on:
+  workflow_call:
+
+jobs:
+  fungible-token-tests:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Installing node dependencies
+        shell: bash
+        run: |
+          cd ./e2e-test/
+          npm install
+
+      - name: Download shared_jars artifacts
+        uses: actions/download-artifact@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: shared_jars
+          path: .github/code/shared_jars
+
+      - name: Download Hypergraph Artifact
+        uses: actions/download-artifact@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: hypergraph
+          path: .github/code/hypergraph
+
+      - name: Download Metagraph Artifact
+        uses: actions/download-artifact@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: workchain
+          path: .github/code/metagraphs/workchain
+
+      - name: Start Hypergraph
+        uses: "./.github/templates/actions/hypergraph/start"
+        with:
+          INCLUDE_DAG_L1: false
+          DAG_L0_PORT_PREFIX: 90
+          DAG_L1_PORT_PREFIX: 91
+
+      - name: Start Metagraph
+        uses: "./.github/templates/actions/metagraph/start"
+        with:
+          INCLUDE_DATA_L1: true
+          INCLUDE_CURRENCY_L1: false
+          METAGRAPH_NAME: workchain
+          DL0_PORT_PREFIX: 90
+          ML0_PORT_PREFIX: 80
+          CL1_PORT_PREFIX: 81
+          DL1_PORT_PREFIX: 82
+          USE_CUSTOM_CONFIG: 'true'
+
+      - name: Start fungible token tests
+        shell: bash
+        env:
+          CI_URLS: ${{ secrets.CI_URLS }}
+          USERS: ${{ secrets.USERS }}
+          CONTRACTS: ${{ secrets.CONTRACTS }}
+        run: |
+          METAGRAPH_ID=$(cat .github/code/metagraphs/workchain/metagraph-l0/genesis-node/genesis.address)
+          echo "METAGRAPH_ID: $METAGRAPH_ID"
+          
+          echo $(date)
+          echo "Sleeping 5 minutes to let the network stabilize"
+          sleep 300
+          echo "Tests commencing!"
+          echo $(date)
+
+          cd ./e2e-test/
+
+          echo "#### Test - Deploy fungible token contract ####"
+          node generateContractTransaction.js fungible deploy \
+            --target ci \
+            --mode send+validate \
+            --waitTime 10 \
+            --retryDelay 5 \
+            --maxRetries 20 \
+            --wallets alice,bob,charlie,diane \
+            --address zulu \
+            --name MyToken-1 \
+            --symbol mt1 \
+            --totalSupply 250
+
+          echo "Sleeping 10 seconds before starting the next test..."
+          sleep 10
+          echo "#### Test - Execute transfer method in fungible token contract ####"
+          node generateContractTransaction.js fungible transfer \
+            --target ci \
+            --mode send+validate \
+            --waitTime 10 \
+            --retryDelay 5 \
+            --maxRetries 20 \
+            --wallets alice,bob \
+            --address zulu \
+            --from alice \
+            --to bob \
+            --amount 10
+
+          echo "Sleeping 10 seconds before starting the next test..."
+          sleep 10
+          echo "#### Test - Execute approve method in fungible token contract ####"
+          node generateContractTransaction.js fungible approve \
+            --target ci \
+            --mode send+validate \
+            --waitTime 10 \
+            --retryDelay 5 \
+            --maxRetries 20 \
+            --wallets alice,diane \
+            --address zulu \
+            --from alice \
+            --spender diane \
+            --amount 10
+
+          echo "Sleeping 10 seconds before starting the next test..."
+          sleep 10
+          echo "#### Test - Execute transferFrom method in fungible token contract ####"
+          node generateContractTransaction.js fungible transferFrom \
+            --target ci \
+            --mode send+validate \
+            --waitTime 10 \
+            --retryDelay 5 \
+            --maxRetries 20 \
+            --wallets alice,diane,bob \
+            --address zulu \
+            --from alice \
+            --spender diane \
+            --to bob \
+            --amount 5
+
+      - name: Upload logs
+        uses: "./.github/templates/actions/upload_logs"
+        if: always()
+        with:
+          TEST_LABEL: fungible-e2e

@@ -1,0 +1,57 @@
+{
+  "name": "Simple Order",
+  "description": "A state machine for managing order fulfillment from pending to delivered",
+  "type": "state-machine",
+  "definition": "definition.json",
+  "initialData": "initial-data.json",
+  "events": [
+    {
+      "name": "confirm",
+      "description": "Confirm a pending order",
+      "file": "event-confirm.json",
+      "from": "pending",
+      "to": "confirmed"
+    },
+    {
+      "name": "ship",
+      "description": "Ship a confirmed order",
+      "file": "event-ship.json",
+      "from": "confirmed",
+      "to": "shipped"
+    },
+    {
+      "name": "deliver",
+      "description": "Mark a shipped order as delivered",
+      "file": "event-deliver.json",
+      "from": "shipped",
+      "to": "delivered"
+    },
+    {
+      "name": "cancel",
+      "description": "Cancel a pending order",
+      "file": "event-cancel.json",
+      "from": "pending",
+      "to": "cancelled"
+    }
+  ],
+  "testFlows": [
+    {
+      "name": "Happy path - full fulfillment",
+      "description": "Create order, confirm, ship, and deliver",
+      "steps": [
+        { "action": "create", "definition": "definition.json", "initialData": "initial-data.json" },
+        { "action": "processEvent", "event": "event-confirm.json", "expectedState": "confirmed" },
+        { "action": "processEvent", "event": "event-ship.json", "expectedState": "shipped" },
+        { "action": "processEvent", "event": "event-deliver.json", "expectedState": "delivered" }
+      ]
+    },
+    {
+      "name": "Cancellation path",
+      "description": "Create order and cancel before confirmation",
+      "steps": [
+        { "action": "create", "definition": "definition.json", "initialData": "initial-data.json" },
+        { "action": "processEvent", "event": "event-cancel.json", "expectedState": "cancelled" }
+      ]
+    }
+  ]
+}

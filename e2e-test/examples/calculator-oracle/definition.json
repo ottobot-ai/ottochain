@@ -1,0 +1,25 @@
+{
+  "scriptProgram": {
+    "if": [
+      { "==": [{ "var": "method" }, "add"] },
+      { "+": [{ "var": "args.a" }, { "var": "args.b" }] },
+      { "if": [
+        { "==": [{ "var": "method" }, "subtract"] },
+        { "-": [{ "var": "args.a" }, { "var": "args.b" }] },
+        { "if": [
+          { "==": [{ "var": "method" }, "multiply"] },
+          { "*": [{ "var": "args.a" }, { "var": "args.b" }] },
+          { "if": [
+            { "==": [{ "var": "method" }, "divide"] },
+            { "/": [{ "var": "args.a" }, { "var": "args.b" }] },
+            { "error": "Unknown method" }
+          ]}
+        ]}
+      ]}
+    ]
+  },
+  "initialState": null,
+  "accessControl": {
+    "Public": {}
+  }
+}

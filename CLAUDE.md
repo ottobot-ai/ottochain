@@ -1,0 +1,1 @@
+- keep the work log up to date in .workspace/ when we have reached a stopping point or completed a task

@@ -1,0 +1,50 @@
+{
+  "name": "Approval Workflow",
+  "description": "A state machine for managing approval requests with draft, submitted, approved, and rejected states",
+  "type": "state-machine",
+  "definition": "definition.json",
+  "initialData": "initial-data.json",
+  "events": [
+    {
+      "name": "submit",
+      "description": "Submit a draft request for approval",
+      "file": "event-submit.json",
+      "from": "draft",
+      "to": "submitted"
+    },
+    {
+      "name": "approve",
+      "description": "Approve a submitted request",
+      "file": "event-approve.json",
+      "from": "submitted",
+      "to": "approved"
+    },
+    {
+      "name": "reject",
+      "description": "Reject a submitted request with a reason",
+      "file": "event-reject.json",
+      "from": "submitted",
+      "to": "rejected"
+    }
+  ],
+  "testFlows": [
+    {
+      "name": "Happy path - approval",
+      "description": "Create request, submit, and approve",
+      "steps": [
+        { "action": "create", "definition": "definition.json", "initialData": "initial-data.json" },
+        { "action": "processEvent", "event": "event-submit.json", "expectedState": "submitted" },
+        { "action": "processEvent", "event": "event-approve.json", "expectedState": "approved" }
+      ]
+    },
+    {
+      "name": "Rejection path",
+      "description": "Create request, submit, and reject",
+      "steps": [
+        { "action": "create", "definition": "definition.json", "initialData": "initial-data.json" },
+        { "action": "processEvent", "event": "event-submit.json", "expectedState": "submitted" },
+        { "action": "processEvent", "event": "event-reject.json", "expectedState": "rejected" }
+      ]
+    }
+  ]
+}

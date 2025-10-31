@@ -1,0 +1,38 @@
+digraph RiverdaleManufacturer {
+  rankdir=LR;
+  node [shape=box, style="rounded,filled", fillcolor=lightblue, fontname="Arial"];
+  edge [fontname="Arial", fontsize=10];
+
+  // Initial state
+  node [fillcolor=lightgreen];
+  idle;
+
+  // Regular states
+  node [fillcolor=lightblue];
+  production_scheduled;
+  producing;
+  inventory_full;
+  shipping;
+  supply_shortage;
+
+  // Transitions
+  idle -> production_scheduled [label="schedule_production\n[has materials & space]"];
+  production_scheduled -> producing [label="start_production"];
+  producing -> inventory_full [label="complete_batch\n[inventory full]"];
+  inventory_full -> shipping [label="fulfill_order\n[has stock]\nTRIGGER: retailer"];
+  shipping -> idle [label="complete_shipment"];
+  shipping -> production_scheduled [label="schedule_production\n[has materials]"];
+  idle -> supply_shortage [label="check_materials\n[shortage]\nOUTPUT: alert"];
+
+  // Self-transitions for pay_taxes
+  idle -> idle [label="pay_taxes\nTRIGGER: governance", color=blue];
+  inventory_full -> inventory_full [label="pay_taxes\nTRIGGER: governance", color=blue];
+  shipping -> shipping [label="pay_taxes\nTRIGGER: governance", color=blue];
+  supply_shortage -> supply_shortage [label="pay_taxes\nTRIGGER: governance", color=blue];
+
+  // Legend
+  {
+    rank=sink;
+    legend [shape=box, style=filled, fillcolor=white, label="Legend:\nTRIGGER: cross-machine event\nOUTPUT: structured output\n[guard]: transition condition"];
+  }
+}

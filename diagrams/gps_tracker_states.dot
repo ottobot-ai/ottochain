@@ -1,0 +1,22 @@
+digraph GPSTracker {
+  rankdir=TB;
+  node [shape=box, style=rounded];
+
+  // States
+  inactive [label="inactive"];
+  active [label="active"];
+  tracking [label="tracking\n(logs GPS positions)", fillcolor=lightgreen, style="rounded,filled"];
+  stopped [label="stopped"];
+  archived [label="archived", shape=doublecircle];
+
+  // Transitions
+  inactive -> active [label="activate\n[assign vehicleId]"];
+  active -> tracking [label="start_tracking\n[record origin coords]"];
+  tracking -> tracking [label="log_position\n[update lat/lon\nincrement distance\nincrement count]", style=dashed];
+  tracking -> stopped [label="stop_tracking\n[dataPoints >= 1]"];
+  stopped -> archived [label="archive"];
+
+  // Legend
+  label="GPS Tracker State Machine\n\nHighlighted: tracking (accepts position logs)\nSelf-transition: log_position updates coordinates";
+  labelloc=bottom;
+}

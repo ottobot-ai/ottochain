@@ -1,0 +1,53 @@
+digraph RealEstateProperty {
+    rankdir=TB;
+    node [shape=circle, style=filled, fillcolor=lightblue, fontname="Arial"];
+    edge [fontname="Arial", fontsize=9];
+
+    // States
+    for_sale [label="for sale", fillcolor=lightgreen];
+    under_contract [label="under\ncontract", fillcolor=yellow];
+    pending_sale [label="pending\nsale", fillcolor=orange];
+    owned [label="owned", fillcolor=lightblue];
+    rented [label="rented", fillcolor=lightyellow];
+    in_default [label="in\ndefault", fillcolor=lightcoral];
+    in_foreclosure [label="in\nforeclosure", fillcolor=red, fontcolor=white];
+    foreclosed [label="foreclosed", fillcolor=darkred, fontcolor=white];
+    reo [label="REO\n(bank owned)", fillcolor=lightgray];
+
+    // Initial state marker
+    start [shape=point, width=0.3, fillcolor=black];
+    start -> for_sale [label="initial"];
+
+    // Primary purchase path
+    for_sale -> under_contract [label="accept_offer\n[offerAmount≥minPrice AND\ncontract=signed]", color=darkgreen, penwidth=2];
+    under_contract -> pending_sale [label="pass_contingencies\n[inspection=passed AND\nappraisal=approved AND\nmortgage=approved AND\nescrow=held]", color=darkgreen, penwidth=2];
+    pending_sale -> owned [label="close_sale\n[title=transferred AND\nescrow=closed]\n\nTRIGGER→mortgage:activate", color=blue, penwidth=2.5];
+
+    // Contract cancellation path
+    under_contract -> for_sale [label="cancel_contract\n[contract=buyer_default OR\nseller_default OR\ncontingency_failed]", color=red, penwidth=1.5, style=dashed];
+
+    // Rental path
+    owned -> rented [label="lease_property\n[property mgmt\nlease=active]", color=purple, penwidth=1.5];
+    rented -> owned [label="end_lease\n[property mgmt\nlease=ended]", color=purple, penwidth=1.5, style=dashed];
+
+    // Default path from owned
+    owned -> in_default [label="default\n[hasMortgage=true AND\nmortgage=defaulted]", color=darkred, penwidth=2];
+
+    // Default path from rented
+    rented -> in_default [label="default\n[hasMortgage=true AND\nmortgage=defaulted]\n\nTRIGGER→prop mgmt:\nterminate_lease", color=darkred, penwidth=2];
+
+    // Recovery from default
+    in_default -> owned [label="cure_default\n[mortgage=current]", color=orange, penwidth=1.5, style=dashed, dir=both];
+
+    // Foreclosure progression
+    in_default -> in_foreclosure [label="foreclose\n[mortgage=foreclosure]", color=darkred, penwidth=2.5];
+    in_foreclosure -> foreclosed [label="complete_foreclosure\n[mortgage=foreclosed]\n\nOUTPUT: legal notice\nOwner: borrower→lender", color=darkred, penwidth=2.5];
+
+    // Bank ownership
+    foreclosed -> reo [label="bank_owned", color=gray, penwidth=1.5];
+    reo -> for_sale [label="list_for_sale", color=darkgreen, penwidth=1.5, style=dashed];
+
+    // Title
+    labelloc="t";
+    label="Real Estate - Property State Machine\n(Complete Lifecycle: Purchase → Ownership → Default → Foreclosure → REO)";
+}

@@ -1,0 +1,60 @@
+digraph RealEstateContract {
+    rankdir=LR;
+    node [shape=circle, style=filled, fillcolor=lightblue, fontname="Arial"];
+    edge [fontname="Arial", fontsize=10];
+
+    // States
+    draft [label="draft"];
+    signed [label="signed", fillcolor=yellow];
+    contingent [label="contingent", fillcolor=orange];
+    contingency_failed [label="contingency\nfailed", shape=doublecircle, fillcolor=lightcoral];
+    buyer_default [label="buyer\ndefault", shape=doublecircle, fillcolor=red, fontcolor=white];
+    seller_default [label="seller\ndefault", shape=doublecircle, fillcolor=darkred, fontcolor=white];
+    executed [label="executed", shape=doublecircle, fillcolor=lightgreen];
+
+    // Initial state marker
+    start [shape=point, width=0.3, fillcolor=black];
+    start -> draft [label="initial"];
+
+    // Happy path
+    draft -> signed [label="sign\n[buyerSigned=true AND\nsellerSigned=true]", color=darkgreen, penwidth=2];
+    signed -> contingent [label="enter_contingency", color=darkgreen, penwidth=2];
+    contingent -> executed [label="close\n[escrow=closed AND\ntitle=transferred]", color=darkgreen, penwidth=2.5];
+
+    // Failure paths with earnest money outcomes
+    contingent -> contingency_failed [
+        label="fail_contingency\n[inspection=failed OR\nappraisal=rejected OR\nmortgage=denied]\n\nTRIGGER→escrow:\nrelease_to_buyer\n(full earnest money)",
+        color=orange,
+        penwidth=2
+    ];
+
+    contingent -> buyer_default [
+        label="buyer_breach\n[timestamp>\nclosingDate]\n\nTRIGGER→escrow:\nrelease_to_seller\n(full earnest money)",
+        color=red,
+        penwidth=2
+    ];
+
+    contingent -> seller_default [
+        label="seller_breach\n[sellerRefusedToClose]\n\nTRIGGER→escrow:\nrelease_to_buyer\n(2x earnest money)",
+        color=darkred,
+        penwidth=2.5
+    ];
+
+    // Legend showing earnest money outcomes
+    subgraph cluster_legend {
+        label="Earnest Money Disbursement";
+        style=filled;
+        fillcolor=lightyellow;
+
+        legend1 [label="Contingency Failed:\n→ Buyer gets refund", shape=box, fillcolor=lightcoral];
+        legend2 [label="Buyer Default:\n→ Seller keeps deposit", shape=box, fillcolor=red, fontcolor=white];
+        legend3 [label="Seller Default:\n→ Buyer gets 2x\n(liquidated damages)", shape=box, fillcolor=darkred, fontcolor=white];
+
+        legend1 -> legend2 [style=invis];
+        legend2 -> legend3 [style=invis];
+    }
+
+    // Title
+    labelloc="t";
+    label="Real Estate - Purchase Contract State Machine\n(Multi-Party Defaults with Conditional Earnest Money Disbursement)";
+}

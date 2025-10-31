@@ -1,0 +1,92 @@
+sequenceDiagram
+    participant AgentA as Agent A (Buyer)
+    participant LLM_A as LLM Service A
+    participant Blockchain as Blockchain Layer
+    participant LLM_B as LLM Service B
+    participant AgentB as Agent B (Seller)
+
+    Note over AgentA,AgentB: Phase 1: Agent A Generates Proposal
+
+    AgentA->>LLM_A: "Create purchase requirements:<br/>quantity≥1000, price≤$50/unit"
+    activate LLM_A
+    LLM_A->>LLM_A: Generate JSON Logic expression
+    LLM_A-->>AgentA: JSON Logic constraint
+    deactivate LLM_A
+
+    Note right of AgentA: {"and": [<br/>  {">=": [{"var": "qty"}, 1000]},<br/>  {"<=": [{"var": "price"}, 50]}<br/>]}
+
+    AgentA->>AgentA: Sign with private key
+    AgentA->>Blockchain: Submit Proofchain Contract<br/>(Unary, with JSON Logic program)
+    activate Blockchain
+    Blockchain->>Blockchain: Validate signature
+    Blockchain->>Blockchain: Combiner applies update
+    Blockchain-->>AgentA: Contract CID: abc-123
+    deactivate Blockchain
+
+    Note over AgentA,AgentB: Phase 2: Agent B Reads and Responds
+
+    AgentB->>Blockchain: Query contract abc-123
+    activate Blockchain
+    Blockchain-->>AgentB: Contract content (JSON Logic)
+    deactivate Blockchain
+
+    AgentB->>LLM_B: "Analyze this proposal<br/>and generate counter-offer"
+    activate LLM_B
+    LLM_B->>LLM_B: Parse JSON Logic
+    LLM_B->>LLM_B: Understand constraints
+    LLM_B->>LLM_B: Generate counter-proposal
+    LLM_B-->>AgentB: Modified JSON Logic
+    deactivate LLM_B
+
+    Note right of AgentB: {"and": [<br/>  {">=": [{"var": "qty"}, 1000]},<br/>  {"<=": [{"var": "price"}, 55]},<br/>  {"<=": [{"var": "days"}, 45]}<br/>]}
+
+    AgentB->>AgentB: Sign with private key
+    AgentB->>Blockchain: Submit counter-proposal<br/>(Update contract)
+    activate Blockchain
+    Blockchain->>Blockchain: Validate signature
+    Blockchain->>Blockchain: Combiner applies update
+    Blockchain-->>AgentB: Updated CID: abc-124
+    deactivate Blockchain
+
+    Note over AgentA,AgentB: Phase 3: Negotiation via Workchain Fiber
+
+    Blockchain->>AgentA: Event: counter_proposal_received
+    AgentA->>LLM_A: "Evaluate counter-proposal<br/>against our constraints"
+    activate LLM_A
+    LLM_A->>LLM_A: Compare JSON Logic expressions
+    LLM_A->>LLM_A: Check: $55 vs $50 (acceptable?)
+    LLM_A-->>AgentA: Decision: ACCEPT<br/>(within 10% tolerance)
+    deactivate LLM_A
+
+    AgentA->>AgentA: Sign acceptance
+    AgentA->>Blockchain: ProcessFiberEvent(fiber_id, "accept")
+    activate Blockchain
+    Blockchain->>Blockchain: Workchain Fiber: negotiating → agreed
+    Blockchain->>Blockchain: Guard evaluates to TRUE
+    Blockchain->>Blockchain: Effect: merge final terms
+    Blockchain->>Blockchain: Extract _triggers
+    Blockchain->>Blockchain: Atomic cascade: trigger escrow fiber
+    Blockchain-->>AgentA: State: AGREED
+    Blockchain-->>AgentB: State: AGREED
+    deactivate Blockchain
+
+    Note over AgentA,AgentB: Phase 4: Escrow and Execution
+
+    Blockchain->>Blockchain: Escrow Fiber triggered
+    Note over Blockchain: Proofchain Threshold Contract:<br/>Payment locked until delivery confirmed
+
+    AgentA->>Blockchain: Transfer funds to escrow
+    Blockchain-->>AgentA: Escrowed: $55,000
+
+    Note over AgentA,AgentB: Delivery happens off-chain
+
+    AgentB->>Blockchain: ProcessFiberEvent(fiber_id, "delivery_complete")<br/>with proof
+    activate Blockchain
+    Blockchain->>Blockchain: Verify cryptographic proof
+    Blockchain->>Blockchain: Escrow Fiber: locked → released
+    Blockchain->>Blockchain: Threshold contract: 1-of-3 rules passed
+    Blockchain->>Blockchain: Transfer funds to Agent B
+    Blockchain-->>AgentB: Payment received: $55,000
+    deactivate Blockchain
+
+    Note over AgentA,AgentB: Complete auditable trail on blockchain

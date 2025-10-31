@@ -1,0 +1,153 @@
+name: Metagraph - jar build
+
+inputs:
+  METAGRAPH_NAME:
+    required: true
+  TEMPLATE_NAME:
+    required: false
+  INCLUDE_DATA_LAYER:
+    required: true
+  GITHUB_TOKEN:
+    required: true
+  CUSTOM_CONFIG:
+    required: false
+    description: "Custom configuration content to be written to a file during setup"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get project hash
+      id: project-hash
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.TEMPLATE_NAME }}" ]; then
+          HASH=$(git rev-parse HEAD:.github/templates/metagraphs/${{ inputs.TEMPLATE_NAME }})
+        else
+          MODULES_HASH=$(git rev-parse HEAD:modules)
+          PROJECT_HASH=$(git rev-parse HEAD:project)
+          BUILD_SBT_HASH=$(git rev-parse HEAD:build.sbt)
+          VERSION_HASH=$(git rev-parse HEAD:version.sbt || echo "no-version-sbt")
+          HASH=$(echo "$MODULES_HASH $PROJECT_HASH $BUILD_SBT_HASH $VERSION_HASH" | sha1sum | awk '{print $1}')
+        fi
+        echo "hash=$HASH" >> $GITHUB_OUTPUT
+
+    - name: Create directories - ${{ inputs.METAGRAPH_NAME }}
+      shell: bash
+      run: |
+        cd .github
+        mkdir -p code/metagraphs/${{ inputs.METAGRAPH_NAME }}/metagraph-l0/genesis-node
+        echo "empty" > code/metagraphs/${{ inputs.METAGRAPH_NAME }}/metagraph-l0/genesis-node/placeholder.txt
+        
+        mkdir -p code/metagraphs/${{ inputs.METAGRAPH_NAME }}/metagraph-l0/validator-1
+        echo "empty" > code/metagraphs/${{ inputs.METAGRAPH_NAME }}/metagraph-l0/validator-1/placeholder.txt
+        
+        mkdir -p code/metagraphs/${{ inputs.METAGRAPH_NAME }}/metagraph-l0/validator-2
+        echo "empty" > code/metagraphs/${{ inputs.METAGRAPH_NAME }}/metagraph-l0/validator-2/placeholder.txt
+        
+        mkdir -p code/metagraphs/${{ inputs.METAGRAPH_NAME }}/currency-l1/initial-validator
+        echo "empty" > code/metagraphs/${{ inputs.METAGRAPH_NAME }}/currency-l1/initial-validator/placeholder.txt
+        
+        mkdir -p code/metagraphs/${{ inputs.METAGRAPH_NAME }}/currency-l1/validator-1
+        echo "empty" > code/metagraphs/${{ inputs.METAGRAPH_NAME }}/currency-l1/validator-1/placeholder.txt
+        
+        mkdir -p code/metagraphs/${{ inputs.METAGRAPH_NAME }}/currency-l1/validator-2
+        echo "empty" > code/metagraphs/${{ inputs.METAGRAPH_NAME }}/currency-l1/validator-2/placeholder.txt
+
+    - name: Create data layer directories if needed
+      if: ${{ inputs.INCLUDE_DATA_LAYER == 'true' }}
+      shell: bash
+      run: |
+        cd .github
+        mkdir -p code/metagraphs/${{ inputs.METAGRAPH_NAME }}/data-l1/initial-validator
+        echo "empty" > code/metagraphs/${{ inputs.METAGRAPH_NAME }}/data-l1/initial-validator/placeholder.txt
+        
+        mkdir -p code/metagraphs/${{ inputs.METAGRAPH_NAME }}/data-l1/validator-1
+        echo "empty" > code/metagraphs/${{ inputs.METAGRAPH_NAME }}/data-l1/validator-1/placeholder.txt
+        
+        mkdir -p code/metagraphs/${{ inputs.METAGRAPH_NAME }}/data-l1/validator-2
+        echo "empty" > code/metagraphs/${{ inputs.METAGRAPH_NAME }}/data-l1/validator-2/placeholder.txt
+        
+        # Create config directory
+        mkdir -p code/metagraphs/${{ inputs.METAGRAPH_NAME }}/data-l1/config
+
+    - name: Write custom config file if provided
+      if: ${{ inputs.INCLUDE_DATA_LAYER == 'true' }}
+      shell: bash
+      run: |
+        cd .github
+        CONFIG_PATH="code/metagraphs/${{ inputs.METAGRAPH_NAME }}/data-l1/config/custom-config.conf"
+        
+        # Write custom config or empty JSON if not provided
+        if [ -n "${{ inputs.CUSTOM_CONFIG }}" ]; then
+          echo "${{ inputs.CUSTOM_CONFIG }}" > $CONFIG_PATH
+          echo "Custom config written to $CONFIG_PATH"
+        else
+          echo "{}" > $CONFIG_PATH
+          echo "Empty config written to $CONFIG_PATH"
+        fi
+
+    # Split cache handling for core JARs and data layer JAR
+    - name: Handle core metagraph artifact cache
+      id: core-artifact-cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          .github/code/metagraphs/${{ inputs.METAGRAPH_NAME }}/metagraph-l0/metagraph-l0.jar
+          .github/code/metagraphs/${{ inputs.METAGRAPH_NAME }}/currency-l1/currency-l1.jar
+        key: metagraph-core-artifact-${{ runner.os }}-${{ inputs.TEMPLATE_NAME || inputs.METAGRAPH_NAME }}-${{ steps.project-hash.outputs.hash }}
+        restore-keys: |
+          metagraph-core-artifact-${{ runner.os }}-${{ inputs.TEMPLATE_NAME || inputs.METAGRAPH_NAME }}-
+          metagraph-core-artifact-${{ runner.os }}-
+    
+    # Separate cache for data layer JAR
+    - name: Handle data layer artifact cache
+      id: data-artifact-cache
+      if: ${{ inputs.INCLUDE_DATA_LAYER == 'true' }}
+      uses: actions/cache@v4
+      with:
+        path: |
+          .github/code/metagraphs/${{ inputs.METAGRAPH_NAME }}/data-l1/data-l1.jar
+        key: metagraph-data-artifact-${{ runner.os }}-${{ inputs.TEMPLATE_NAME || inputs.METAGRAPH_NAME }}-${{ steps.project-hash.outputs.hash }}
+        restore-keys: |
+          metagraph-data-artifact-${{ runner.os }}-${{ inputs.TEMPLATE_NAME || inputs.METAGRAPH_NAME }}-
+          metagraph-data-artifact-${{ runner.os }}-
+
+    - name: Copy genesis to metagraph L0 - ${{ inputs.METAGRAPH_NAME }}
+      shell: bash
+      run: |  
+        cp .github/config/genesis.csv .github/code/metagraphs/${{ inputs.METAGRAPH_NAME }}/metagraph-l0/genesis-node
+
+    # Build core JARs only if cache was not found
+    - name: Build core metagraph artifacts
+      if: ${{ steps.core-artifact-cache.outputs.cache-hit != 'true' }}
+      shell: bash
+      run: |
+        # Build metagraph-l0 and currency-l1 JARs
+        echo "Building metagraph-l0 and currency-l1 JARs..."
+        sbt --error compile currencyL0/assembly currencyL1/assembly
+        
+        # Move the JARs to their destination
+        mv modules/l0/target/scala-2.13/*-assembly-* .github/code/metagraphs/${{inputs.METAGRAPH_NAME}}/metagraph-l0/metagraph-l0.jar
+        mv modules/l1/target/scala-2.13/*-assembly-* .github/code/metagraphs/${{inputs.METAGRAPH_NAME}}/currency-l1/currency-l1.jar
+        
+        echo "Metagraph-l0 and currency-l1 JARs built successfully"
+      env:
+        GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
+    
+    # Build data layer JAR only if needed and cache was not found
+    - name: Build data layer artifact
+      if: ${{ inputs.INCLUDE_DATA_LAYER == 'true' && steps.data-artifact-cache.outputs.cache-hit != 'true' }}
+      shell: bash
+      run: |
+        echo "Building data-l1 JAR..."
+        sbt --error compile dataL1/assembly
+        mv modules/data_l1/target/scala-2.13/*-assembly-* .github/code/metagraphs/${{ inputs.METAGRAPH_NAME }}/data-l1/data-l1.jar
+        echo "Data-l1 JAR built successfully"
+      env:
+        GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
+
+    - name: Cleaning directory
+      if: ${{ inputs.TEMPLATE_NAME != '' }}
+      shell: bash
+      run: |
+        rm -rf .github/code/metagraphs/${{inputs.TEMPLATE_NAME}}

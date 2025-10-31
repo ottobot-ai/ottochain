@@ -1,0 +1,53 @@
+digraph RiverdaleBank {
+  rankdir=TB;
+  node [shape=box, style="rounded,filled", fillcolor=lightblue, fontname="Arial"];
+  edge [fontname="Arial", fontsize=10];
+
+  // Initial state
+  node [fillcolor=lightgreen];
+  operating;
+
+  // Regular states
+  node [fillcolor=lightblue];
+  processing_loan;
+  loan_approved;
+  loan_denied;
+  loan_servicing;
+  default_management;
+  stress_test;
+
+  // Crisis state
+  node [fillcolor=lightcoral];
+  liquidity_crisis;
+
+  // Loan processing flow
+  operating -> processing_loan [label="apply_loan\n[credit OK & capital]"];
+  processing_loan -> loan_servicing [label="underwrite\n[approved]\nTRIGGER: consumer\nDEP: fed_reserve"];
+
+  // Loan servicing operations
+  loan_servicing -> loan_servicing [label="payment_missed\n[< 3 missed]", color=orange];
+  loan_servicing -> default_management [label="payment_missed\n[≥ 3 missed]\nOUTPUT: credit_report", color=red];
+  loan_servicing -> loan_servicing [label="payment_received", color=green];
+  loan_servicing -> loan_servicing [label="rate_adjustment", color=blue];
+
+  // Stress testing paths
+  operating -> stress_test [label="fed_directive\n[stress_testing]\nDEP: fed_reserve"];
+  loan_servicing -> stress_test [label="fed_directive\n[stress_testing]\nDEP: fed_reserve"];
+
+  // Stress test outcomes
+  stress_test -> loan_servicing [label="complete_stress_test\n[passed & active loans]"];
+  stress_test -> operating [label="complete_stress_test\n[passed]"];
+  stress_test -> liquidity_crisis [label="complete_stress_test\n[failed]\nTRIGGER: fed_reserve", color=red];
+
+  // Federal Reserve integration
+  operating -> operating [label="rate_adjustment", color=blue];
+
+  // Note about dependencies
+  note [shape=note, fillcolor=lightyellow, label="Key Dependencies:\n- Federal Reserve (baseRate)\n- Consumer (loan recipients)\n\nKey Metrics:\n- capitalRatio ≥ 0.08\n- defaultRate ≤ 0.10"];
+
+  // Legend
+  {
+    rank=sink;
+    legend [shape=box, style=filled, fillcolor=white, label="Legend:\nGreen: positive operations\nOrange: warning state\nRed: crisis path\nBlue: external control\nDEP: state dependency check"];
+  }
+}

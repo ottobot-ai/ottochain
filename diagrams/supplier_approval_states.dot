@@ -1,0 +1,19 @@
+digraph SupplierApproval {
+  rankdir=TB;
+  node [shape=box, style=rounded];
+
+  // States
+  pending [label="pending"];
+  reviewing [label="reviewing"];
+  approved [label="approved", shape=box, fillcolor=lightgreen, style="rounded,filled"];
+  rejected [label="rejected", shape=doublecircle, fillcolor=lightcoral, style="rounded,filled"];
+
+  // Transitions
+  pending -> reviewing [label="begin_review\n[assign reviewer]"];
+  reviewing -> approved [label="approve\n[compliance >= 75\nlicense valid]"];
+  reviewing -> rejected [label="approve\n[compliance < 75\nOR license invalid]"];
+
+  // Legend
+  label="Supplier Approval State Machine\n\nMultiple guards on 'approve' event\napproved is non-final (can be referenced later)";
+  labelloc=bottom;
+}

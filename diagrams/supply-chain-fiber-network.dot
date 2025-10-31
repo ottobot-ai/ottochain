@@ -1,0 +1,138 @@
+digraph SupplyChainFiberNetwork {
+    rankdir=TB;
+    node [fontname="Arial"];
+    edge [fontname="Arial", fontsize=10];
+
+    // Fiber nodes
+    subgraph cluster_supplier {
+        label = "Supplier Fiber";
+        style = filled;
+        fillcolor = lightblue;
+
+        supplier_idle [shape=circle, fillcolor=lightgreen, label="idle"];
+        supplier_reserved [shape=circle, label="reserved"];
+        supplier_shipped [shape=circle, label="shipped"];
+        supplier_completed [shape=doublecircle, fillcolor=lightcoral, label="completed"];
+
+        supplier_idle -> supplier_reserved [label="new_order"];
+        supplier_reserved -> supplier_shipped [label="ship"];
+        supplier_shipped -> supplier_completed [label="confirmed"];
+    }
+
+    subgraph cluster_manufacturer {
+        label = "Manufacturer Fiber";
+        style = filled;
+        fillcolor = lightgreen;
+
+        mfg_idle [shape=circle, fillcolor=lightgreen, label="idle"];
+        mfg_producing [shape=circle, label="producing"];
+        mfg_ready [shape=circle, label="ready"];
+        mfg_completed [shape=doublecircle, fillcolor=lightcoral, label="completed"];
+
+        mfg_idle -> mfg_producing [label="raw_materials_reserved"];
+        mfg_producing -> mfg_ready [label="production_complete"];
+        mfg_ready -> mfg_completed [label="goods_shipped"];
+    }
+
+    subgraph cluster_logistics {
+        label = "Logistics Fiber";
+        style = filled;
+        fillcolor = lightyellow;
+
+        log_idle [shape=circle, fillcolor=lightgreen, label="idle"];
+        log_scheduled [shape=circle, label="scheduled"];
+        log_in_transit [shape=circle, label="in_transit"];
+        log_delivered [shape=doublecircle, fillcolor=lightcoral, label="delivered"];
+
+        log_idle -> log_scheduled [label="production_scheduled"];
+        log_scheduled -> log_in_transit [label="pickup_complete"];
+        log_in_transit -> log_delivered [label="delivery_complete"];
+
+        // GPS tracking annotation
+        gps_note [shape=box, style=dashed,
+                  label="GPS Tracking Window:\n\nGuard on ALL events while in_transit:\n\
+{\"and\": [\n\
+  {\"===\": [{\"var\": \"state\"}, \"in_transit\"]},\n\
+  {\"exists\": [{\"var\": \"gpsCoordinates\"}]}\n\
+]}\n\n\
+GPS reporting REQUIRED during transit\n\
+GPS reporting FORBIDDEN otherwise"];
+
+        log_in_transit -> gps_note [style=dashed, arrowhead=none];
+    }
+
+    subgraph cluster_retailer {
+        label = "Retailer Fiber";
+        style = filled;
+        fillcolor = lightpink;
+
+        retailer_idle [shape=circle, fillcolor=lightgreen, label="idle"];
+        retailer_placed [shape=circle, label="order_placed"];
+        retailer_confirmed [shape=circle, label="confirmed"];
+        retailer_completed [shape=doublecircle, fillcolor=lightcoral, label="completed"];
+
+        retailer_idle -> retailer_placed [label="place_order"];
+        retailer_placed -> retailer_confirmed [label="shipment_scheduled"];
+        retailer_confirmed -> retailer_completed [label="goods_received"];
+    }
+
+    subgraph cluster_escrow {
+        label = "Payment Escrow Fiber (Proofchain)";
+        style = filled;
+        fillcolor = lightgray;
+
+        escrow_init [shape=circle, fillcolor=lightgreen, label="initialized"];
+        escrow_locked [shape=circle, label="locked"];
+        escrow_released [shape=doublecircle, fillcolor=lightcoral, label="released"];
+
+        escrow_init -> escrow_locked [label="lock_funds"];
+        escrow_locked -> escrow_released [label="release"];
+    }
+
+    // Cross-fiber triggers (atomic cascades)
+    retailer_placed -> supplier_idle [label="TRIGGER:\nnew_order", style=bold, color=red];
+    supplier_reserved -> mfg_idle [label="TRIGGER:\nraw_materials_reserved", style=bold, color=red];
+    mfg_producing -> log_idle [label="TRIGGER:\nproduction_scheduled", style=bold, color=red];
+    log_scheduled -> retailer_confirmed [label="TRIGGER:\nshipment_scheduled", style=bold, color=red];
+    log_delivered -> retailer_completed [label="TRIGGER:\ngoods_received", style=bold, color=red];
+    retailer_completed -> escrow_locked [label="TRIGGER:\nrelease_payment", style=bold, color=red];
+
+    // Atomic transaction boundary
+    subgraph cluster_atomic {
+        label = "Atomic Transaction Boundary";
+        style = dashed;
+        color = red;
+        fontcolor = red;
+
+        atomic_note [shape=box, style=filled, fillcolor=white,
+                     label="All TRIGGER events execute atomically:\n\n\
+- Either ALL transitions succeed\n  → Transaction COMMITTED\n\n\
+- Or ANY transition fails\n  → Entire cascade ABORTED\n  → All state rolled back\n\n\
+Gas budget enforced across entire cascade\n\
+Depth limit prevents infinite loops\n\
+Cycle detection prevents circular triggers"];
+    }
+
+    // Hierarchy annotation
+    subgraph cluster_hierarchy {
+        label = "Fiber Hierarchy";
+        style = filled;
+        fillcolor = lightyellow;
+
+        hierarchy_note [shape=box, style=filled, fillcolor=white,
+                        label="Parent Fiber: Retailer\n\
+Child Fibers:\n\
+  - Supplier (spawned on order)\n\
+  - Manufacturer (spawned on order)\n\
+  - Logistics (spawned on order)\n\
+  - Escrow (spawned on order)\n\n\
+Effect can include _spawn:\n\
+{\n\
+  \"_spawn\": [\n\
+    {\"definition\": \"supplier\",\n     \"owners\": [...]},\n\
+    {\"definition\": \"manufacturer\",\n     \"owners\": [...]}\n\
+  ]\n\
+}\n\n\
+Spawning cost: 50 gas per fiber"];
+    }
+}

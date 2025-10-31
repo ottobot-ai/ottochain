@@ -1,0 +1,40 @@
+digraph EscrowStateMachine {
+    rankdir=TB;
+    node [shape=circle, style=filled, fillcolor=lightblue, fontname="Arial"];
+    edge [fontname="Arial", fontsize=10];
+
+    // States
+    initialized [fillcolor=lightgreen, label="initialized"];
+    locked [label="locked"];
+    disputed [label="disputed"];
+    released [fillcolor=lightcoral, shape=doublecircle, label="released"];
+    refunded [fillcolor=lightcoral, shape=doublecircle, label="refunded"];
+
+    // Transitions
+    initialized -> locked [label="lock_funds\n\nGuard (Proofchain Unary Contract):\n  {\"and\": [\n    {\">=\": [{\"var\": \"amount\"}, 0]},\n    {\"in\": [{\"var\": \"buyerAddress\"},\n           {\"map\": [{\"var\": \"proofs\"}, {\"var\": \"address\"}]}]}\n  ]}\n\nEffect:\n  escrowAmount = amount\n  buyer = buyerAddress\n  seller = sellerAddress\n  lockedAt = time\n  releaseConditions = {...}"];
+
+    locked -> released [label="confirm_delivery\n\nGuard (Threshold Contract: 1-of-3):\n  Rule 1: Buyer confirms\n    {\"in\": [{\"var\": \"buyer\"},\n           {\"map\": [{\"var\": \"proofs\"}, {\"var\": \"address\"}]}]}\n\n  Rule 2: Seller proves delivery\n    {\"and\": [\n      {\"in\": [{\"var\": \"seller\"},\n             {\"map\": [{\"var\": \"proofs\"}, {\"var\": \"address\"}]}]},\n      {\"exists\": [{\"var\": \"deliveryProof\"}]}\n    ]}\n\n  Rule 3: Timeout (auto-release after 7 days)\n    {\">=\": [{\"var\": \"currentTime\"},\n           {\"+\": [{\"var\": \"lockedAt\"}, 604800]}]}\n\nEffect:\n  releasedTo = seller\n  releasedAt = time\n  _outputs = [\n    {type: \"payment\", to: seller, amount: escrowAmount}\n  ]"];
+
+    locked -> disputed [label="dispute\n\nGuard:\n  {\"or\": [\n    {\"in\": [{\"var\": \"buyer\"},\n           {\"map\": [{\"var\": \"proofs\"}, {\"var\": \"address\"}]}]},\n    {\"in\": [{\"var\": \"seller\"},\n           {\"map\": [{\"var\": \"proofs\"}, {\"var\": \"address\"}]}]}\n  ]}\n\nEffect:\n  disputeReason = reason\n  disputedAt = time\n  _triggers = [\n    {target: arbitration,\n     event: \"new_dispute\"}\n  ]"];
+
+    disputed -> released [label="resolve_to_seller\n\nGuard (Arbitration Oracle):\n  {\"and\": [\n    {\"in\": [{\"var\": \"arbitratorAddress\"},\n           {\"map\": [{\"var\": \"proofs\"}, {\"var\": \"address\"}]}]},\n    {\"===\": [{\"var\": \"decision\"}, \"seller\"]}\n  ]}\n\nEffect:\n  releasedTo = seller\n  resolution = \"arbitration\"\n  _outputs = [\n    {type: \"payment\", to: seller, amount: escrowAmount}\n  ]"];
+
+    disputed -> refunded [label="resolve_to_buyer\n\nGuard (Arbitration Oracle):\n  {\"and\": [\n    {\"in\": [{\"var\": \"arbitratorAddress\"},\n           {\"map\": [{\"var\": \"proofs\"}, {\"var\": \"address\"}]}]},\n    {\"===\": [{\"var\": \"decision\"}, \"buyer\"]}\n  ]}\n\nEffect:\n  refundedTo = buyer\n  resolution = \"arbitration\"\n  _outputs = [\n    {type: \"payment\", to: buyer, amount: escrowAmount}\n  ]"];
+
+    locked -> refunded [label="cancel\n\nGuard:\n  {\"and\": [\n    {\"in\": [{\"var\": \"seller\"},\n           {\"map\": [{\"var\": \"proofs\"}, {\"var\": \"address\"}]}]},\n    {\"<\": [{\"var\": \"currentTime\"},\n          {\"+\": [{\"var\": \"lockedAt\"}, 3600]}]}\n  ]}\n\nEffect:\n  refundedTo = buyer\n  reason = \"seller cancelled\"\n  _outputs = [\n    {type: \"payment\", to: buyer, amount: escrowAmount}\n  ]"];
+
+    // Annotations
+    subgraph cluster_proofchain {
+        label = "Proofchain Integration";
+        fontname = "Arial";
+        style = filled;
+        fillcolor = lightyellow;
+
+        proofchain_note [shape=box, style=filled, fillcolor=white,
+                         label="This fiber uses Proofchain contracts:\n\n\
+- Unary Contract for fund locking\n  (single validation rule)\n\n\
+- Threshold Contract for release\n  (1-of-3 rules: buyer OR seller+proof OR timeout)\n\n\
+All transitions cryptographically signed\n\
+Content hash stored on blockchain"];
+    }
+}

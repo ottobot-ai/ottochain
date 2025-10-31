@@ -1,0 +1,56 @@
+digraph ClinicalTrialLab {
+    rankdir=LR;
+    node [shape=circle, style=filled, fillcolor=lightblue, fontname="Arial"];
+    edge [fontname="Arial", fontsize=10];
+
+    // States
+    idle [label="idle"];
+    sample_received [label="sample\nreceived"];
+    processing [label="processing", fillcolor=yellow];
+    passed [label="passed", shape=doublecircle, fillcolor=lightgreen];
+    questionable [label="questionable", shape=doublecircle, fillcolor=orange];
+    failed [label="failed", shape=doublecircle, fillcolor=lightcoral];
+    critical [label="critical", shape=doublecircle, fillcolor=red, fontcolor=white];
+    retest [label="retest\nrequired", fillcolor=lightyellow];
+
+    // Initial state marker
+    start [shape=point, width=0.3, fillcolor=black];
+    start -> idle [label="initial"];
+
+    // Transitions
+    idle -> sample_received [label="receive_sample"];
+    sample_received -> processing [label="process_sample"];
+
+    // Multiple guards on same event - THIS IS THE KEY FEATURE
+    processing -> passed [label="complete\n[quality≥90 AND\nnot contaminated AND\nbiomarker<100]", color=darkgreen, penwidth=2];
+    processing -> questionable [label="complete\n[70≤quality<90 AND\nnot contaminated]", color=orange, penwidth=2];
+    processing -> failed [label="complete\n[quality<70 AND\nnot contaminated]", color=red, penwidth=2];
+    processing -> critical [label="complete\n[biomarker≥500]", color=darkred, penwidth=2.5];
+    processing -> retest [label="complete\n[contaminated]", color=brown, penwidth=2];
+
+    // Recovery path
+    retest -> processing [label="retest", style=dashed];
+
+    // Reset paths
+    passed -> idle [label="reset", style=dotted];
+    questionable -> idle [label="reset", style=dotted];
+    failed -> idle [label="reset", style=dotted];
+    critical -> idle [label="reset", style=dotted];
+
+    // Legend
+    subgraph cluster_legend {
+        label="Legend";
+        style=dashed;
+
+        legend_start [label="Initial State", shape=circle, fillcolor=lightblue];
+        legend_final [label="Final State", shape=doublecircle, fillcolor=lightgreen];
+        legend_processing [label="Active State", shape=circle, fillcolor=yellow];
+
+        legend_start -> legend_processing [style=invis];
+        legend_processing -> legend_final [style=invis];
+    }
+
+    // Title
+    labelloc="t";
+    label="Clinical Trial - Lab Results State Machine\n(Demonstrates Multiple Guards on Same Event)";
+}

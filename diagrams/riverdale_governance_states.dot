@@ -1,0 +1,40 @@
+digraph RiverdaleGovernance {
+  rankdir=LR;
+  node [shape=box, style="rounded,filled", fillcolor=lightblue, fontname="Arial"];
+  edge [fontname="Arial", fontsize=10];
+
+  // Initial state
+  node [fillcolor=lightgreen];
+  monitoring;
+
+  // Regular states
+  node [fillcolor=lightblue];
+  tax_collection;
+  audit;
+  compliant;
+
+  // Tax collection cycle
+  monitoring -> tax_collection [label="collect_taxes\nTRIGGER: ALL taxpayers\n(manufacturers, retailers, consumers)"];
+  tax_collection -> tax_collection [label="tax_payment_received\n[< expected count]"];
+  tax_collection -> monitoring [label="tax_payment_received\n[= expected count]\n(all paid)"];
+
+  // Ongoing monitoring
+  monitoring -> monitoring [label="tax_payment_received\n(voluntary payments)"];
+
+  // Audit process
+  monitoring -> audit [label="initiate_audit\n[target entity]"];
+  audit -> compliant [label="audit_complete\n[compliant]\nOUTPUT: audit_report"];
+  compliant -> monitoring [label="return_to_monitoring"];
+
+  // System coordination note
+  note [shape=note, fillcolor=lightyellow, label="Tax Collection:\n\nBroadcast Trigger:\n- Manufacturers (4)\n- Retailers (4)\n- Consumers (3)\n\nTotal: 11 taxpayers\n\nCoordination:\nWaits for ALL payments\nbefore returning to\nmonitoring state"];
+
+  // Metrics note
+  metrics [shape=note, fillcolor=lightcyan, label="Tracked Metrics:\n\n- totalTaxesCollected\n- taxpayersCompliant\n- expectedTaxpayers\n- investigationsActive\n- enforcementActions\n\nTax Basis:\n- Manufacturers: totalProduced\n- Retailers: revenue\n- Consumers: serviceRevenue"];
+
+  // Legend
+  {
+    rank=sink;
+    legend [shape=box, style=filled, fillcolor=white, label="Legend:\nMass trigger broadcasts\nto all registered taxpayers\nSimultaneous collection"];
+  }
+}

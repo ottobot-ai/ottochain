@@ -1,0 +1,107 @@
+sequenceDiagram
+    participant Supplier as Supplier Fiber<br/>(Agent A)
+    participant Manufacturer as Manufacturer Fiber<br/>(Agent B)
+    participant Logistics as Logistics Fiber<br/>(Agent C)
+    participant Retailer as Retailer Fiber<br/>(Agent D)
+    participant Blockchain as Blockchain<br/>(Consensus Layer)
+
+    Note over Supplier,Retailer: Multi-Agent Supply Chain Coordination
+
+    Retailer->>Blockchain: ProcessFiberEvent(retailer_fiber, "place_order")
+    activate Blockchain
+    Note right of Blockchain: Order: 1000 units, $50/unit
+
+    Blockchain->>Blockchain: Retailer: idle → order_placed
+    Blockchain->>Blockchain: Effect extracts _triggers
+    Blockchain->>Blockchain: Atomic cascade begins (depth=0)
+
+    Blockchain->>Supplier: Trigger: new_order event
+    Note right of Blockchain: Gas used: 5 (trigger cost)
+
+    Blockchain->>Blockchain: Supplier Guard:<br/>{">=": [{"var": "inventory"}, 1000]}
+    Blockchain->>Blockchain: Guard evaluates: TRUE (inventory=5000)
+    Note right of Blockchain: Gas used: 10 (guard cost)
+
+    Blockchain->>Blockchain: Supplier Effect executes
+    Note right of Blockchain: {<br/>  "reserved": 1000,<br/>  "inventory": 4000,<br/>  "_triggers": [<br/>    {target: manufacturer,<br/>     event: "raw_materials_reserved"}<br/>  ]<br/>}
+    Note right of Blockchain: Gas used: 20 (effect cost)
+
+    Blockchain->>Blockchain: Supplier: idle → order_received
+
+    Blockchain->>Manufacturer: Trigger: raw_materials_reserved
+    Note right of Blockchain: Gas used: 5 (trigger cost)<br/>Depth: 1
+
+    Blockchain->>Blockchain: Manufacturer Guard:<br/>{">=": [{"var": "capacity"}, 1000]}
+    Blockchain->>Blockchain: Guard evaluates: TRUE
+
+    Blockchain->>Blockchain: Manufacturer Effect executes
+    Note right of Blockchain: {<br/>  "productionQueue": [orderId],<br/>  "estimatedCompletion": "2025-10-20",<br/>  "_triggers": [<br/>    {target: logistics,<br/>     event: "production_scheduled"}<br/>  ]<br/>}
+
+    Blockchain->>Blockchain: Manufacturer: idle → producing
+
+    Blockchain->>Logistics: Trigger: production_scheduled
+    Note right of Blockchain: Gas used: 5<br/>Depth: 2
+
+    Blockchain->>Blockchain: Logistics Guard:<br/>{"<": [{"var": "activeShipments"}, 100]}
+    Blockchain->>Blockchain: Guard evaluates: TRUE
+
+    Blockchain->>Blockchain: Logistics Effect executes
+    Note right of Blockchain: {<br/>  "route": "Factory→Warehouse",<br/>  "estimatedDelivery": "2025-10-22",<br/>  "_triggers": [<br/>    {target: retailer,<br/>     event: "shipment_scheduled"}<br/>  ]<br/>}
+
+    Blockchain->>Blockchain: Logistics: idle → scheduled
+
+    Blockchain->>Retailer: Trigger: shipment_scheduled
+    Note right of Blockchain: Gas used: 5<br/>Depth: 3
+
+    Blockchain->>Blockchain: Retailer Guard: always TRUE
+    Blockchain->>Blockchain: Retailer Effect executes
+    Note right of Blockchain: {<br/>  "expectedDelivery": "2025-10-22",<br/>  "status": "confirmed"<br/>}
+
+    Blockchain->>Blockchain: Retailer: order_placed → confirmed
+
+    Blockchain->>Blockchain: Total gas used: 50<br/>Max depth: 3<br/>All transitions succeeded
+
+    Blockchain->>Blockchain: Commit atomic transaction
+    deactivate Blockchain
+
+    Blockchain-->>Retailer: Order confirmed (atomic success)
+    Blockchain-->>Logistics: Shipment scheduled
+    Blockchain-->>Manufacturer: Production queued
+    Blockchain-->>Supplier: Materials reserved
+
+    Note over Supplier,Retailer: All state transitions are atomic:<br/>Either ALL succeed or ALL abort
+
+    Note over Supplier,Retailer: Time passes - Production completes
+
+    Manufacturer->>Blockchain: ProcessFiberEvent(manufacturer_fiber, "production_complete")
+    activate Blockchain
+    Blockchain->>Blockchain: Manufacturer: producing → ready_to_ship
+    Blockchain->>Blockchain: Effect: _triggers logistics
+    Blockchain->>Logistics: Trigger: goods_ready
+    Blockchain->>Blockchain: Logistics: scheduled → in_transit
+    Blockchain->>Blockchain: GPS tracking window opens
+    Note right of Blockchain: Guard enforces GPS reporting:<br/>{"and": [<br/>  {"===": [{"var": "state"}, "in_transit"]},<br/>  {"exists": [{"var": "gpsCoordinates"}]}<br/>]}
+    deactivate Blockchain
+
+    Note over Supplier,Retailer: Time passes - Delivery occurs
+
+    Logistics->>Blockchain: ProcessFiberEvent(logistics_fiber, "delivery_complete")<br/>with GPS proof
+    activate Blockchain
+    Blockchain->>Blockchain: Verify GPS proof
+    Blockchain->>Blockchain: Logistics: in_transit → delivered
+    Blockchain->>Blockchain: GPS tracking window closes
+    Blockchain->>Retailer: Trigger: goods_received
+    Blockchain->>Blockchain: Retailer: confirmed → completed
+    Blockchain->>Blockchain: Effect: _triggers payment release
+
+    Note right of Blockchain: Payment Escrow (Proofchain Threshold Contract)
+
+    Blockchain->>Blockchain: Escrow Fiber triggered
+    Blockchain->>Blockchain: Threshold Contract evaluates:<br/>Rule 1: Delivery confirmed ✓<br/>Rule 2: GPS proof valid ✓<br/>Threshold: 2-of-3 passed
+    Blockchain->>Blockchain: Release payment to supplier
+    deactivate Blockchain
+
+    Blockchain-->>Supplier: Payment received: $50,000
+    Blockchain-->>Retailer: Order complete
+
+    Note over Supplier,Retailer: Immutable audit trail:<br/>- Order placement<br/>- Material reservation<br/>- Production schedule<br/>- GPS tracking data<br/>- Delivery confirmation<br/>- Payment release

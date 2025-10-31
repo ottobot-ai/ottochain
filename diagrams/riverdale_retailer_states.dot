@@ -1,0 +1,41 @@
+digraph RiverdaleRetailer {
+  rankdir=LR;
+  node [shape=box, style="rounded,filled", fillcolor=lightblue, fontname="Arial"];
+  edge [fontname="Arial", fontsize=10];
+
+  // Initial state
+  node [fillcolor=lightgreen];
+  open;
+
+  // Regular states
+  node [fillcolor=lightblue];
+  stocking;
+  sale_active;
+  inventory_low;
+  closed;
+  holiday_hours;
+
+  // Main transitions
+  open -> inventory_low [label="check_inventory\n[low stock]\nTRIGGER: supplier"];
+  inventory_low -> stocking [label="receive_shipment\n[from supplier]"];
+  stocking -> open [label="reopen"];
+  open -> sale_active [label="start_sale\n[holiday/black_friday]"];
+
+  // Self-transitions for process_sale
+  open -> open [label="process_sale\n[has stock & payment OK]", color=green];
+  stocking -> stocking [label="process_sale\n[has stock & payment OK]", color=green];
+
+  // Self-transitions for pay_taxes
+  open -> open [label="pay_taxes\nTRIGGER: governance", color=blue];
+  stocking -> stocking [label="pay_taxes\nTRIGGER: governance", color=blue];
+  sale_active -> sale_active [label="pay_taxes\nTRIGGER: governance", color=blue];
+
+  // Dependencies annotation
+  note [shape=note, fillcolor=lightyellow, label="Dependencies:\n- Supplier (manufacturer)\n- Payment processor\n(checked in guards)"];
+
+  // Legend
+  {
+    rank=sink;
+    legend [shape=box, style=filled, fillcolor=white, label="Legend:\nTRIGGER: cross-machine event\n[guard]: transition condition\nGreen: business operations\nBlue: governance"];
+  }
+}

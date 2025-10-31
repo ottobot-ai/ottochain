@@ -1,0 +1,33 @@
+digraph FuelContract {
+  rankdir=TB;
+  node [shape=box, style=rounded];
+
+  // States
+  draft [label="draft"];
+  supplier_review [label="supplier_review"];
+  supplier_approved [label="supplier_approved"];
+  gps_ready [label="gps_ready"];
+  in_transit [label="in_transit", fillcolor=lightblue, style="rounded,filled"];
+  delivered [label="delivered"];
+  quality_check [label="quality_check"];
+  inspected [label="inspected"];
+  settling [label="settling"];
+  settled [label="settled", shape=doublecircle];
+  rejected [label="rejected", shape=doublecircle, fillcolor=lightcoral, style="rounded,filled"];
+
+  // Transitions
+  draft -> supplier_review [label="submit_for_approval\n[qty >= 1000]"];
+  supplier_review -> supplier_approved [label="supplier_approved\n[supplier.status = approved]"];
+  supplier_approved -> gps_ready [label="prepare_shipment\n[GPS.status = active]"];
+  gps_ready -> in_transit [label="begin_transit\n[GPS.status = tracking\nGPS.dataPoints > 0]"];
+  in_transit -> delivered [label="confirm_delivery\n[GPS.status = stopped\nGPS.dataPoints >= 3]"];
+  delivered -> quality_check [label="initiate_inspection\n[inspection.status = scheduled]"];
+  quality_check -> inspected [label="inspection_complete\n[inspection.status = passed\nquality >= 85]"];
+  quality_check -> rejected [label="inspection_complete\n[inspection.status = failed\nOR quality < 85]"];
+  inspected -> settling [label="initiate_settlement"];
+  settling -> settled [label="finalize_settlement\n[payment confirmed]"];
+
+  // Legend
+  label="Fuel Contract State Machine\n\nHighlighted: in_transit (GPS tracking active)\nFinal states: settled, rejected";
+  labelloc=bottom;
+}

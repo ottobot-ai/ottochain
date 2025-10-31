@@ -1,0 +1,68 @@
+{
+  "states": {
+    "pending": {
+      "id": { "value": "pending" },
+      "isFinal": false,
+      "metadata": null
+    },
+    "confirmed": {
+      "id": { "value": "confirmed" },
+      "isFinal": false,
+      "metadata": null
+    },
+    "shipped": {
+      "id": { "value": "shipped" },
+      "isFinal": false,
+      "metadata": null
+    },
+    "delivered": {
+      "id": { "value": "delivered" },
+      "isFinal": true,
+      "metadata": null
+    },
+    "cancelled": {
+      "id": { "value": "cancelled" },
+      "isFinal": true,
+      "metadata": null
+    }
+  },
+  "initialState": { "value": "pending" },
+  "transitions": [
+    {
+      "from": { "value": "pending" },
+      "to": { "value": "confirmed" },
+      "eventType": { "value": "confirm" },
+      "guard": { "==": [1, 1] },
+      "effect": { "merge": [{ "var": "data" }, { "var": "payload" }] },
+      "dependencies": []
+    },
+    {
+      "from": { "value": "pending" },
+      "to": { "value": "cancelled" },
+      "eventType": { "value": "cancel" },
+      "guard": { "==": [1, 1] },
+      "effect": { "merge": [{ "var": "data" }, { "cancelReason": { "var": "payload.reason" } }] },
+      "dependencies": []
+    },
+    {
+      "from": { "value": "confirmed" },
+      "to": { "value": "shipped" },
+      "eventType": { "value": "ship" },
+      "guard": { "==": [1, 1] },
+      "effect": { "merge": [{ "var": "data" }, { "trackingNumber": { "var": "payload.trackingNumber" } }] },
+      "dependencies": []
+    },
+    {
+      "from": { "value": "shipped" },
+      "to": { "value": "delivered" },
+      "eventType": { "value": "deliver" },
+      "guard": { "==": [1, 1] },
+      "effect": { "merge": [{ "var": "data" }, { "deliveredAt": { "var": "payload.timestamp" } }] },
+      "dependencies": []
+    }
+  ],
+  "metadata": {
+    "name": "SimpleOrderStateMachine",
+    "description": "A basic order fulfillment state machine"
+  }
+}

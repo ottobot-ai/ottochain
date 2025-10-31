@@ -1,0 +1,55 @@
+{
+  "states": {
+    "draft": {
+      "id": { "value": "draft" },
+      "isFinal": false,
+      "metadata": null
+    },
+    "submitted": {
+      "id": { "value": "submitted" },
+      "isFinal": false,
+      "metadata": null
+    },
+    "approved": {
+      "id": { "value": "approved" },
+      "isFinal": true,
+      "metadata": null
+    },
+    "rejected": {
+      "id": { "value": "rejected" },
+      "isFinal": true,
+      "metadata": null
+    }
+  },
+  "initialState": { "value": "draft" },
+  "transitions": [
+    {
+      "from": { "value": "draft" },
+      "to": { "value": "submitted" },
+      "eventType": { "value": "submit" },
+      "guard": { "==": [1, 1] },
+      "effect": { "merge": [{ "var": "data" }, { "submittedAt": { "var": "payload.timestamp" } }] },
+      "dependencies": []
+    },
+    {
+      "from": { "value": "submitted" },
+      "to": { "value": "approved" },
+      "eventType": { "value": "approve" },
+      "guard": { "==": [1, 1] },
+      "effect": { "merge": [{ "var": "data" }, { "approvedBy": { "var": "payload.approver" } }] },
+      "dependencies": []
+    },
+    {
+      "from": { "value": "submitted" },
+      "to": { "value": "rejected" },
+      "eventType": { "value": "reject" },
+      "guard": { "==": [1, 1] },
+      "effect": { "merge": [{ "var": "data" }, { "rejectedBy": { "var": "payload.approver" }, "reason": { "var": "payload.reason" } }] },
+      "dependencies": []
+    }
+  ],
+  "metadata": {
+    "name": "ApprovalWorkflow",
+    "description": "A simple approval workflow state machine"
+  }
+}

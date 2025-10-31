@@ -12,7 +12,7 @@ A metagraph for creating automated workflow contracts using JSON-encoded state m
 
 ## What is Workchain?
 
-Workchain is a metagraph built on the Constellation Network that enables:
+Workchain is a metagraph built on Tessellation that enables:
 
 - **JSON-Encoded State Machines** - Define complex workflows without writing code
 - **Script Oracles** - Deterministic, stateful computation using JSON Logic
@@ -32,5 +32,5 @@ Workchain is a metagraph built on the Constellation Network that enables:
 
 - [Fuel Logistics Example](docs/examples/fuel-logistics.md) - GPS tracking, multi-stage approval
 - [Riverdale Economy Example](docs/examples/riverdale-economy.md) - 17-machine economic simulation
-- [OttoBot Project](docs/projects/ottobot/README.md) - AI agent playing tic-tac-toe
+- [OttoBot Project](docs/reference/README.md) - AI agent playing tic-tac-toe
 - [State Machine Design Guide](docs/guides/state-machine-design.md) - How to write state machines

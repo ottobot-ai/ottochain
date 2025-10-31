@@ -1,0 +1,70 @@
+digraph RiverdaleConsumer {
+  rankdir=TB;
+  node [shape=box, style="rounded,filled", fillcolor=lightblue, fontname="Arial"];
+  edge [fontname="Arial", fontsize=10];
+
+  // Initial state
+  node [fillcolor=lightgreen];
+  active;
+
+  // Regular states
+  node [fillcolor=lightblue];
+  shopping;
+  service_providing;
+  marketplace_selling;
+  loan_active;
+  debt_current;
+
+  // Problem state
+  node [fillcolor=lightyellow];
+  debt_delinquent;
+
+  // Active state operations
+  active -> active [label="browse_products\n[has funds]\nTRIGGER: retailer", color=green];
+  active -> active [label="provide_service\n[matching type]", color=green];
+  active -> active [label="pay_taxes\nTRIGGER: governance", color=blue];
+
+  // Marketplace operations
+  active -> marketplace_selling [label="list_item\nSPAWN: auction_child"];
+  marketplace_selling -> active [label="sale_completed\n(from child)"];
+
+  // Loan lifecycle
+  active -> debt_current [label="loan_funded\n(from bank)"];
+  debt_current -> debt_current [label="make_payment\nTRIGGER: bank", color=green];
+  debt_current -> debt_current [label="browse_products\n[has funds]\nTRIGGER: retailer", color=green];
+  debt_current -> debt_current [label="provide_service", color=green];
+  debt_current -> debt_current [label="pay_taxes\nTRIGGER: governance", color=blue];
+
+  // Delinquency path
+  debt_current -> debt_delinquent [label="check_payment\n[overdue]\nTRIGGER: bank", color=red];
+  debt_delinquent -> debt_delinquent [label="list_item\nSPAWN: auction_child"];
+  debt_delinquent -> debt_delinquent [label="sale_completed"];
+  debt_delinquent -> debt_delinquent [label="pay_taxes\nTRIGGER: governance", color=blue];
+
+  // Child machine (auction)
+  subgraph cluster_auction {
+    label="Child: Auction Machine\n(spawned dynamically)";
+    style=dashed;
+    fillcolor=lightgray;
+
+    node [fillcolor=lightyellow];
+    auction_listed;
+    auction_bid_received;
+
+    node [fillcolor=lightcoral, shape=doublecircle];
+    auction_sold;
+    auction_expired;
+
+    auction_listed -> auction_bid_received [label="place_bid\n[≥ reserve]"];
+    auction_bid_received -> auction_sold [label="accept_bid\nTRIGGER: parent"];
+  }
+
+  // Note
+  note [shape=note, fillcolor=lightyellow, label="Consumer Roles:\n- Shopper (purchases)\n- Service Provider (income)\n- Marketplace Seller (auctions)\n- Borrower (loans)\n\nSpawn Feature:\nDynamic child machines\nfor marketplace auctions"];
+
+  // Legend
+  {
+    rank=sink;
+    legend [shape=box, style=filled, fillcolor=white, label="Legend:\nGreen: economic activity\nBlue: governance\nRed: financial distress\nSPAWN: creates child machine"];
+  }
+}

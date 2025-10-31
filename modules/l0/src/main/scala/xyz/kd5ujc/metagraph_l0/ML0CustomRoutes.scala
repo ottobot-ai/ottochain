@@ -1,0 +1,92 @@
+package xyz.kd5ujc.metagraph_l0
+
+import cats.effect.Async
+import cats.syntax.all._
+
+import io.constellationnetwork.currency.dataApplication.{DataApplicationValidationError, L0NodeContext}
+import io.constellationnetwork.ext.http4s.error.RefinedRequestApplicationDecoder
+import io.constellationnetwork.metagraph_sdk.MetagraphPublicRoutes
+import io.constellationnetwork.metagraph_sdk.lifecycle.CheckpointService
+import io.constellationnetwork.metagraph_sdk.std.Checkpoint
+import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
+import io.constellationnetwork.metagraph_sdk.syntax.all.L0ContextOps
+import io.constellationnetwork.security.signature.Signed
+
+import xyz.kd5ujc.schema.Records.FiberStatus
+import xyz.kd5ujc.schema.Updates.WorkchainMessage
+import xyz.kd5ujc.schema.{CalculatedState, OnChain}
+
+import io.circe.Json
+import io.circe.syntax.EncoderOps
+import org.http4s.circe.CirceEntityCodec.{circeEntityDecoder, circeEntityEncoder}
+import org.http4s.{HttpRoutes, QueryParamDecoder}
+
+class ML0CustomRoutes[F[_]: Async](
+  checkpointService: CheckpointService[F, CalculatedState]
+)(implicit
+  context: L0NodeContext[F]
+) extends MetagraphPublicRoutes[F] {
+
+  implicit val fiberStatusDecoder: QueryParamDecoder[FiberStatus] =
+    QueryParamDecoder[String].emap { s =>
+      FiberStatus.withNameOption(s).toRight(org.http4s.ParseFailure(s, s"Invalid FiberStatus: $s"))
+    }
+
+  object StatusQueryParam extends OptionalQueryParamDecoderMatcher[FiberStatus]("status")
+
+  protected val routes: HttpRoutes[F] = HttpRoutes.of[F] {
+
+    case req @ POST -> Root / "util" / "hash" =>
+      req.asR[Signed[WorkchainMessage]] { msg =>
+        msg.value.computeDigest.flatMap { digest =>
+          Ok(Json.obj("protocol message hash" -> digest.asJson, "protocol message" -> msg.value.asJson))
+        }
+      }
+
+    case GET -> Root / "onchain" =>
+      context.getOnChainState[OnChain].toResponse
+
+    case GET -> Root / "checkpoint" =>
+      checkpointService.get
+        .map(_.asRight[DataApplicationValidationError])
+        .toResponse
+
+    case GET -> Root / "state-machines" :? StatusQueryParam(statusOpt) =>
+      checkpointService.get.map { case Checkpoint(_, state) =>
+        statusOpt
+          .fold(state.stateMachines) { status =>
+            state.stateMachines.filter { case (_, fiber) => fiber.status == status }
+          }
+          .asRight[DataApplicationValidationError]
+      }.toResponse
+
+    case GET -> Root / "state-machines" / UUIDVar(fiberId) =>
+      checkpointService.get.map { case Checkpoint(_, state) =>
+        state.stateMachines.get(fiberId).asRight[DataApplicationValidationError]
+      }.toResponse
+
+    case GET -> Root / "state-machines" / UUIDVar(fiberId) / "events" =>
+      checkpointService.get.map { case Checkpoint(_, state) =>
+        state.stateMachines.get(fiberId).map(_.eventLog).asRight[DataApplicationValidationError]
+      }.toResponse
+
+    case GET -> Root / "oracles" :? StatusQueryParam(statusOpt) =>
+      checkpointService.get.map { case Checkpoint(_, state) =>
+        statusOpt
+          .fold(state.scriptOracles) { status =>
+            state.scriptOracles.filter { case (_, oracle) => oracle.status == status }
+          }
+          .asRight[DataApplicationValidationError]
+      }.toResponse
+
+    case GET -> Root / "oracles" / UUIDVar(oracleId) =>
+      checkpointService.get.map { case Checkpoint(_, state) =>
+        state.scriptOracles.get(oracleId).asRight[DataApplicationValidationError]
+      }.toResponse
+
+    case GET -> Root / "oracles" / UUIDVar(oracleId) / "invocations" =>
+      checkpointService.get.map { case Checkpoint(_, state) =>
+        state.scriptOracles.get(oracleId).map(_.invocationLog).asRight[DataApplicationValidationError]
+      }.toResponse
+  }
+}

@@ -1,0 +1,78 @@
+digraph RealEstateMortgage {
+    rankdir=TB;
+    node [shape=circle, style=filled, fillcolor=lightblue, fontname="Arial"];
+    edge [fontname="Arial", fontsize=9];
+
+    // States
+    application [label="application"];
+    underwriting [label="under-\nwriting", fillcolor=yellow];
+    approved [label="approved", fillcolor=lightgreen];
+    denied [label="denied", shape=doublecircle, fillcolor=red, fontcolor=white];
+    active [label="active", fillcolor=lightyellow];
+    current [label="current", fillcolor=lightgreen];
+    delinquent_30 [label="delinquent\n30 days", fillcolor=orange];
+    delinquent_60 [label="delinquent\n60 days", fillcolor=darkorange, fontcolor=white];
+    delinquent_90 [label="delinquent\n90 days", fillcolor=red, fontcolor=white];
+    defaulted [label="defaulted", fillcolor=darkred, fontcolor=white];
+    foreclosure [label="foreclosure", fillcolor=darkred, fontcolor=white];
+    foreclosed [label="foreclosed", shape=doublecircle, fillcolor=black, fontcolor=white];
+    paid_off [label="paid off", shape=doublecircle, fillcolor=gold];
+
+    // Initial state marker
+    start [shape=point, width=0.3, fillcolor=black];
+    start -> application [label="initial"];
+
+    // Application phase
+    application -> underwriting [label="submit"];
+    underwriting -> approved [label="underwrite\n[creditScore≥620 AND\ndti≤43%]", color=darkgreen, penwidth=2];
+    underwriting -> denied [label="underwrite\n[creditScore<620 OR\ndti>43%]", color=red, penwidth=2];
+
+    // Activation
+    approved -> active [label="activate\n(triggered by\nproperty close)", color=blue, penwidth=2];
+    active -> current [label="first_payment", color=darkgreen, penwidth=2];
+
+    // SAME-STATE TRANSITIONS - KEY FEATURE
+    current -> current [label="make_payment\n[on time]\n\nEffect: update balance,\nincrement paymentCount", color=darkgreen, penwidth=2];
+    current -> current [label="transfer_servicing\n\nEffect: update servicer only", color=blue, penwidth=1.5, style=dashed];
+    current -> current [label="sell_loan\n\nEffect: update owner/lender,\nrecord salePrice", color=purple, penwidth=1.5, style=dashed];
+
+    // Delinquency ladder
+    current -> delinquent_30 [label="check_payment\n[30-60 days late]", color=orange, penwidth=2];
+    delinquent_30 -> delinquent_60 [label="check_payment\n[60-90 days late]", color=darkorange, penwidth=2];
+    delinquent_60 -> delinquent_90 [label="check_payment\n[>90 days late]", color=red, penwidth=2];
+
+    // Recovery paths (bi-directional)
+    delinquent_30 -> current [label="make_payment\n(cure)", color=green, penwidth=1.5, style=dashed, dir=both];
+    delinquent_60 -> current [label="make_payment\n(cure)", color=green, penwidth=1.5, style=dashed, dir=both];
+
+    // Default
+    delinquent_90 -> defaulted [label="declare_default\n[missedPayments≥3]\n\nOUTPUT: default notice", color=darkred, penwidth=2.5];
+
+    // Reinstatement
+    defaulted -> current [label="reinstate\n[paidPastDue=true]", color=orange, penwidth=1.5, style=dashed];
+
+    // Foreclosure
+    defaulted -> foreclosure [label="initiate_foreclosure\n[>90 days in default]", color=darkred, penwidth=2.5];
+    foreclosure -> foreclosed [label="complete_foreclosure", color=black, penwidth=2.5];
+
+    // Payoff
+    current -> paid_off [label="payoff\n[principalBalance≤0]", color=gold, penwidth=2];
+
+    // Legend
+    subgraph cluster_legend {
+        label="Same-State Transitions\n(All from 'current' to 'current')";
+        style=filled;
+        fillcolor=lightgray;
+
+        legend1 [label="make_payment:\nUpdate balance", shape=box, fillcolor=white];
+        legend2 [label="transfer_servicing:\nChange servicer", shape=box, fillcolor=white];
+        legend3 [label="sell_loan:\nChange owner", shape=box, fillcolor=white];
+
+        legend1 -> legend2 [style=invis];
+        legend2 -> legend3 [style=invis];
+    }
+
+    // Title
+    labelloc="t";
+    label="Real Estate - Mortgage State Machine\n(Complex Lifecycle with Same-State Transitions and Delinquency Ladder)";
+}

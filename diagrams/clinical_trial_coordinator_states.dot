@@ -1,0 +1,41 @@
+digraph ClinicalTrialCoordinator {
+    rankdir=LR;
+    node [shape=circle, style=filled, fillcolor=lightblue, fontname="Arial"];
+    edge [fontname="Arial", fontsize=10];
+
+    // States
+    recruiting [label="recruiting"];
+    active [label="active", fillcolor=yellow];
+    phase_1 [label="phase 1", fillcolor=lightyellow];
+    phase_2 [label="phase 2", fillcolor=lightyellow];
+    phase_3 [label="phase 3", fillcolor=lightyellow];
+    under_review [label="under\nreview", fillcolor=orange];
+    completed [label="completed", shape=doublecircle, fillcolor=lightgreen];
+    suspended [label="suspended", fillcolor=lightcoral];
+    terminated [label="terminated", shape=doublecircle, fillcolor=red, fontcolor=white];
+
+    // Initial state marker
+    start [shape=point, width=0.3, fillcolor=black];
+    start -> recruiting [label="initial"];
+
+    // Main progression path
+    recruiting -> active [label="start_trial\n[enrolledCount≥min AND\nregulator=approved]", color=darkgreen, penwidth=2];
+    active -> phase_1 [label="advance_phase\n[completedVisits≥3 AND\nno critical events]", color=darkgreen, penwidth=2];
+    phase_1 -> phase_2 [label="advance_phase\n[completedVisits≥8 AND\nlab passRate=100%]", color=darkgreen, penwidth=2];
+    phase_2 -> phase_3 [label="advance_phase\n[completedVisits≥15 AND\nlab passRate≥95%]", color=darkgreen, penwidth=2];
+    phase_3 -> under_review [label="submit_for_review\n[completedVisits≥20 AND\npatient=completed]\n\nTRIGGER→regulator", color=blue, penwidth=2];
+    under_review -> completed [label="finalize\n[regulator reviewResult\n=approved]", color=darkgreen, penwidth=2];
+
+    // Suspension path
+    active -> suspended [label="suspend\n[adverse event\nhasCriticalEvent=true]", color=red, penwidth=2];
+
+    // Recovery from suspension
+    suspended -> active [label="resume\n[adverse event resolved AND\nregulator allowResume]", color=orange, penwidth=1.5, style=dashed];
+
+    // Termination path
+    suspended -> terminated [label="terminate\n[regulator\nterminationRequired]", color=darkred, penwidth=2];
+
+    // Title
+    labelloc="t";
+    label="Clinical Trial - Coordinator State Machine\n(Multi-Phase Progression with Suspension/Recovery)";
+}

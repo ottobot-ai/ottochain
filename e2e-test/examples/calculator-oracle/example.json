@@ -1,0 +1,45 @@
+{
+  "name": "Calculator Oracle",
+  "description": "A stateless script oracle that performs basic arithmetic operations",
+  "type": "oracle",
+  "definition": "definition.json",
+  "methods": [
+    {
+      "name": "add",
+      "description": "Add two numbers",
+      "args": "args-add.json",
+      "expectedResult": 15
+    },
+    {
+      "name": "subtract",
+      "description": "Subtract two numbers",
+      "args": "args-subtract.json",
+      "expectedResult": 12
+    },
+    {
+      "name": "multiply",
+      "description": "Multiply two numbers",
+      "args": "args-multiply.json",
+      "expectedResult": 42
+    },
+    {
+      "name": "divide",
+      "description": "Divide two numbers",
+      "args": "args-divide.json",
+      "expectedResult": 25
+    }
+  ],
+  "testFlows": [
+    {
+      "name": "All arithmetic operations",
+      "description": "Create oracle and test all arithmetic methods",
+      "steps": [
+        { "action": "create", "definition": "definition.json" },
+        { "action": "invoke", "method": "add", "args": "args-add.json" },
+        { "action": "invoke", "method": "subtract", "args": "args-subtract.json" },
+        { "action": "invoke", "method": "multiply", "args": "args-multiply.json" },
+        { "action": "invoke", "method": "divide", "args": "args-divide.json" }
+      ]
+    }
+  ]
+}

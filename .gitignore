@@ -1,0 +1,131 @@
+### Claude Code
+.claude/settings.local.json
+.claude/todos.local.json
+.claude/credentials.json
+
+### Development Environment and Editor Settings
+# IDEs and Editors
+.idea/
+.idea_modules/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.history/
+.*.swp
+*~
+.#*
+.DS_Store
+
+# Scala IDE specific
+.ensime
+.ensime_lucene
+.ensime_cache
+.ensime_snapshot
+ensime.sbt
+.metals/
+.bloop/
+.scala-build/
+.bsp/
+
+### Build and Project Artifacts
+# SBT
+target/
+.sbtrc
+.sbt/
+.project
+.lib/
+.logs/
+project/target/
+project/project/
+
+# Node.js
+node_modules/
+.npm/
+package-lock.json
+yarn.lock
+dist/
+out/
+
+# Environment and Config
+.env*
+!.env.example
+.authconfig.json
+.simba.json
+.envrc
+.direnv/
+.workspace/
+
+### Docker and Infrastructure
+# Docker
+docker-compose.override.yml
+
+# Ansible
+.ansible/
+*.retry
+inventory
+
+# Vagrant
+.vagrant/
+
+# Euclid
+**/infra/docker/shared/genesis/*
+**/infra/docker/shared/jars/**/*.jar
+**/infra/docker/monitoring/grafana/config/
+**/infra/docker/monitoring/prometheus/data/
+**/infra/docker/monitoring/prometheus/monitoring/
+**/source/metagraph-l0/genesis/*
+
+### Miscellaneous
+# Temp and Log Files
+*.log
+*.tmp
+*.temp
+tmp/
+.ldb/
+TAGS
+.ignore
+.bash_history
+run/
+
+# Test Results
+tests.iml
+result*
+
+# Documentation
+docs/src/main/tut/contributing.md
+
+# Security
+*.pem
+*.key
+*.p12
+deploy_rsa
+deploy/keys/
+
+### Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+*.egg
+.installed.cfg
+.pytest_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+.ipynb_checkpoints/
+poetry.lock
+.venv/

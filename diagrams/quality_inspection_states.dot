@@ -1,0 +1,21 @@
+digraph QualityInspection {
+  rankdir=TB;
+  node [shape=box, style=rounded];
+
+  // States
+  pending [label="pending"];
+  scheduled [label="scheduled"];
+  inspecting [label="inspecting"];
+  passed [label="passed", shape=doublecircle, fillcolor=lightgreen, style="rounded,filled"];
+  failed [label="failed", shape=doublecircle, fillcolor=lightcoral, style="rounded,filled"];
+
+  // Transitions
+  pending -> scheduled [label="schedule\n[assign inspector]"];
+  scheduled -> inspecting [label="begin_inspection"];
+  inspecting -> passed [label="complete\n[quality >= 85\nno contamination]"];
+  inspecting -> failed [label="complete\n[quality < 85\nOR contamination]"];
+
+  // Legend
+  label="Quality Inspection State Machine\n\nMultiple guards on 'complete' event\nDetermines contract acceptance/rejection";
+  labelloc=bottom;
+}
