@@ -25,7 +25,7 @@ LINES=50
 # Help message
 show_logs_help() {
   cat << EOF
-Workchain Metagraph - View Logs
+Ottochain Metagraph - View Logs
 
 USAGE:
     ./deploy/scripts/logs.sh [OPTIONS]
@@ -137,7 +137,7 @@ NODE_IP="${NODE_IPS[$((NODE_NUM - 1))]}"
 LOG_FILE="$LOG_DIR/$SERVICE.log"
 
 # Display log info
-print_title "Workchain Metagraph - Logs"
+print_title "Ottochain Metagraph - Logs"
 print_status "Node: Node $NODE_NUM ($NODE_IP)"
 print_status "Service: $SERVICE"
 print_status "Log file: $LOG_FILE"

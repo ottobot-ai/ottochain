@@ -23,7 +23,7 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
   exit 0
 fi
 
-print_title "Workchain Metagraph - Stop Nodes"
+print_title "Ottochain Metagraph - Stop Nodes"
 
 # Validate configuration
 if ! validate_config; then

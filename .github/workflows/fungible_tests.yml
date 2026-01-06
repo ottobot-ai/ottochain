@@ -40,8 +40,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: workchain
-          path: .github/code/metagraphs/workchain
+          name: ottochain
+          path: .github/code/metagraphs/ottochain
 
       - name: Start Hypergraph
         uses: "./.github/templates/actions/hypergraph/start"
@@ -55,7 +55,7 @@ jobs:
         with:
           INCLUDE_DATA_L1: true
           INCLUDE_CURRENCY_L1: false
-          METAGRAPH_NAME: workchain
+          METAGRAPH_NAME: ottochain
           DL0_PORT_PREFIX: 90
           ML0_PORT_PREFIX: 80
           CL1_PORT_PREFIX: 81
@@ -69,7 +69,7 @@ jobs:
           USERS: ${{ secrets.USERS }}
           CONTRACTS: ${{ secrets.CONTRACTS }}
         run: |
-          METAGRAPH_ID=$(cat .github/code/metagraphs/workchain/metagraph-l0/genesis-node/genesis.address)
+          METAGRAPH_ID=$(cat .github/code/metagraphs/ottochain/metagraph-l0/genesis-node/genesis.address)
           echo "METAGRAPH_ID: $METAGRAPH_ID"
           
           echo $(date)

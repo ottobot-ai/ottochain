@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Otto Agent-Bridge is a microservice that enables an LLM agent (Otto the Otter) to autonomously play tic-tac-toe against itself using Workchain's state machine and script oracle infrastructure.
+The Otto Agent-Bridge is a microservice that enables an LLM agent (Otto the Otter) to autonomously play tic-tac-toe against itself using Ottochain's state machine and script oracle infrastructure.
 
 ## System Architecture
 
@@ -27,13 +27,13 @@ The Otto Agent-Bridge is a microservice that enables an LLM agent (Otto the Otte
 │  └────────────────┘  └─────────────────┘    │
 │                                              │
 │  ┌────────────────┐  ┌─────────────────┐    │
-│  │ Workchain      │  │  Ollama Proxy   │    │
+│  │ Ottochain      │  │  Ollama Proxy   │    │
 │  │ Client         │  │  (/generate)    │    │
 │  └────────────────┘  └─────────────────┘    │
 └──────────┬───────────────────────────────────┘
-           │ HTTP (WorkchainMessage)
+           │ HTTP (OttochainMessage)
 ┌──────────▼───────────────────────────────────┐
-│         Workchain Metagraph                  │
+│         Ottochain Metagraph                  │
 │  (Your existing L1/L0 nodes)                 │
 │                                              │
 │  ┌────────────────────────────────────────┐ │
@@ -74,7 +74,7 @@ The Otto Agent-Bridge is a microservice that enables an LLM agent (Otto the Otte
   - `playerO.p12` - Player O's private key
 - **Responsibilities**:
   - Load p12 keystores on startup
-  - Sign WorkchainMessages as playerX or playerO
+  - Sign OttochainMessages as playerX or playerO
   - Provide wallet addresses for game initialization
 
 #### Tool Catalog
@@ -82,16 +82,16 @@ The Otto Agent-Bridge is a microservice that enables an LLM agent (Otto the Otte
 - **Tools**: 6 tic-tac-toe tools (see TOOL_CATALOG.md)
 - **Responsibilities**:
   - Dispatch tool calls from LLM
-  - Build and sign Workchain transactions
+  - Build and sign Ottochain transactions
   - Return structured results to LLM
 
-#### Workchain Client
+#### Ottochain Client
 - **Purpose**: HTTP client for metagraph interaction
 - **Endpoints**:
-  - `POST /data` - Submit WorkchainMessages
+  - `POST /data` - Submit OttochainMessages
   - `GET /data-application/calculated-state` - Query current state
 - **Responsibilities**:
-  - Serialize/deserialize Workchain types
+  - Serialize/deserialize Ottochain types
   - Handle request/response lifecycle
   - Poll for transaction confirmations
 
@@ -160,7 +160,7 @@ sequenceDiagram
     participant OpenWebUI
     participant Ollama
     participant AgentBridge
-    participant Workchain
+    participant Ottochain
     participant Oracle
 
     User->>OpenWebUI: "Make move X at cell 4"
@@ -169,11 +169,11 @@ sequenceDiagram
     Ollama->>AgentBridge: POST /otto/tool<br/>{tool: "ttt_make_move", args: {...}}
     AgentBridge->>AgentBridge: Build ProcessFiberEvent
     AgentBridge->>AgentBridge: Sign with playerX wallet
-    AgentBridge->>Workchain: POST /data<br/>Signed[ProcessFiberEvent]
-    Workchain->>Oracle: Invoke makeMove(X, 4)
+    AgentBridge->>Ottochain: POST /data<br/>Signed[ProcessFiberEvent]
+    Ottochain->>Oracle: Invoke makeMove(X, 4)
     Oracle->>Oracle: Validate move<br/>Update board<br/>Check winner
-    Oracle-->>Workchain: New state + result
-    Workchain-->>AgentBridge: Success + updated state
+    Oracle-->>Ottochain: New state + result
+    Ottochain-->>AgentBridge: Success + updated state
     AgentBridge-->>Ollama: {board: [...], turn: "O", status: "InProgress"}
     Ollama->>Ollama: Format response
     Ollama-->>OpenWebUI: "I moved X to center! Now as O..."
@@ -197,7 +197,7 @@ sequenceDiagram
 **Why**: Safe retries, no duplicate moves
 - Every event includes idempotencyKey (UUID)
 - Oracle validates move hasn't been applied
-- Workchain deduplicates by key
+- Ottochain deduplicates by key
 
 ### 4. Pre-flight Validation
 **Why**: Avoid wasted on-chain transactions
@@ -222,7 +222,7 @@ sequenceDiagram
 - **Config**: pureconfig
 - **Crypto**: dag4-keystore (or existing signing utils)
 
-### Workchain
+### Ottochain
 - **Existing**: Your L1/L0 nodes with DeterministicEventProcessor
 - **Languages**: Scala, JSON Logic
 - **State**: Script oracles, state machine fibers
@@ -253,7 +253,7 @@ sequenceDiagram
            │ HTTP
            ▼
 ┌─────────────────────────────────────┐
-│  Workchain Metagraph                │
+│  Ottochain Metagraph                │
 │  (Local dev cluster or testnet)     │
 │                                     │
 │  ┌───────────┐  ┌───────────┐      │
@@ -305,7 +305,7 @@ sequenceDiagram
 ### Error Types
 - **Invalid move**: Cell occupied, wrong turn, out of bounds
 - **Oracle failure**: Script execution error
-- **Network error**: Workchain unreachable
+- **Network error**: Ottochain unreachable
 - **Wallet error**: Signing failure, address mismatch
 - **State error**: State machine in wrong state
 
@@ -313,7 +313,7 @@ sequenceDiagram
 
 ### Logging
 - **Structured logs** (JSON) for all tool calls
-- **Trace IDs** linking LLM request → Workchain transaction
+- **Trace IDs** linking LLM request → Ottochain transaction
 - **Performance metrics**: Latency per tool, per on-chain operation
 
 ### Monitoring

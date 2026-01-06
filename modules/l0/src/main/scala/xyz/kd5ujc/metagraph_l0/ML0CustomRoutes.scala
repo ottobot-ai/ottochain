@@ -13,7 +13,7 @@ import io.constellationnetwork.metagraph_sdk.syntax.all.L0ContextOps
 import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.Records.FiberStatus
-import xyz.kd5ujc.schema.Updates.WorkchainMessage
+import xyz.kd5ujc.schema.Updates.OttochainMessage
 import xyz.kd5ujc.schema.{CalculatedState, OnChain}
 
 import io.circe.Json
@@ -37,7 +37,7 @@ class ML0CustomRoutes[F[_]: Async](
   protected val routes: HttpRoutes[F] = HttpRoutes.of[F] {
 
     case req @ POST -> Root / "util" / "hash" =>
-      req.asR[Signed[WorkchainMessage]] { msg =>
+      req.asR[Signed[OttochainMessage]] { msg =>
         msg.value.computeDigest.flatMap { digest =>
           Ok(Json.obj("protocol message hash" -> digest.asJson, "protocol message" -> msg.value.asJson))
         }

@@ -1,12 +1,12 @@
 # OttoBot Tool Catalog
 
-This document defines all tools available to OttoBot for playing tic-tac-toe on Workchain.
+This document defines all tools available to OttoBot for playing tic-tac-toe on Ottochain.
 
 ## Tool Overview
 
 OttoBot has access to 6 tools for managing tic-tac-toe games:
 
-| Tool | Purpose | Workchain Operations |
+| Tool | Purpose | Ottochain Operations |
 |------|---------|---------------------|
 | `ttt_create_game` | Set up new game on-chain | Create oracle + state machine |
 | `ttt_start_game` | Initialize game with players | Send `start_game` event |
@@ -21,7 +21,7 @@ OttoBot has access to 6 tools for managing tic-tac-toe games:
 
 ### 1. `ttt_create_game`
 
-**Purpose**: Create a new tic-tac-toe game on Workchain (oracle + state machine).
+**Purpose**: Create a new tic-tac-toe game on Ottochain (oracle + state machine).
 
 **Input**:
 ```json
@@ -33,7 +33,7 @@ OttoBot has access to 6 tools for managing tic-tac-toe games:
 2. Build `CreateScriptOracle` message with tic-tac-toe logic
 3. Build `CreateStateMachineFiber` message linked to oracle
 4. Sign both messages with agent wallet
-5. Submit both to Workchain
+5. Submit both to Ottochain
 6. Poll for confirmation
 
 **Output**:
@@ -51,13 +51,13 @@ OttoBot has access to 6 tools for managing tic-tac-toe games:
 ```
 User: "Let's play tic-tac-toe!"
 
-OttoBot: "Setting up a new game on Workchain..."
+OttoBot: "Setting up a new game on Ottochain..."
 [Calls ttt_create_game]
 OttoBot: "Game created! Oracle ID: 550e8400..., Machine ID: 7c9e6679..."
 ```
 
 **Error Handling**:
-- Workchain unreachable: Return error, suggest retry
+- Ottochain unreachable: Return error, suggest retry
 - Insufficient gas: Return error with details
 - Signature failure: Return error, check wallet
 
@@ -87,7 +87,7 @@ OttoBot: "Game created! Oracle ID: 550e8400..., Machine ID: 7c9e6679..."
    }
    ```
 4. Sign with playerX wallet
-5. Submit to Workchain
+5. Submit to Ottochain
 6. Poll for result
 7. Check oracle state to verify initialization
 
@@ -145,7 +145,7 @@ OttoBot: "Game started! Fresh board, X goes first!"
    }
    ```
 4. Sign with appropriate wallet (X or O)
-5. Submit to Workchain
+5. Submit to Ottochain
 6. Poll for result
 7. Query oracle state for updated board
 8. Check if game ended (Won/Draw)
@@ -201,7 +201,7 @@ OttoBot: "Move applied! Board updated, now O's turn."
 
 ### 4. `ttt_get_state`
 
-**Purpose**: Query current game state from Workchain.
+**Purpose**: Query current game state from Ottochain.
 
 **Input**:
 ```json
@@ -269,7 +269,7 @@ OttoBot: "Board has 2 moves so far, X's turn next."
    }
    ```
 3. Sign with playerX wallet (or either player)
-4. Submit to Workchain
+4. Submit to Ottochain
 5. Verify oracle state reset (board all nulls, status InProgress)
 
 **Output**:
@@ -325,7 +325,7 @@ OttoBot: "Fresh board! X starts again."
    }
    ```
 3. Sign with requester wallet
-4. Submit to Workchain
+4. Submit to Ottochain
 5. Verify state machine transitioned to `cancelled`
 
 **Output**:
@@ -438,7 +438,7 @@ OttoBot: "Oops! Cell 4 is already taken by O. Let me try cell 6 instead..."
 
 ## Performance Notes
 
-- **`ttt_make_move`**: ~2-5 seconds (Workchain tx + confirmation)
+- **`ttt_make_move`**: ~2-5 seconds (Ottochain tx + confirmation)
 - **`ttt_get_state`**: ~500ms (read-only query)
 - **`ttt_create_game`**: ~5-10 seconds (create 2 fibers)
 - **`ttt_reset_board`**: ~2-5 seconds (oracle call + state update)

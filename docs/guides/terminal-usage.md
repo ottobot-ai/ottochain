@@ -1,6 +1,6 @@
-# Workchain Terminal
+# Ottochain Terminal
 
-Interactive CLI for testing Workchain state machines and script oracles. This terminal provides a comprehensive testing framework with transaction generation, signing, sending, and validation.
+Interactive CLI for testing Ottochain state machines and script oracles. This terminal provides a comprehensive testing framework with transaction generation, signing, sending, and validation.
 
 ## Table of Contents
 
@@ -18,7 +18,7 @@ Interactive CLI for testing Workchain state machines and script oracles. This te
 
 ## Overview
 
-The Workchain Terminal provides a command-line interface for:
+The Ottochain Terminal provides a command-line interface for:
 
 - **State Machine Management**: Create, process events, and archive state machine fibers
 - **Script Oracle Management**: Create and invoke script oracles

@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document describes how the JSON Logic VM ecosystem—comprising **Metakit** (VM core), **Proofchain** (state locking primitives), and **Workchain** (fiber orchestration)—provides a novel protocol layer for coordinating autonomous AI agents in 2025 and beyond.
+This document describes how the JSON Logic VM ecosystem—comprising **Metakit** (VM core), **Proofchain** (state locking primitives), and **Ottochain** (fiber orchestration)—provides a novel protocol layer for coordinating autonomous AI agents in 2025 and beyond.
 
 **Key Insight**: The JSON-encoded nature of the VM makes it uniquely suited for LLM-based agents, providing human-readable, deterministic, resource-bounded computation on a blockchain substrate.
 
@@ -12,7 +12,7 @@ This document describes how the JSON Logic VM ecosystem—comprising **Metakit**
 
 ### The Blockchain Foundation
 
-Both Proofchain and Workchain are built on **blockchain infrastructure** (Tessellation metagraph framework):
+Both Proofchain and Ottochain are built on **blockchain infrastructure** (Tessellation metagraph framework):
 
 ```
 Blockchain Properties:
@@ -33,7 +33,7 @@ This provides:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Workchain: Fiber Orchestration + AI Agent Protocol Layer   │
+│ Ottochain: Fiber Orchestration + AI Agent Protocol Layer   │
 │ ─────────────────────────────────────────────────────────── │
 │ - Opinionated state machine architecture                    │
 │ - Multi-fiber atomic coordination                          │
@@ -177,9 +177,9 @@ Update Lifecycle on Blockchain:
 
 ---
 
-## Workchain: Opinionated Fiber Orchestration
+## Ottochain: Opinionated Fiber Orchestration
 
-Workchain builds on Proofchain's primitives with a **more opinionated architecture** for complex workflows:
+Ottochain builds on Proofchain's primitives with a **more opinionated architecture** for complex workflows:
 
 ### Core Concepts
 
@@ -259,7 +259,7 @@ case class Transition(
 
 ### Integration with Proofchain
 
-Workchain fibers can integrate Proofchain contracts:
+Ottochain fibers can integrate Proofchain contracts:
 
 ```scala
 // Fiber state data can reference a Proofchain contract
@@ -315,7 +315,7 @@ User → LLM → JSON Logic expression → VM execution → Guaranteed determini
 | **Non-determinism** | Same prompt → different code | Deterministic evaluation |
 | **Runaway costs** | No limits, infinite loops possible | Gas metering (hard limits) |
 | **Auditability** | "Black box" decisions | Human-readable JSON |
-| **Multi-agent coordination** | Manual orchestration, race conditions | Workchain atomic triggers |
+| **Multi-agent coordination** | Manual orchestration, race conditions | Ottochain atomic triggers |
 | **Authorization** | Ad-hoc signature schemes | Cryptographic multi-sig |
 | **Compliance** | No audit trail | Immutable blockchain history |
 
@@ -409,7 +409,7 @@ Result:
 }
 ```
 
-**Negotiation State Machine** (Workchain fiber):
+**Negotiation State Machine** (Ottochain fiber):
 ```
 States: [proposed, counter_proposed, agreed, rejected]
 
@@ -680,7 +680,7 @@ createStateMachine({
 })
 ```
 
-**The LLM generates the entire state machine as JSON**, deployable directly to Workchain.
+**The LLM generates the entire state machine as JSON**, deployable directly to Ottochain.
 
 ### 3. Composability for Collaborative Design
 
@@ -748,7 +748,7 @@ including their balance in the message. Otherwise, they are 'Standard' customers
 | **Agent Output** | JSON Logic (structured, verifiable) | Python code (variable, risky) |
 | **Determinism** | Guaranteed (same input → same output) | None (LLM non-deterministic) |
 | **Resource Limits** | Gas metering (hard caps) | None (runaway possible) |
-| **Multi-Agent Coordination** | Workchain atomic triggers | Manual orchestration |
+| **Multi-Agent Coordination** | Ottochain atomic triggers | Manual orchestration |
 | **Auditability** | Blockchain immutable trail | Manual logging |
 | **Authorization** | Cryptographic multi-sig | Ad-hoc |
 | **Latency** | 10-50ms (local VM) | 500ms+ (sandbox execution) |
@@ -764,7 +764,7 @@ including their balance in the message. Otherwise, they are 'Standard' customers
 | **Latency** | ✅ Fast (10-50ms) | ❌ Slow (15s+ block time) |
 | **Deterministic** | ✅ Yes | ✅ Yes |
 | **Immutable Audit** | ✅ Blockchain | ✅ Blockchain |
-| **Multi-Agent Coordination** | ✅ Workchain fibers | ⚠️ External orchestration |
+| **Multi-Agent Coordination** | ✅ Ottochain fibers | ⚠️ External orchestration |
 | **Versioning** | ✅ Proofchain built-in | ⚠️ Proxy patterns (complex) |
 
 ### vs. Traditional Workflow Engines (Temporal, Apache Airflow)
@@ -791,7 +791,7 @@ including their balance in the message. Otherwise, they are 'Standard' customers
 
 #### 2. Multi-Agent Coordination Platforms
 **Pain**: No standard protocol for agent-to-agent communication
-**Solution**: JSON Logic as lingua franca + Workchain for orchestration
+**Solution**: JSON Logic as lingua franca + Ottochain for orchestration
 **Pitch**: "The TCP/IP for autonomous agents"
 
 #### 3. Regulated Industries (Finance, Healthcare)
@@ -817,7 +817,7 @@ including their balance in the message. Otherwise, they are 'Standard' customers
 1. **JSON-Native**: LLMs generate logic directly (not code)
 2. **Blockchain-Backed**: Immutable audit + cryptographic auth
 3. **Resource-Bounded**: Gas metering prevents runaway costs
-4. **Multi-Agent Atomic**: Workchain coordinates complex workflows
+4. **Multi-Agent Atomic**: Ottochain coordinates complex workflows
 5. **Progressive Complexity**: Proofchain scales from simple locks to threshold contracts
 6. **Human-Readable**: Compliance officers can audit logic
 
@@ -866,7 +866,7 @@ including their balance in the message. Otherwise, they are 'Standard' customers
    - Generate counter-proposal as modified JSON Logic
    - Post to Proofchain
 
-3. **Workchain State Machine**:
+3. **Ottochain State Machine**:
    - State: `negotiating`
    - Trigger event when both agree
    - Atomic transition to `agreed`
@@ -891,7 +891,7 @@ including their balance in the message. Otherwise, they are 'Standard' customers
 - ✅ JSON Logic is the standard format
 - ✅ VM guarantees determinism
 - ✅ Blockchain provides cryptographic verification
-- ✅ Workchain provides atomic coordination
+- ✅ Ottochain provides atomic coordination
 - ✅ Blockchain provides immutable audit
 
 ---
@@ -902,7 +902,7 @@ The JSON Logic VM ecosystem provides a **novel protocol layer for autonomous AI 
 
 1. **Metakit**: Pure, deterministic execution engine
 2. **Proofchain**: Progressive locking primitives for state management
-3. **Workchain**: Opinionated orchestration architecture for complex workflows
+3. **Ottochain**: Opinionated orchestration architecture for complex workflows
 4. **Blockchain**: Distributed consensus and immutable audit trail
 
 The JSON-encoded nature makes it **uniquely suited for LLM-based agents** in 2025:

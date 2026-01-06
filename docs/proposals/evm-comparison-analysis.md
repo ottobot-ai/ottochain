@@ -1,7 +1,7 @@
 # Analysis of Remaining EVM Comparison Criticisms
 
 **Date**: 2025-10-16
-**Context**: Refining Workchain architecture based on EVM feature comparison
+**Context**: Refining Ottochain architecture based on EVM feature comparison
 
 ---
 

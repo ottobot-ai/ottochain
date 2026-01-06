@@ -1,14 +1,14 @@
-# Workchain Documentation
+# Ottochain Documentation
 
-Welcome to the Workchain documentation. This directory contains all documentation organized by purpose.
+Welcome to the Ottochain documentation. This directory contains all documentation organized by purpose.
 
 ## 📖 Guides
 
-Step-by-step guides for using Workchain:
+Step-by-step guides for using Ottochain:
 
 - **[State Machine Design Guide](guides/state-machine-design.md)** - Learn how to design and write JSON-encoded state machines
 - **[Terminal Usage Guide](guides/terminal-usage.md)** - Using the interactive CLI for testing state machines and oracles
-- **[Deployment Guide](guides/deployment.md)** - Deploy Workchain metagraph to Digital Ocean
+- **[Deployment Guide](guides/deployment.md)** - Deploy Ottochain metagraph to Digital Ocean
 
 ## 💡 Examples
 
@@ -21,7 +21,7 @@ Real-world examples demonstrating state machine capabilities:
 
 ## 🚀 Projects
 
-Active sub-projects built on Workchain:
+Active sub-projects built on Ottochain:
 
 - **[OttoBot AI Agent](reference/README.md)** - LLM-powered agent playing tic-tac-toe autonomously
 

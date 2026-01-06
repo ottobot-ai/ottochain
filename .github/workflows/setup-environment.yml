@@ -124,7 +124,7 @@ jobs:
 
       - name: Setup Metagraph
         with:
-          METAGRAPH_NAME: workchain
+          METAGRAPH_NAME: ottochain
           INCLUDE_DATA_LAYER: true
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CUSTOM_CONFIG: ${{ secrets.CUSTOM_CONFIG }}
@@ -133,6 +133,6 @@ jobs:
       - name: Upload metagraph artifacts to run CI tests
         uses: actions/upload-artifact@v4
         with:
-          name: workchain
-          path: .github/code/metagraphs/workchain
+          name: ottochain
+          path: .github/code/metagraphs/ottochain
           retention-days: 7

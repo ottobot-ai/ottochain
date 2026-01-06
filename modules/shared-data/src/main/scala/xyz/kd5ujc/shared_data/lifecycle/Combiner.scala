@@ -16,7 +16,7 @@ import io.constellationnetwork.schema.address.{Address, DAGAddressRefined}
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.Updates.WorkchainMessage
+import xyz.kd5ujc.schema.Updates.OttochainMessage
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
 
 import eu.timepit.refined.refineV
@@ -24,12 +24,12 @@ import monocle.Monocle.toAppliedFocusOps
 
 object Combiner {
 
-  def make[F[_]: Async: SecurityProvider]: CombinerService[F, WorkchainMessage, OnChain, CalculatedState] =
-    new CombinerService[F, WorkchainMessage, OnChain, CalculatedState] {
+  def make[F[_]: Async: SecurityProvider]: CombinerService[F, OttochainMessage, OnChain, CalculatedState] =
+    new CombinerService[F, OttochainMessage, OnChain, CalculatedState] {
 
       override def insert(
         previous: DataState[OnChain, CalculatedState],
-        update:   Signed[WorkchainMessage]
+        update:   Signed[OttochainMessage]
       )(implicit ctx: L0NodeContext[F]): F[DataState[OnChain, CalculatedState]] = {
         implicit val jsonLogicEvaluator = JsonLogicEvaluator.tailRecursive[F]
         val combiner = new CombinerImpl[F](previous, ctx)

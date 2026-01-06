@@ -458,7 +458,7 @@ Scripts work from any directory:
 
 ```bash
 cd /tmp
-/home/scas/git/workchain/deploy/scripts/status.sh
+/home/scas/git/ottochain/deploy/scripts/status.sh
 ```
 
 ## Script Dependencies
@@ -519,17 +519,17 @@ If a script fails:
 
 1. **Check SSH connectivity**:
    ```bash
-   ssh -i ~/.ssh/do-workchain-intnet root@146.190.151.138 echo "OK"
+   ssh -i ~/.ssh/do-ottochain-intnet root@146.190.151.138 echo "OK"
    ```
 
 2. **Check node processes**:
    ```bash
-   ssh -i ~/.ssh/do-workchain-intnet root@146.190.151.138 jps -l
+   ssh -i ~/.ssh/do-ottochain-intnet root@146.190.151.138 jps -l
    ```
 
 3. **Check logs directly**:
    ```bash
-   ssh -i ~/.ssh/do-workchain-intnet root@146.190.151.138 \
+   ssh -i ~/.ssh/do-ottochain-intnet root@146.190.151.138 \
      tail -100 /home/root/code/metagraph-l0/metagraph-l0.log
    ```
 

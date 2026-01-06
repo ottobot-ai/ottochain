@@ -18,7 +18,7 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
   exit 0
 fi
 
-print_title "Workchain Memory Health Check"
+print_title "Ottochain Memory Health Check"
 print_status "Time: $(date)"
 print_status ""
 

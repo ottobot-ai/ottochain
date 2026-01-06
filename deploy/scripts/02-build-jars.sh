@@ -25,7 +25,7 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
   exit 0
 fi
 
-print_title "Workchain Metagraph - Build JARs"
+print_title "Ottochain Metagraph - Build JARs"
 
 # Check required commands
 require_cmd sbt

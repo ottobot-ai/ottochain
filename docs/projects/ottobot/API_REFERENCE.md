@@ -37,7 +37,7 @@ Host: localhost:8080
     "playerX": "available",
     "playerO": "available"
   },
-  "workchain": {
+  "ottochain": {
     "connected": true,
     "lastPing": "2025-10-23T10:30:00Z"
   }
@@ -105,7 +105,7 @@ Content-Type: application/json
 **Response:**
 ```json
 {
-  "text": "🦦 Awesome! Let me set up a new game on Workchain...",
+  "text": "🦦 Awesome! Let me set up a new game on Ottochain...",
   "tool_calls": [
     {
       "tool": "ttt_create_game",
@@ -216,7 +216,7 @@ Host: localhost:8080
 **Status Codes:**
 - `200 OK` - State retrieved
 - `404 Not Found` - Game not found
-- `502 Bad Gateway` - Workchain unreachable
+- `502 Bad Gateway` - Ottochain unreachable
 
 ---
 
@@ -398,7 +398,7 @@ All errors follow this format:
 |------|-------------|
 | `UNKNOWN_TOOL` | Tool name not recognized |
 | `INVALID_ARGUMENTS` | Tool arguments invalid or missing |
-| `WORKCHAIN_ERROR` | Error from Workchain (network, validation, etc.) |
+| `OTTOCHAIN_ERROR` | Error from Ottochain (network, validation, etc.) |
 | `WALLET_ERROR` | Wallet signing or loading failed |
 | `GAME_NOT_FOUND` | State machine or oracle not found |
 | `INVALID_MOVE` | Move validation failed (wrong turn, occupied cell, etc.) |
@@ -469,7 +469,7 @@ Future endpoints:
 - `GET /metrics` - Prometheus metrics
   - `tool_calls_total{tool="ttt_make_move",status="success"}`
   - `tool_duration_seconds{tool="ttt_make_move"}`
-  - `workchain_requests_total{endpoint="/data",status="200"}`
+  - `ottochain_requests_total{endpoint="/data",status="200"}`
 
 ---
 
@@ -489,7 +489,7 @@ agent-bridge {
     model = "llama3.2"
   }
 
-  workchain {
+  ottochain {
     data-l1-url = "http://localhost:9000"
     l0-url = "http://localhost:9100"
     timeout = 30s
@@ -506,7 +506,7 @@ agent-bridge {
 Override via environment variables:
 ```bash
 WALLET_PASSWORD=secret \
-WORKCHAIN_DATA_L1_URL=http://remote:9000 \
+OTTOCHAIN_DATA_L1_URL=http://remote:9000 \
 sbt "agent-bridge/run"
 ```
 

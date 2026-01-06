@@ -50,29 +50,29 @@ digraph ArchitectureStack {
                                label="{Versioning System|Content ID → Content Hash|Full history on calculated state|Tamper-proof audit trail}"];
     }
 
-    // Layer 4: Workchain
-    subgraph cluster_workchain {
-        label = "Layer 3: Workchain (Fiber Orchestration + AI Agent Protocol)";
+    // Layer 4: Ottochain
+    subgraph cluster_ottochain {
+        label = "Layer 3: Ottochain (Fiber Orchestration + AI Agent Protocol)";
         style = filled;
         fillcolor = "#F8E8F4";
         fontsize = 14;
 
-        workchain_fibers [shape=record, style=filled, fillcolor=white,
+        ottochain_fibers [shape=record, style=filled, fillcolor=white,
                           label="{State Machine Fibers|Lightweight virtualized contexts|Current state + mutable data|Event-driven transitions|Parent-child hierarchy}"];
 
-        workchain_guards [shape=record, style=filled, fillcolor=white,
+        ottochain_guards [shape=record, style=filled, fillcolor=white,
                           label="{Guard Expressions|JSON Logic preconditions|Determine if transition allowed|Example: age greater than 18}"];
 
-        workchain_effects [shape=record, style=filled, fillcolor=white,
+        ottochain_effects [shape=record, style=filled, fillcolor=white,
                            label="{Effect Expressions|JSON Logic state mutations|Extract side effects|_triggers, _outputs, _spawn}"];
 
-        workchain_atomic [shape=record, style=filled, fillcolor=white,
+        ottochain_atomic [shape=record, style=filled, fillcolor=white,
                           label="{Atomic Coordination|Cross-fiber trigger cascades|All-or-nothing semantics|Gas budget + depth limits|Cycle detection}"];
 
-        workchain_oracle [shape=record, style=filled, fillcolor=white,
+        ottochain_oracle [shape=record, style=filled, fillcolor=white,
                           label="{Script Oracles|Persistent stateful programs|JSON Logic with internal state|Invoked by state machines}"];
 
-        workchain_integration [shape=record, style=filled, fillcolor=white,
+        ottochain_integration [shape=record, style=filled, fillcolor=white,
                                label="{Proofchain Integration|Fibers can reference contracts|Complex validation via contracts|Workflow + locking combined}"];
     }
 
@@ -105,18 +105,18 @@ digraph ArchitectureStack {
     vm -> proofchain_unary;
     vm -> proofchain_threshold;
 
-    proofchain_owned -> workchain_integration [label="Used within"];
-    proofchain_unary -> workchain_integration;
-    proofchain_threshold -> workchain_integration;
+    proofchain_owned -> ottochain_integration [label="Used within"];
+    proofchain_unary -> ottochain_integration;
+    proofchain_threshold -> ottochain_integration;
 
-    vm -> workchain_guards [label="Evaluates\nguards"];
-    vm -> workchain_effects [label="Evaluates\neffects"];
-    vm -> workchain_oracle [label="Executes\noracles"];
+    vm -> ottochain_guards [label="Evaluates\nguards"];
+    vm -> ottochain_effects [label="Evaluates\neffects"];
+    vm -> ottochain_oracle [label="Executes\noracles"];
 
-    workchain_fibers -> agent_negotiation [label="Orchestrates"];
-    workchain_atomic -> agent_supply_chain;
-    workchain_oracle -> agent_marketplace;
-    workchain_integration -> agent_compliance;
+    ottochain_fibers -> agent_negotiation [label="Orchestrates"];
+    ottochain_atomic -> agent_supply_chain;
+    ottochain_oracle -> agent_marketplace;
+    ottochain_integration -> agent_compliance;
 
     agent_coordination -> agent_negotiation [style=dashed, label="LLM\ngeneration"];
     agent_coordination -> agent_supply_chain [style=dashed];

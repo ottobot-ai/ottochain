@@ -7,8 +7,8 @@ const getMetagraphEnv = require("./lib/metagraphEnv.js");
 
 const program = new Command();
 program
-  .name('workchain transaction generator')
-  .description('A script to generate an content transaction for the workchain metagraph.')
+  .name('ottochain transaction generator')
+  .description('A script to generate an content transaction for the ottochain metagraph.')
   .requiredOption('--type <type>', 'The type of transaction, either "owned" or "versioned"')
   .requiredOption('--stage <stage>', 'The lifecycle stage to generate, sign, and transmit to the metagraph.')
   .option('--user <user>', 'Provide a user to search for in the proconfigured directory.')

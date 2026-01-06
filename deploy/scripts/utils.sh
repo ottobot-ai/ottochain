@@ -1,5 +1,5 @@
 #!/bin/bash
-# Utility functions for workchain metagraph deployment
+# Utility functions for ottochain metagraph deployment
 
 #######################
 # Logging Functions
@@ -414,7 +414,7 @@ show_help() {
   local description="$3"
 
   cat << EOF
-Workchain Metagraph Deployment - $script_name
+Ottochain Metagraph Deployment - $script_name
 
 USAGE:
     $usage

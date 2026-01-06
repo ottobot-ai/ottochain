@@ -10,7 +10,7 @@ import io.constellationnetwork.metagraph_sdk.MetagraphCommonService
 import io.constellationnetwork.metagraph_sdk.lifecycle.ValidationService
 import io.constellationnetwork.security.SecurityProvider
 
-import xyz.kd5ujc.schema.Updates.WorkchainMessage
+import xyz.kd5ujc.schema.Updates.OttochainMessage
 import xyz.kd5ujc.schema.{CalculatedState, OnChain}
 import xyz.kd5ujc.shared_data.lifecycle.Validator
 
@@ -24,14 +24,14 @@ object DataL1Service {
   } yield l1Service
 
   private def makeBaseApplicationL1Service[F[+_]: Async](
-    validator: ValidationService[F, WorkchainMessage, OnChain, CalculatedState]
+    validator: ValidationService[F, OttochainMessage, OnChain, CalculatedState]
   ): BaseDataApplicationL1Service[F] =
-    BaseDataApplicationL1Service[F, WorkchainMessage, OnChain, CalculatedState](
-      new MetagraphCommonService[F, WorkchainMessage, OnChain, CalculatedState, L1NodeContext[F]]
-        with DataApplicationL1Service[F, WorkchainMessage, OnChain, CalculatedState] {
+    BaseDataApplicationL1Service[F, OttochainMessage, OnChain, CalculatedState](
+      new MetagraphCommonService[F, OttochainMessage, OnChain, CalculatedState, L1NodeContext[F]]
+        with DataApplicationL1Service[F, OttochainMessage, OnChain, CalculatedState] {
 
         override def validateUpdate(
-          update: WorkchainMessage
+          update: OttochainMessage
         )(implicit context: L1NodeContext[F]): F[DataApplicationValidationErrorOr[Unit]] =
           validator.validateUpdate(update)
 

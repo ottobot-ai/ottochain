@@ -25,7 +25,7 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
   exit 0
 fi
 
-print_title "Workchain Metagraph - Create Genesis"
+print_title "Ottochain Metagraph - Create Genesis"
 
 # Validate configuration
 if ! validate_config; then

@@ -1,8 +1,8 @@
-# Workchain Metagraph Deployment
+# Ottochain Metagraph Deployment
 
 ✅ **STATUS: FUNCTIONAL - RESTART SUPPORT ADDED** ✅
 
-This directory contains bash scripts for deploying the workchain metagraph to Digital Ocean droplets and connecting to Tessellation integrationnet.
+This directory contains bash scripts for deploying the ottochain metagraph to Digital Ocean droplets and connecting to Tessellation integrationnet.
 
 ## ✅ Current Capabilities
 

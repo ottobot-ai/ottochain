@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Common issues and solutions when working with the Workchain metagraph.
+Common issues and solutions when working with the Ottochain metagraph.
 
 ## Quick Diagnostics
 
@@ -183,13 +183,13 @@ ssh: connect to host 146.190.151.138 port 22: Connection refused
 
 **Solution 2**: Verify SSH key
 ```bash
-ls -la ~/.ssh/do-workchain-intnet
+ls -la ~/.ssh/do-ottochain-intnet
 # Should show the private key file
 ```
 
 **Solution 3**: Test SSH manually
 ```bash
-ssh -i ~/.ssh/do-workchain-intnet root@146.190.151.138
+ssh -i ~/.ssh/do-ottochain-intnet root@146.190.151.138
 ```
 
 ### Issue: Port Already in Use

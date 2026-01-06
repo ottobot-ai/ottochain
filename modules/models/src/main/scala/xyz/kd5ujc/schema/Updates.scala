@@ -12,7 +12,7 @@ import io.circe.syntax.EncoderOps
 
 object Updates {
 
-  sealed trait WorkchainMessage extends DataUpdate {
+  sealed trait OttochainMessage extends DataUpdate {
     lazy val messageName: String = this.getClass.getSimpleName
     val cid: UUID
   }
@@ -26,20 +26,20 @@ object Updates {
     initialData:   JsonLogicValue,
     parentFiberId: Option[UUID] = None
   ) extends StateMachineFiberOp
-      with WorkchainMessage
+      with OttochainMessage
 
   @derive(decoder, encoder)
   final case class ProcessFiberEvent(
     cid:   UUID,
     event: StateMachine.Event
   ) extends StateMachineFiberOp
-      with WorkchainMessage
+      with OttochainMessage
 
   @derive(decoder, encoder)
   final case class ArchiveFiber(
     cid: UUID
   ) extends StateMachineFiberOp
-      with WorkchainMessage
+      with OttochainMessage
 
   sealed trait ScriptOracleFiberOp
 
@@ -50,7 +50,7 @@ object Updates {
     initialState:  Option[JsonLogicValue],
     accessControl: Records.AccessControlPolicy
   ) extends ScriptOracleFiberOp
-      with WorkchainMessage
+      with OttochainMessage
 
   @derive(decoder, encoder)
   final case class InvokeScriptOracle(
@@ -58,11 +58,11 @@ object Updates {
     method: String,
     args:   JsonLogicValue
   ) extends ScriptOracleFiberOp
-      with WorkchainMessage
+      with OttochainMessage
 
-  object WorkchainMessage {
+  object OttochainMessage {
 
-    implicit val messageEncoder: Encoder[WorkchainMessage] = {
+    implicit val messageEncoder: Encoder[OttochainMessage] = {
       case u: Updates.CreateStateMachineFiber => Json.obj(u.messageName -> u.asJson)
       case u: Updates.ProcessFiberEvent       => Json.obj(u.messageName -> u.asJson)
       case u: Updates.ArchiveFiber            => Json.obj(u.messageName -> u.asJson)
@@ -70,7 +70,7 @@ object Updates {
       case u: Updates.InvokeScriptOracle      => Json.obj(u.messageName -> u.asJson)
     }
 
-    implicit val messageDecoder: Decoder[WorkchainMessage] =
+    implicit val messageDecoder: Decoder[OttochainMessage] =
       (c: HCursor) => {
         val decoders = List(
           Decoder[Updates.CreateStateMachineFiber],
@@ -87,10 +87,10 @@ object Updates {
               decoders
                 .map(_.tryDecode(fieldCursor))
                 .collectFirst { case right @ Right(v) if v.messageName == field => right }
-                .getOrElse(Left(DecodingFailure("Cannot decode as WorkchainMessage", c.history)))
+                .getOrElse(Left(DecodingFailure("Cannot decode as OttochainMessage", c.history)))
             }
           }
-          .getOrElse(Left(DecodingFailure("Cannot decode as WorkchainMessage: JSON is empty", Nil)))
+          .getOrElse(Left(DecodingFailure("Cannot decode as OttochainMessage: JSON is empty", Nil)))
       }
   }
 }

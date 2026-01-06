@@ -48,7 +48,7 @@ sequenceDiagram
     Blockchain-->>AgentB: Updated CID: abc-124
     deactivate Blockchain
 
-    Note over AgentA,AgentB: Phase 3: Negotiation via Workchain Fiber
+    Note over AgentA,AgentB: Phase 3: Negotiation via Ottochain Fiber
 
     Blockchain->>AgentA: Event: counter_proposal_received
     AgentA->>LLM_A: "Evaluate counter-proposal<br/>against our constraints"
@@ -61,7 +61,7 @@ sequenceDiagram
     AgentA->>AgentA: Sign acceptance
     AgentA->>Blockchain: ProcessFiberEvent(fiber_id, "accept")
     activate Blockchain
-    Blockchain->>Blockchain: Workchain Fiber: negotiating → agreed
+    Blockchain->>Blockchain: Ottochain Fiber: negotiating → agreed
     Blockchain->>Blockchain: Guard evaluates to TRUE
     Blockchain->>Blockchain: Effect: merge final terms
     Blockchain->>Blockchain: Extract _triggers

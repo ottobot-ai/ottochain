@@ -28,7 +28,7 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
   exit 0
 fi
 
-print_title "Workchain Metagraph - Genesis Deployment"
+print_title "Ottochain Metagraph - Genesis Deployment"
 print_status ""
 print_warning "⚠️  This will create a NEW metagraph genesis!"
 print_warning "⚠️  Any existing data will be archived!"

@@ -1,10 +1,10 @@
 # Architecture
 
-Understanding the Workchain metagraph architecture.
+Understanding the Ottochain metagraph architecture.
 
 ## Layer Architecture
 
-The Workchain metagraph runs three layers on each node:
+The Ottochain metagraph runs three layers on each node:
 
 ```
 ┌─────────────────────────────────────────┐

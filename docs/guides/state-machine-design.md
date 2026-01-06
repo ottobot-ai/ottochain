@@ -1,6 +1,6 @@
 # State Machine Design Guide
 
-A practical guide to writing effective JSON-encoded state machine definitions and events for the Workchain platform.
+A practical guide to writing effective JSON-encoded state machine definitions and events for the Ottochain platform.
 
 ## Table of Contents
 1. [Understanding the Context](#understanding-the-context)

@@ -1,11 +1,11 @@
 # Deployment Guide
 
-This guide covers deploying and managing the Workchain metagraph.
+This guide covers deploying and managing the Ottochain metagraph.
 
 ## Prerequisites
 
 - SSH access to 3 Digital Ocean nodes
-- SSH key: `~/.ssh/do-workchain-intnet`
+- SSH key: `~/.ssh/do-ottochain-intnet`
 - JDK 11+ installed locally
 - SBT installed locally
 - `jq`, `curl`, and `ssh` commands available
@@ -238,7 +238,7 @@ All layers require:
 ./deploy/scripts/logs.sh 2 cl1
 
 # SSH to node directly
-ssh -i ~/.ssh/do-workchain-intnet root@146.190.151.138
+ssh -i ~/.ssh/do-ottochain-intnet root@146.190.151.138
 
 # Check processes
 jps -l

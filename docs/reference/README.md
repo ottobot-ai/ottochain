@@ -1,6 +1,6 @@
-# Workchain Metagraph Documentation
+# Ottochain Metagraph Documentation
 
-This directory contains documentation for deploying and managing the Workchain metagraph on Digital Ocean infrastructure.
+This directory contains documentation for deploying and managing the Ottochain metagraph on Digital Ocean infrastructure.
 
 ## Documentation Index
 
@@ -27,7 +27,7 @@ For checking status:
 ## Directory Structure
 
 ```
-workchain/
+ottochain/
 ├── deploy/
 │   ├── config/
 │   │   └── deploy-config.sh          # Configuration file

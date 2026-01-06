@@ -1,6 +1,6 @@
-# Workchain E2E Test Examples
+# Ottochain E2E Test Examples
 
-This directory contains example-based test resources for the Workchain e2e test suite. Each example is self-contained with all related files grouped together in a dedicated directory.
+This directory contains example-based test resources for the Ottochain e2e test suite. Each example is self-contained with all related files grouped together in a dedicated directory.
 
 ## Directory Structure
 

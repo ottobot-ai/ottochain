@@ -26,7 +26,7 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
   exit 0
 fi
 
-print_title "Workchain Metagraph - Create Owner Message"
+print_title "Ottochain Metagraph - Create Owner Message"
 
 # Validate configuration
 if ! validate_config; then

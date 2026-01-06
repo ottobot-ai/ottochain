@@ -60,13 +60,13 @@ lazy val buildInfoSettings = Seq(
 
 lazy val root = (project in file("."))
   .settings(
-    name := "workchain"
+    name := "ottochain"
   ).aggregate(models, sharedData, currencyL0, currencyL1, dataL1)
 
 lazy val models = (project in file("modules/models"))
   .settings(
     commonSettings,
-    name := "workchain-models"
+    name := "ottochain-models"
   )
 
 lazy val sharedTest = (project in file("modules/shared-test"))
@@ -74,7 +74,7 @@ lazy val sharedTest = (project in file("modules/shared-test"))
   .settings(
     commonSettings,
     commonTestSettings,
-    name := "workchain-shared-test",
+    name := "ottochain-shared-test",
   )
 
 lazy val sharedData = (project in file("modules/shared-data"))
@@ -82,7 +82,7 @@ lazy val sharedData = (project in file("modules/shared-data"))
   .settings(
     commonSettings,
     commonTestSettings,
-    name := "workchain-shared-data",
+    name := "ottochain-shared-data",
   )
 
 lazy val currencyL0 = (project in file("modules/l0"))
@@ -92,7 +92,7 @@ lazy val currencyL0 = (project in file("modules/l0"))
     buildInfoSettings,
     commonSettings,
     commonTestSettings,
-    name := "workchain-currency-l0"
+    name := "ottochain-currency-l0"
   )
 
 lazy val currencyL1 = (project in file("modules/l1"))
@@ -102,7 +102,7 @@ lazy val currencyL1 = (project in file("modules/l1"))
     buildInfoSettings,
     commonSettings,
     commonTestSettings,
-    name := "workchain-currency-l1"
+    name := "ottochain-currency-l1"
   )
 
 lazy val dataL1 = (project in file("modules/data_l1"))
@@ -112,5 +112,5 @@ lazy val dataL1 = (project in file("modules/data_l1"))
     buildInfoSettings,
     commonSettings,
     commonTestSettings,
-    name := "workchain-data-l1"
+    name := "ottochain-data-l1"
   )

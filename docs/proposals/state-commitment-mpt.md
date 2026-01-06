@@ -23,7 +23,7 @@
 
 ## Executive Summary
 
-This document outlines the integration of **Merkle Patricia Trie (MPT) state commitment**, **cross-metagraph communication**, **state rent economics**, and **Tessellation data application primitives** into the Workchain fiber orchestration framework.
+This document outlines the integration of **Merkle Patricia Trie (MPT) state commitment**, **cross-metagraph communication**, **state rent economics**, and **Tessellation data application primitives** into the Ottochain fiber orchestration framework.
 
 ### Key Innovations
 
@@ -2123,4 +2123,4 @@ The result is a **novel blockchain architecture** that:
 - Provides economic sustainability via state rent
 - Integrates seamlessly with Tessellation
 
-This positions Workchain as a **next-generation blockchain application layer** suitable for AI agents, complex multi-party workflows, and cross-chain DeFi.
+This positions Ottochain as a **next-generation blockchain application layer** suitable for AI agents, complex multi-party workflows, and cross-chain DeFi.

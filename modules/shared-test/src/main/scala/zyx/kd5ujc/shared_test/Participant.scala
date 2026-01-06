@@ -3,7 +3,7 @@ package zyx.kd5ujc.shared_test
 import cats.data.NonEmptySet
 import cats.effect.Async
 import io.circe.syntax.EncoderOps
-import xyz.kd5ujc.schema.Updates.WorkchainMessage
+import xyz.kd5ujc.schema.Updates.OttochainMessage
 import io.constellationnetwork.security.{KeyPairGenerator, SecurityProvider}
 import io.constellationnetwork.security.signature.signature.SignatureProof
 
@@ -49,7 +49,7 @@ object Participant {
   case object Yolanda extends Participant
   case object Zoe extends Participant
 
-  final case class ParticipantData[F[_]: Async](keyPair: KeyPair, address: Address, proof: WorkchainMessage => F[SignatureProof])
+  final case class ParticipantData[F[_]: Async](keyPair: KeyPair, address: Address, proof: OttochainMessage => F[SignatureProof])
 
   class ParticipantRegistry[F[_]: Async] private (private val map: Map[Participant, ParticipantData[F]]) {
     def apply(p: Participant): ParticipantData[F] = map(p)
@@ -58,7 +58,7 @@ object Participant {
 
     def addresses: Map[Participant, Address] = map.view.mapValues(_.address).toMap
 
-    def generateProofs(update: WorkchainMessage, signers: Set[Participant]): F[NonEmptySet[SignatureProof]] = {
+    def generateProofs(update: OttochainMessage, signers: Set[Participant]): F[NonEmptySet[SignatureProof]] = {
       signers.toList
         .traverse(p => map(p).proof(update))
         .flatMap(ps => NonEmptySet.fromSet(SortedSet.from(ps)).liftTo(new Exception("Empty proofs")))
@@ -73,7 +73,7 @@ object Participant {
           ParticipantData(
             sk,
             sk.getPublic.toAddress,
-            (msg: WorkchainMessage) => msg.computeDigest.flatMap(SignatureProof.fromHash(sk, _))
+            (msg: OttochainMessage) => msg.computeDigest.flatMap(SignatureProof.fromHash(sk, _))
           )
         })
         .map { list =>

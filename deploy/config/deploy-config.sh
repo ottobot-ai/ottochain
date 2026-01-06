@@ -1,6 +1,6 @@
 #!/bin/bash
-# Workchain Metagraph Deployment Configuration
-# This file contains all configuration for deploying the workchain metagraph to Digital Ocean
+# Ottochain Metagraph Deployment Configuration
+# This file contains all configuration for deploying the ottochain metagraph to Digital Ocean
 
 #######################
 # Node Configuration
@@ -15,7 +15,7 @@ NODE_IPS=(
 
 # SSH Configuration (from euclid hosts.ansible.yml)
 SSH_USER="root"
-SSH_KEY_PATH="$HOME/.ssh/do-workchain-intnet"
+SSH_KEY_PATH="$HOME/.ssh/do-ottochain-intnet"
 SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10"
 
 #######################
@@ -74,9 +74,9 @@ DL1_CLI_PORT=9302
 
 # Module mapping: sbt_module:remote_directory:jar_pattern:target_jar_name
 MODULES=(
-  "currencyL0:metagraph-l0:workchain-currency-l0-assembly:metagraph-l0.jar"
-  "currencyL1:currency-l1:workchain-currency-l1-assembly:currency-l1.jar"
-  "dataL1:data-l1:workchain-data-l1-assembly:data-l1.jar"
+  "currencyL0:metagraph-l0:ottochain-currency-l0-assembly:metagraph-l0.jar"
+  "currencyL1:currency-l1:ottochain-currency-l1-assembly:currency-l1.jar"
+  "dataL1:data-l1:ottochain-data-l1-assembly:data-l1.jar"
 )
 
 #######################

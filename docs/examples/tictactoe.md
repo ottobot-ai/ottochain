@@ -1,6 +1,6 @@
 # Tic-Tac-Toe Game
 
-Complete tic-tac-toe implementation using Workchain script oracle + state machine, demonstrating the **oracle-centric architecture** pattern.
+Complete tic-tac-toe implementation using Ottochain script oracle + state machine, demonstrating the **oracle-centric architecture** pattern.
 
 ## Table of Contents
 

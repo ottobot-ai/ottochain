@@ -12,7 +12,7 @@ import io.constellationnetwork.metagraph_sdk.syntax.all.L1ContextOps
 import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.OnChain
-import xyz.kd5ujc.schema.Updates.WorkchainMessage
+import xyz.kd5ujc.schema.Updates.OttochainMessage
 
 import io.circe.Json
 import io.circe.syntax.EncoderOps
@@ -26,7 +26,7 @@ class DataL1CustomRoutes[F[_]: Async](implicit
 
   protected val routes: HttpRoutes[F] = HttpRoutes.of[F] {
     case req @ POST -> Root / "util" / "hash" =>
-      req.asR[Signed[WorkchainMessage]] { msg =>
+      req.asR[Signed[OttochainMessage]] { msg =>
         msg.value.computeDigest.flatMap { digest =>
           Ok(Json.obj("protocol message hash" -> digest.asJson, "protocol message" -> msg.value.asJson))
         }

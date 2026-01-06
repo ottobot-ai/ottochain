@@ -1,4 +1,4 @@
-# Workchain
+# Ottochain
 
 A metagraph for creating automated workflow contracts using JSON-encoded state machines and script oracles.
 
@@ -10,9 +10,9 @@ A metagraph for creating automated workflow contracts using JSON-encoded state m
 - 🧪 **[Testing Terminal](e2e-test/README.md)** - Interactive CLI for testing
 - 📦 **[Deployment](deploy/README.md)** - Production deployment scripts
 
-## What is Workchain?
+## What is Ottochain?
 
-Workchain is a metagraph built on Tessellation that enables:
+Ottochain is a metagraph built on Tessellation that enables:
 
 - **JSON-Encoded State Machines** - Define complex workflows without writing code
 - **Script Oracles** - Deterministic, stateful computation using JSON Logic

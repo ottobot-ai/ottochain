@@ -9,8 +9,8 @@ const sendDataTransactionsUsingUrls = require("./lib/sendDataTransaction.js");
 const getMetagraphEnv = require("./lib/metagraphEnv.js");
 
 const program = new Command()
-  .name('workchain-terminal')
-  .description('Interactive CLI for testing Workchain state machines and script oracles')
+  .name('ottochain-terminal')
+  .description('Interactive CLI for testing Ottochain state machines and script oracles')
   .option('--address <address>', 'Choose a fixed UUID for the resource. Defaults to random UUID if not provided')
   .option('--target <target>', 'Target environment: [local, remote, ci]. Default: "local"', "local")
   .option('--mode <mode>', "Operation mode: ['send', 'validate', 'send+validate'] (default: 'send+validate')", 'send+validate')
@@ -466,7 +466,7 @@ program
     const question = (query) => new Promise((resolve) => rl.question(query, resolve));
 
     try {
-      console.log('\x1b[36m\n=== Workchain Interactive Terminal ===\x1b[0m\n');
+      console.log('\x1b[36m\n=== Ottochain Interactive Terminal ===\x1b[0m\n');
 
       const action = await question('What would you like to do?\n  1) Create state machine\n  2) Process event on state machine\n  3) Archive state machine\n  4) Create oracle\n  5) Invoke oracle\n  6) Query state\n\nChoice (1-6): ');
 

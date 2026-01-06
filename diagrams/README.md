@@ -1,6 +1,6 @@
-# Workchain Diagrams
+# Ottochain Diagrams
 
-This directory contains visual representations of the Workchain JSON Logic VM ecosystem, illustrating how AI agents can coordinate using deterministic, blockchain-backed workflows.
+This directory contains visual representations of the Ottochain JSON Logic VM ecosystem, illustrating how AI agents can coordinate using deterministic, blockchain-backed workflows.
 
 ---
 
@@ -17,7 +17,7 @@ This diagram shows the complete four-layer stack:
 1. **Layer 0 - Blockchain**: Tessellation providing consensus, monotonic state progression, and immutable audit trail
 2. **Layer 1 - Metakit**: JSON Logic VM with 50+ operators, gas metering, and deterministic evaluation
 3. **Layer 2 - Proofchain**: State locking primitives (Owned, Unary, Threshold contracts) with progressive complexity
-4. **Layer 3 - Workchain**: Fiber orchestration with atomic multi-agent coordination
+4. **Layer 3 - Ottochain**: Fiber orchestration with atomic multi-agent coordination
 5. **Layer 4 - AI Agent Applications**: Real-world use cases leveraging the stack
 
 Key properties: JSON-native, deterministic, resource-bounded, cryptographically authorized, immutable audit, atomic coordination, human-readable.
@@ -34,13 +34,13 @@ Key properties: JSON-native, deterministic, resource-bounded, cryptographically 
 
 1. **Phase 1**: Agent A generates purchase requirements as JSON Logic
 2. **Phase 2**: Agent B reads the proposal and generates counter-offer
-3. **Phase 3**: Agents iterate via Workchain fiber state transitions
+3. **Phase 3**: Agents iterate via Ottochain fiber state transitions
 4. **Phase 4**: Agreement triggers escrow contract (Proofchain threshold contract)
 
 **Key Features**:
 - LLMs generate JSON Logic expressions natively
 - Blockchain provides immutable negotiation trail
-- Workchain fiber manages negotiation states
+- Ottochain fiber manages negotiation states
 - Proofchain threshold contract handles escrow
 - Atomic transition from negotiation to execution
 - Cryptographic signatures at each step
@@ -105,7 +105,7 @@ Key properties: JSON-native, deterministic, resource-bounded, cryptographically 
 3. `dispute`: Either party can dispute, triggers arbitration fiber
 4. `resolve_to_seller/buyer`: Arbitrator decision executed
 
-**Demonstrates**: Integration of Proofchain contracts within Workchain fibers for complex authorization.
+**Demonstrates**: Integration of Proofchain contracts within Ottochain fibers for complex authorization.
 
 ---
 
@@ -263,7 +263,7 @@ npm install -g @mermaid-js/mermaid-cli
 - **Level 2**: Unary contracts (single validation rule)
 - **Level 3**: Threshold contracts (M-of-N rules)
 
-### 4. Atomic Coordination (Workchain)
+### 4. Atomic Coordination (Ottochain)
 - Cross-fiber triggers create cascades
 - All-or-nothing transaction semantics
 - Gas metering prevents runaway execution
@@ -277,7 +277,7 @@ npm install -g @mermaid-js/mermaid-cli
 - **Timeout guards**: Prevent indefinite waiting
 
 ### 6. Integration Patterns
-- Workchain fibers reference Proofchain contracts
+- Ottochain fibers reference Proofchain contracts
 - Fibers handle orchestration
 - Contracts handle complex locking/validation
 - Combined: powerful workflow + authorization
@@ -333,7 +333,7 @@ sequenceDiagram
 
 - `../AI_AGENT_PROTOCOL_LAYER.md` - Comprehensive overview of the AI agent ecosystem
 - `../STATE_MACHINE_EXAMPLES.md` - Detailed workflow descriptions for existing diagrams
-- `../README.md` - Workchain project overview
+- `../README.md` - Ottochain project overview
 
 ---
 

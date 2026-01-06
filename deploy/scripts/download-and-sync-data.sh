@@ -6,7 +6,7 @@ set -e
 
 SOURCE_NODE="147.182.254.23"
 TARGET_NODES=("146.190.151.138" "144.126.217.197")
-SSH_KEY="$HOME/.ssh/do-workchain-intnet"
+SSH_KEY="$HOME/.ssh/do-ottochain-intnet"
 SSH_USER="root"
 
 TEMP_DIR="./temp-data-backup"

@@ -23,7 +23,7 @@ import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 import io.constellationnetwork.security.signature.signature.SignatureProof
 
-import xyz.kd5ujc.schema.Updates.WorkchainMessage
+import xyz.kd5ujc.schema.Updates.OttochainMessage
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
 
 import io.circe.DecodingFailure
@@ -31,9 +31,9 @@ import io.circe.DecodingFailure
 object Validator {
 
   def make[F[_]: Async: Parallel: SecurityProvider]
-    : F[ValidationService[F, WorkchainMessage, OnChain, CalculatedState]] =
+    : F[ValidationService[F, OttochainMessage, OnChain, CalculatedState]] =
     CheckpointService.make[F, OnChain](OnChain.genesis).map { checkpointService =>
-      new ValidationService[F, WorkchainMessage, OnChain, CalculatedState] {
+      new ValidationService[F, OttochainMessage, OnChain, CalculatedState] {
 
         private def onChainCache(context: L1NodeContext[F])(
           f: Checkpoint[OnChain] => F[DataApplicationValidationErrorOr[Unit]]
@@ -50,7 +50,7 @@ object Validator {
             .flatMap(_.fold(_.invalidNec[Unit].pure[F], f))
 
         override def validateUpdate(
-          update: WorkchainMessage
+          update: OttochainMessage
         )(implicit ctx: L1NodeContext[F]): F[DataApplicationValidationErrorOr[Unit]] =
           onChainCache(ctx) { checkpoint =>
             val updateValidator = new UpdateImpl[F](checkpoint.state)
@@ -72,7 +72,7 @@ object Validator {
 
         override def validateSignedUpdate(
           current:      DataState[OnChain, CalculatedState],
-          signedUpdate: Signed[WorkchainMessage]
+          signedUpdate: Signed[OttochainMessage]
         )(implicit context: L0NodeContext[F]): F[DataApplicationValidationErrorOr[Unit]] = {
           val updateValidator = new UpdateImpl[F](current.onChain)
           val signedValidator = new SignedUpdateImpl[F](current, signedUpdate.proofs)

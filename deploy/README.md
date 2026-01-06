@@ -1,6 +1,6 @@
-# Workchain Metagraph Deployment
+# Ottochain Metagraph Deployment
 
-Bash scripts for deploying and managing the Workchain metagraph on Digital Ocean droplets, connected to Tessellation integrationnet.
+Bash scripts for deploying and managing the Ottochain metagraph on Digital Ocean droplets, connected to Tessellation integrationnet.
 
 ## Quick Start
 
@@ -435,7 +435,7 @@ Once deployed, services are accessible at:
 **Build failed:**
 ```bash
 # Clean and rebuild
-cd /path/to/workchain
+cd /path/to/ottochain
 sbt clean
 ./deploy/scripts/02-build-jars.sh
 ```
@@ -526,7 +526,7 @@ cat config/deploy-config.sh
 
 **Documentation:**
 - [Complete Deployment Guide](../docs/guides/deployment.md)
-- [Workchain Documentation](../docs/README.md)
+- [Ottochain Documentation](../docs/README.md)
 
 ## Next Steps After Deployment
 

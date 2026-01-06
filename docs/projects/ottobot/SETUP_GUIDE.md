@@ -12,13 +12,13 @@ This guide walks through setting up the complete OttoBot system from scratch.
 - **Ollama** (for local LLM inference)
 - **Docker** (optional, for Ollama)
 
-### Workchain
+### Ottochain
 
-You need a running Workchain metagraph with:
+You need a running Ottochain metagraph with:
 - Data L1 node (default: `http://localhost:9000`)
 - L0 node (default: `http://localhost:9100`)
 
-**If you don't have Workchain running**, see your existing deployment docs.
+**If you don't have Ottochain running**, see your existing deployment docs.
 
 ---
 
@@ -83,7 +83,7 @@ open-webui serve
 
 **Note**: Update Ollama URL in Open WebUI settings to `http://localhost:11434`.
 
-### 4. Set Up Workchain
+### 4. Set Up Ottochain
 
 Ensure your metagraph is running:
 
@@ -95,7 +95,7 @@ curl http://localhost:9000/cluster/info
 curl http://localhost:9100/cluster/info
 ```
 
-If not running, start your local cluster (refer to your Workchain deployment guide).
+If not running, start your local cluster (refer to your Ottochain deployment guide).
 
 ### 5. Install E2E Test Dependencies
 
@@ -290,7 +290,7 @@ agent-bridge {
     model = "llama3.2"
   }
 
-  workchain {
+  ottochain {
     data-l1-url = "http://localhost:9000"
     l0-url = "http://localhost:9100"
     timeout = 30s
@@ -326,7 +326,7 @@ sbt run
 ```
 [INFO] Agent-bridge starting on http://0.0.0.0:8080
 [INFO] Loaded wallets: playerX (DAG88MP...), playerO (DAG7Fqp...)
-[INFO] Connected to Workchain Data L1: http://localhost:9000
+[INFO] Connected to Ottochain Data L1: http://localhost:9000
 [INFO] Connected to Ollama: http://localhost:11434
 [INFO] Server started successfully
 ```
@@ -346,7 +346,7 @@ curl http://localhost:8080/health
     "playerX": "available",
     "playerO": "available"
   },
-  "workchain": {
+  "ottochain": {
     "connected": true
   }
 }
@@ -432,7 +432,7 @@ curl http://localhost:11434/api/tags
 ollama serve
 ```
 
-### Workchain Connection Failed
+### Ottochain Connection Failed
 
 **Check nodes are running**:
 ```bash
@@ -481,8 +481,8 @@ curl -X POST http://localhost:8080/otto/tool \
 ### 1. Start All Services
 
 ```bash
-# Terminal 1: Workchain
-cd /path/to/workchain
+# Terminal 1: Ottochain
+cd /path/to/ottochain
 ./start-cluster.sh
 
 # Terminal 2: Ollama
@@ -523,8 +523,8 @@ sbt "agent-bridge/test"
 
 ```bash
 export WALLET_PASSWORD="secure-password"
-export WORKCHAIN_DATA_L1_URL="https://prod-l1.example.com"
-export WORKCHAIN_L0_URL="https://prod-l0.example.com"
+export OTTOCHAIN_DATA_L1_URL="https://prod-l1.example.com"
+export OTTOCHAIN_L0_URL="https://prod-l0.example.com"
 export OLLAMA_URL="http://ollama-service:11434"
 export HTTP_PORT=8080
 ```
@@ -548,7 +548,7 @@ ENTRYPOINT ["java", "-jar", "/app/agent-bridge.jar"]
 - **API authentication**: Add JWT or API key auth
 - **Rate limiting**: Implement per-IP rate limits
 - **HTTPS**: Use TLS for all endpoints
-- **Firewall**: Restrict access to Workchain nodes
+- **Firewall**: Restrict access to Ottochain nodes
 
 ---
 
@@ -576,7 +576,7 @@ curl http://localhost:8080/metrics
 Grafana dashboard for:
 - Tool call rates
 - Success/error rates
-- Workchain latency
+- Ottochain latency
 - Wallet balances
 
 ---

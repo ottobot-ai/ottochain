@@ -4,7 +4,7 @@
 
 ## Project Summary
 
-Agent-bridge microservice enabling an LLM (OttoBot the otter) to play tic-tac-toe against itself using Workchain state machines and script oracles with full wallet autonomy.
+Agent-bridge microservice enabling an LLM (OttoBot the otter) to play tic-tac-toe against itself using Ottochain state machines and script oracles with full wallet autonomy.
 
 ## Current Status: Phase 1 Complete (Documentation & Definitions)
 
@@ -83,7 +83,7 @@ Agent-bridge microservice enabling an LLM (OttoBot the otter) to play tic-tac-to
 - [ ] Add `agent-bridge` sbt subproject to `build.sbt`
 - [ ] Scaffold Scala module structure
 - [ ] Implement WalletManager (p12 loading, signing)
-- [ ] Implement WorkchainClient (HTTP to L1/L0)
+- [ ] Implement OttochainClient (HTTP to L1/L0)
 - [ ] Implement ToolCatalog framework
 - [ ] Implement TicTacToeTools (6 tools)
 - [ ] Add HTTP routes (`/generate`, `/otto/tool`, `/health`, `/wallets`)
@@ -134,7 +134,7 @@ Agent-bridge microservice enabling an LLM (OttoBot the otter) to play tic-tac-to
 ## File Structure
 
 ```
-workchain/
+ottochain/
 ├── docs/
 │   ├── ARCHITECTURE.md          ✅
 │   ├── OTTO_PERSONA.md          ✅
@@ -191,7 +191,7 @@ workchain/
 - Open WebUI (chat interface)
 - llama3.2 or compatible model
 
-### Workchain (Existing)
+### Ottochain (Existing)
 - Your L1/L0 nodes
 - DeterministicEventProcessor
 - JSON Logic evaluator
@@ -220,8 +220,8 @@ workchain/
 
 ## Notes
 
-- All JSON definitions use existing Workchain primitives
-- No changes to core Workchain code needed
+- All JSON definitions use existing Ottochain primitives
+- No changes to core Ottochain code needed
 - Agent-bridge is standalone microservice
 - Can test oracle/state machine independently before agent-bridge is ready
 - Documentation-first approach ensures clarity before implementation

@@ -18,7 +18,7 @@ import io.constellationnetwork.security.hash.Hash
 import io.constellationnetwork.security.signature.Signed
 import io.constellationnetwork.security.{Hashed, SecurityProvider}
 
-import xyz.kd5ujc.schema.Updates.WorkchainMessage
+import xyz.kd5ujc.schema.Updates.OttochainMessage
 import xyz.kd5ujc.schema.{CalculatedState, OnChain}
 import xyz.kd5ujc.shared_data.lifecycle.{Combiner, Validator}
 
@@ -37,12 +37,12 @@ object ML0Service {
 
   private def makeBaseApplicationL0Service[F[+_]: Async](
     checkpointService: CheckpointService[F, CalculatedState],
-    combiner:          CombinerService[F, WorkchainMessage, OnChain, CalculatedState],
-    validator:         ValidationService[F, WorkchainMessage, OnChain, CalculatedState]
+    combiner:          CombinerService[F, OttochainMessage, OnChain, CalculatedState],
+    validator:         ValidationService[F, OttochainMessage, OnChain, CalculatedState]
   ): BaseDataApplicationL0Service[F] =
-    BaseDataApplicationL0Service[F, WorkchainMessage, OnChain, CalculatedState](
-      new MetagraphCommonService[F, WorkchainMessage, OnChain, CalculatedState, L0NodeContext[F]]
-        with DataApplicationL0Service[F, WorkchainMessage, OnChain, CalculatedState] {
+    BaseDataApplicationL0Service[F, OttochainMessage, OnChain, CalculatedState](
+      new MetagraphCommonService[F, OttochainMessage, OnChain, CalculatedState, L0NodeContext[F]]
+        with DataApplicationL0Service[F, OttochainMessage, OnChain, CalculatedState] {
 
         private val logger: SelfAwareStructuredLogger[F] = Slf4jLogger.getLoggerFromClass(ML0Service.getClass)
 
@@ -53,19 +53,19 @@ object ML0Service {
           A: Applicative[F]
         ): F[Unit] =
           (for {
-            signedUpdates <- snapshot.signed.value.getSignedUpdates[WorkchainMessage]
+            signedUpdates <- snapshot.signed.value.getSignedUpdates[OttochainMessage]
             _             <- logger.info(s"Got ${signedUpdates.size} updates for ordinal: ${snapshot.ordinal.value}")
           } yield ()).handleErrorWith(logger.error(_)("Error during onSnapshotConsensusResult"))
 
         override def validateData(
           state:   DataState[OnChain, CalculatedState],
-          updates: NonEmptyList[Signed[WorkchainMessage]]
+          updates: NonEmptyList[Signed[OttochainMessage]]
         )(implicit context: L0NodeContext[F]): F[DataApplicationValidationErrorOr[Unit]] =
           validator.validateDataParallel(state, updates)
 
         override def combine(
           state:   DataState[OnChain, CalculatedState],
-          updates: List[Signed[WorkchainMessage]]
+          updates: List[Signed[OttochainMessage]]
         )(implicit context: L0NodeContext[F]): F[DataState[OnChain, CalculatedState]] =
           combiner.foldLeft(state, updates)
 
