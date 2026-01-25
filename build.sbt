@@ -3,7 +3,7 @@ import sbt.*
 import sbt.Keys.*
 
 ThisBuild / organization := "xyz.kd5ujc"
-ThisBuild / scalaVersion := "2.13.16"
+ThisBuild / scalaVersion := "2.13.18"
 ThisBuild / evictionErrorLevel := Level.Warn
 
 ThisBuild / assemblyMergeStrategy := {
@@ -18,6 +18,8 @@ ThisBuild / assemblyMergeStrategy := {
 
 lazy val commonSettings = Seq(
   scalacOptions ++= List("-Ymacro-annotations", "-Yrangepos", "-Wconf:cat=unused:info", "-language:reflectiveCalls"),
+  scalafmtOnCompile := true,
+  scalafixOnCompile := true,
   resolvers ++= Seq(
     Resolver.mavenLocal
   ),

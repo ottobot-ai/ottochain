@@ -13,8 +13,8 @@ object Dependencies {
     val tessellation = "4.0.0-rc.2"
 
     val betterMonadicFor = "0.3.1"
-    val kindProjector = "0.13.3"
-    val semanticDB = "4.13.0"
+    val kindProjector = "0.13.4"
+    val semanticDB = "4.14.2"
   }
 
   def decline(artifact: Option[String], ver: String): ModuleID = "com.monovore" %% {if (artifact.isEmpty) "decline" else s"decline-${artifact.get}"} % ver
