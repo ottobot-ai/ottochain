@@ -13,6 +13,8 @@ import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_data.lifecycle.validate.ValidationException
+import xyz.kd5ujc.shared_data.lifecycle.validate.rules.FiberRules
 import xyz.kd5ujc.shared_test.Participant._
 import xyz.kd5ujc.shared_test.TestFixture
 
@@ -476,27 +478,15 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         eventResult <- combiner.insert(archivedState, Signed(startEvent, eventProof)).attempt
 
       } yield eventResult match {
-        case Left(err) =>
-          // Should fail with an error about fiber not being active
-          expect(
-            err.getMessage.toLowerCase.contains("archived") ||
-            err.getMessage.toLowerCase.contains("not active") ||
-            err.getMessage.toLowerCase.contains("inactive")
+        case Left(ValidationException(err: FiberRules.Errors.FiberNotActive)) =>
+          // Archived fiber should fail with FiberNotActive validation error
+          expect(err.cid == cid, s"Expected FiberNotActive for $cid, got ${err.cid}")
+        case Left(other) =>
+          failure(
+            s"Expected FiberNotActive validation error, got: ${other.getClass.getSimpleName}: ${other.getMessage}"
           )
-        case Right(state) =>
-          // If it doesn't throw, check that the fiber wasn't modified
-          val fiberAfter = state.calculated.stateMachines.get(cid)
-          expect(fiberAfter.isDefined) and
-          expect(fiberAfter.map(_.status).contains(Records.FiberStatus.Archived)) and
-          // Sequence number should not have changed
-          expect(
-            fiberAfter
-              .flatMap {
-                case r: Records.StateMachineFiberRecord => Some(r.sequenceNumber)
-                case _                                  => None
-              }
-              .contains(0L)
-          )
+        case Right(_) =>
+          failure("Expected error when processing event on archived fiber, but transaction succeeded")
       }
     }
   }

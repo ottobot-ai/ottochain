@@ -101,12 +101,6 @@ object StateMachine {
   @derive(encoder, decoder)
   case class Failure(reason: FailureReason) extends ProcessingResult
 
-  @derive(encoder, decoder)
-  case class GasExhausted(gasUsed: Long) extends ProcessingResult
-
-  @derive(encoder, decoder)
-  case class DepthExceeded(depth: Int) extends ProcessingResult
-
   /** Phase where gas was exhausted during execution */
   @derive(encoder, decoder)
   sealed trait GasExhaustionPhase
@@ -141,8 +135,24 @@ object StateMachine {
         s"Trigger target fiber $targetId not found${sourceId.fold("")(s => s" (source: $s)")}"
       case FailureReason.GasExhaustedFailure(gasUsed, gasLimit, phase) =>
         s"Gas exhausted during ${phase.toString.toLowerCase}: $gasUsed of $gasLimit units consumed"
-      case FailureReason.Other(msg) =>
-        msg
+      case FailureReason.FiberInputMismatch(fiberId, fiberType, inputType) =>
+        s"Cannot use $inputType input with $fiberType fiber $fiberId"
+      case FailureReason.FiberNotFound(fiberId) =>
+        s"Fiber $fiberId not found"
+      case FailureReason.FiberNotActive(fiberId, status) =>
+        s"Fiber $fiberId is not active (status: $status)"
+      case FailureReason.DepthExceeded(depth, maxDepth) =>
+        s"Trigger cascade depth exceeded: $depth (max: $maxDepth)"
+      case FailureReason.OracleInvocationFailed(oracleId, method, errorMsg) =>
+        s"Oracle $oracleId method '$method' failed${errorMsg.fold("")(e => s": $e")}"
+      case FailureReason.SpawnValidationFailed(parentId, errors) =>
+        s"Spawn validation failed for fiber $parentId: ${errors.mkString("; ")}"
+      case FailureReason.CallerResolutionFailed(oracleId, sourceId) =>
+        s"Unable to determine caller for oracle $oracleId${sourceId.fold("")(s => s" (source fiber: $s)")}"
+      case FailureReason.MissingProof(fiberId, operation) =>
+        s"No signature proof provided for $operation on fiber $fiberId"
+      case FailureReason.StateSizeTooLarge(actualBytes, maxBytes) =>
+        s"Resulting state size $actualBytes bytes exceeds maximum $maxBytes bytes"
     }
   }
 
@@ -161,7 +171,33 @@ object StateMachine {
     /** Structured gas exhaustion failure with phase information */
     case class GasExhaustedFailure(gasUsed: Long, gasLimit: Long, phase: GasExhaustionPhase) extends FailureReason
 
-    case class Other(message: String) extends FailureReason
+    /** Input type mismatch between fiber record and input */
+    case class FiberInputMismatch(fiberId: UUID, fiberType: String, inputType: String) extends FailureReason
+
+    /** Fiber with given ID not found in calculated state */
+    case class FiberNotFound(fiberId: UUID) extends FailureReason
+
+    /** Fiber exists but is not in Active status */
+    case class FiberNotActive(fiberId: UUID, currentStatus: String) extends FailureReason
+
+    /** Trigger cascade depth exceeded maximum allowed */
+    case class DepthExceeded(depth: Int, maxDepth: Int) extends FailureReason
+
+    /** Oracle invocation failed during trigger handling */
+    case class OracleInvocationFailed(oracleId: UUID, method: String, errorMessage: Option[String])
+        extends FailureReason
+
+    /** Spawn validation failed for child fibers */
+    case class SpawnValidationFailed(parentFiberId: UUID, errors: List[String]) extends FailureReason
+
+    /** Unable to determine caller address for oracle invocation */
+    case class CallerResolutionFailed(targetOracleId: UUID, sourceFiberId: Option[UUID]) extends FailureReason
+
+    /** No signature proof provided for operation requiring authorization */
+    case class MissingProof(fiberId: UUID, operation: String) extends FailureReason
+
+    /** Resulting state size exceeds maximum allowed */
+    case class StateSizeTooLarge(actualBytes: Int, maxBytes: Int) extends FailureReason
   }
 
   @derive(encoder, decoder)

@@ -2,18 +2,24 @@ package xyz.kd5ujc.shared_test
 
 import cats.effect.Sync
 import cats.syntax.applicative._
+import cats.syntax.functor._
 import cats.syntax.option._
 
 import scala.collection.immutable.{SortedMap, SortedSet}
 
-import io.constellationnetwork.currency.dataApplication.L0NodeContext
+import io.constellationnetwork.currency.dataApplication.{L0NodeContext, L1NodeContext}
 import io.constellationnetwork.currency.schema.currency
+import io.constellationnetwork.currency.schema.currency.DataApplicationPart
 import io.constellationnetwork.domain.seedlist.SeedlistEntry
+import io.constellationnetwork.metagraph_sdk.std.JsonBinaryCodec._
 import io.constellationnetwork.schema._
 import io.constellationnetwork.schema.address.Address
 import io.constellationnetwork.schema.swap.CurrencyId
+import io.constellationnetwork.security.hash.Hash
 import io.constellationnetwork.security.signature.Signed
 import io.constellationnetwork.security.{Hashed, SecurityProvider}
+
+import xyz.kd5ujc.schema.OnChain
 
 import Generators.{genHashedCurrencyIncSnapshot, generateValueWithRetry}
 
@@ -56,6 +62,48 @@ object Mock {
             ???
         }
       )
+    }
+  }
+
+  trait MockL1NodeContext[F[_]] extends L1NodeContext[F]
+
+  object MockL1NodeContext {
+
+    def make[F[_]: Sync](implicit sp: SecurityProvider[F]): F[MockL1NodeContext[F]] = {
+      val baseSnapshot = generateValueWithRetry(genHashedCurrencyIncSnapshot)
+
+      for {
+        onChainBytes <- OnChain.genesis.toBinary
+
+        dataAppPart = DataApplicationPart(
+          onChainState = onChainBytes,
+          blocks = List.empty,
+          calculatedStateProof = Hash.empty,
+          updateHashes = None
+        )
+
+        snapshotWithData = baseSnapshot.signed.value.copy(dataApplication = dataAppPart.some)
+        hashedSnapshot = Hashed(
+          Signed(snapshotWithData, baseSnapshot.signed.proofs),
+          baseSnapshot.hash,
+          baseSnapshot.proofsHash
+        )
+      } yield new MockL1NodeContext[F] {
+
+        def getLastGlobalSnapshot: F[Option[Hashed[GlobalIncrementalSnapshot]]] =
+          none[Hashed[GlobalIncrementalSnapshot]].pure[F]
+
+        def getLastCurrencySnapshot: F[Option[Hashed[currency.CurrencyIncrementalSnapshot]]] =
+          hashedSnapshot.some.pure[F]
+
+        def getLastCurrencySnapshotCombined
+          : F[Option[(Hashed[currency.CurrencyIncrementalSnapshot], currency.CurrencySnapshotInfo)]] =
+          none[(Hashed[currency.CurrencyIncrementalSnapshot], currency.CurrencySnapshotInfo)].pure[F]
+
+        def securityProvider: SecurityProvider[F] = sp
+
+        def getCurrencyId: F[CurrencyId] = ???
+      }
     }
   }
 

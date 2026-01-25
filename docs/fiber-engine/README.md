@@ -341,17 +341,34 @@ FiberGasConfig.Minimal   // Testing: 1/1/1
 ```scala
 sealed trait FailureReason
 
+// Transition failures
 case class NoTransitionFound(fromState, eventType)
 case class NoGuardMatched(fromState, eventType, attemptedGuards)
 case class GuardEvaluationError(message)
 case class EffectEvaluationError(message)
+
+// Execution limit failures
 case class CycleDetected(fiberId, eventType)
-case class ValidationFailed(message, attemptedAt)
-case class TriggerTargetNotFound(targetFiberId, sourceFiberId)
-case class AccessDenied(caller, resourceId, policyType, details)
-// Structured gas exhaustion with phase information (EVM-style)
+case class DepthExceeded(depth, maxDepth)
 case class GasExhaustedFailure(gasUsed: Long, gasLimit: Long, phase: GasExhaustionPhase)
-case class Other(message)
+
+// Fiber resolution failures
+case class FiberNotFound(fiberId)
+case class FiberNotActive(fiberId, status)  // e.g., fiber is Archived
+case class FiberInputMismatch(fiberId, fiberType, inputType)
+case class TriggerTargetNotFound(targetFiberId, sourceFiberId)
+
+// Spawn failures
+case class SpawnValidationFailed(parentId, errors: List[String])
+
+// Oracle failures
+case class OracleInvocationFailed(oracleId, method, errorMsg)
+case class CallerResolutionFailed(oracleId, sourceId)
+case class AccessDenied(caller, resourceId, policyType, details)
+case class MissingProof(fiberId, operation)
+
+// Validation
+case class ValidationFailed(message, attemptedAt)
 
 // Phase where gas was exhausted
 sealed trait GasExhaustionPhase
@@ -391,6 +408,21 @@ On failure:
 2. Combiner records failure status on originating fiber
 3. No state changes applied
 4. No spawned fibers created
+
+### Strict Validation Behavior
+
+The fiber engine enforces strict validation - failures abort the transaction rather than silently skipping:
+
+| Scenario | Behavior |
+|----------|----------|
+| Archived/inactive fiber receives event | Raises error (`FiberNotActive`) |
+| Trigger targets non-existent fiber | Aborts transaction (`TriggerTargetNotFound`) |
+| Invalid spawn expression | Aborts transaction (`SpawnValidationFailed`) |
+| Gas exhaustion | Aborts transaction (`GasExhaustedFailure`) |
+| Cycle detected | Aborts transaction (`CycleDetected`) |
+| Depth limit exceeded | Aborts transaction (`DepthExceeded`) |
+
+This strict behavior ensures deterministic execution and surfaces bugs immediately rather than masking them through silent skipping.
 
 ---
 
@@ -583,3 +615,11 @@ Partial state updates would create inconsistencies across nodes. Atomic rollback
 ### Why Fail on Missing Trigger Target?
 
 Silent skipping could mask bugs (typos in IDs, deleted fibers). Explicit failure surfaces issues immediately and allows intentional handling.
+
+### Why Reject Events on Archived Fibers?
+
+Archived fibers represent completed or terminated execution units. Processing events on them would be semantically incorrect - if the fiber is archived, no further state transitions should occur. Raising an error (`FiberNotActive`) makes this explicit and prevents subtle bugs where events are silently dropped.
+
+### Why Strict Validation Throughout?
+
+A deterministic execution system requires predictable outcomes. If the system silently skips invalid operations (missing triggers, bad spawn expressions, inactive fibers), different nodes might interpret these situations differently based on timing or state. Strict validation ensures all nodes either succeed or fail identically, maintaining consensus.

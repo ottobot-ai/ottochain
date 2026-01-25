@@ -43,7 +43,7 @@ object OracleProcessor {
         (other.some, other).pure[F]
     }
 
-  def createScriptOracle[F[_]: Async: SecurityProvider: JsonLogicEvaluator](
+  def createScriptOracle[F[_]: Async: SecurityProvider](
     current:        DataState[OnChain, CalculatedState],
     update:         Signed[Updates.CreateScriptOracle],
     currentOrdinal: SnapshotOrdinal
@@ -51,6 +51,9 @@ object OracleProcessor {
     owners <- update.proofs.toList.traverse(_.id.toAddress).map(Set.from(_))
 
     stateDataHashOpt <- update.initialState.traverse[F, Hash](_.computeDigest)
+
+    // For oracles without state, use a hash of NullValue as a sentinel so CID is always trackable
+    registrationHash <- stateDataHashOpt.fold((NullValue: JsonLogicValue).computeDigest)(_.pure[F])
 
     oracleRecord = Records.ScriptOracleFiberRecord(
       cid = update.cid,
@@ -68,35 +71,35 @@ object OracleProcessor {
       scriptOracles = current.calculated.scriptOracles.updated(update.cid, oracleRecord)
     )
 
-    _onchain = stateDataHashOpt.fold(current.onChain) { hash =>
-      current.onChain
-        .focus(_.latest)
-        .modify(_.updated(update.cid, hash))
-    }
+    // Always register oracle CID in OnChain for L1 validation
+    _onchain = current.onChain
+      .focus(_.latest)
+      .modify(_.updated(update.cid, registrationHash))
 
   } yield DataState(_onchain, _calculated)
 
-  def invokeScriptOracle[F[_]: Async: SecurityProvider: JsonLogicEvaluator](
+  def invokeScriptOracle[F[_]: Async: SecurityProvider](
     current:        DataState[OnChain, CalculatedState],
     update:         Signed[Updates.InvokeScriptOracle],
     currentOrdinal: SnapshotOrdinal
   ): F[StateMachine.ProcessingResult] = (for {
     oracleRecord <- EitherT.fromOption[F](
       current.calculated.scriptOracles.get(update.cid),
-      StateMachine.FailureReason.Other(s"Oracle ${update.cid} not found")
+      StateMachine.FailureReason.FiberNotFound(update.cid)
     )
 
     _ <- EitherT.fromEither[F](
       if (oracleRecord.status == Records.FiberStatus.Active)
         ().asRight
       else
-        (StateMachine.FailureReason.Other(s"Oracle ${update.cid} is not active"): StateMachine.FailureReason).asLeft
+        (StateMachine.FailureReason
+          .FiberNotActive(update.cid, oracleRecord.status.toString): StateMachine.FailureReason).asLeft
     )
 
     caller <- EitherT
       .fromOption[F](
         update.proofs.toList.headOption,
-        StateMachine.FailureReason.Other("No proof provided")
+        StateMachine.FailureReason.MissingProof(update.cid, "invokeScriptOracle")
       )
       .flatMap(proof => EitherT.liftF[F, StateMachine.FailureReason, Address](proof.id.toAddress))
 

@@ -11,6 +11,8 @@ import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_data.lifecycle.validate.ValidationException
+import xyz.kd5ujc.shared_data.lifecycle.validate.rules.OracleRules
 import xyz.kd5ujc.shared_test.Participant._
 import xyz.kd5ujc.shared_test.TestFixture
 
@@ -504,21 +506,20 @@ object OracleAccessControlSuite extends SimpleIOSuite {
 
         oracle = invokeResult.toOption.flatMap(_.calculated.scriptOracles.get(oracleCid))
 
-      } yield expect(
-        // FiberOwned should return AccessDenied with "not yet implemented"
-        // Either the invocation fails or it succeeds (depending on implementation)
-        invokeResult.isLeft || oracle.isDefined
-      ) and
-      // If it failed, it should be because of FiberOwned policy
-      expect(
-        invokeResult.fold(
-          err =>
-            err.getMessage.toLowerCase.contains("fiberowned") ||
-            err.getMessage.toLowerCase.contains("not yet implemented") ||
-            err.getMessage.toLowerCase.contains("access"),
-          _ => true // If it succeeded, that's also valid
-        )
-      )
+      } yield invokeResult match {
+        case Left(ValidationException(err: OracleRules.Errors.OracleAccessDenied)) =>
+          // FiberOwned access control denies access (not yet implemented)
+          expect(
+            err.policy.isInstanceOf[Records.AccessControlPolicy.FiberOwned],
+            s"Expected FiberOwned policy, got ${err.policy}"
+          )
+        case Left(other) =>
+          failure(
+            s"Expected OracleAccessDenied validation error, got: ${other.getClass.getSimpleName}: ${other.getMessage}"
+          )
+        case Right(_) =>
+          failure("Expected FiberOwned access control to fail (not yet implemented)")
+      }
     }
   }
 }

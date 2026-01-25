@@ -1,5 +1,7 @@
 package xyz.kd5ujc.shared_data.fiber.engine
 
+import java.util.UUID
+
 import cats.Functor
 import cats.effect.Async
 import cats.mtl.Ask
@@ -9,14 +11,14 @@ import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.metagraph_sdk.json_logic.core.{BoolValue, StrValue}
 import io.constellationnetwork.metagraph_sdk.json_logic.gas._
 import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluator
+import io.constellationnetwork.metagraph_sdk.std.JsonBinaryCodec
 import io.constellationnetwork.schema.SnapshotOrdinal
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.signature.SignatureProof
 
 import xyz.kd5ujc.schema.{CalculatedState, Records, StateMachine}
+import xyz.kd5ujc.shared_data.fiber.domain.FiberOutcome.FailureReasonOps
 import xyz.kd5ujc.shared_data.fiber.domain._
-import xyz.kd5ujc.shared_data.lifecycle.InputValidation
-import xyz.kd5ujc.shared_data.lifecycle.InputValidation.ValidationResult
 
 /**
  * Unified evaluator for both state machine and oracle fibers.
@@ -41,7 +43,7 @@ object FiberEvaluator {
   /**
    * Create FiberEvaluator with explicit parameters.
    */
-  def make[F[_]: Async: SecurityProvider: JsonLogicEvaluator](
+  def make[F[_]: Async: JsonLogicEvaluator](
     contextProvider: ContextProvider[F],
     calculatedState: CalculatedState,
     ordinal:         SnapshotOrdinal,
@@ -50,8 +52,6 @@ object FiberEvaluator {
     fiberGasConfig:  FiberGasConfig = FiberGasConfig.Default
   ): FiberEvaluator[F] =
     new FiberEvaluator[F] {
-
-      private val stateMerger: StateMerger[F] = StateMerger.make[F]
 
       def evaluate(
         fiber:  Records.FiberRecord,
@@ -64,16 +64,20 @@ object FiberEvaluator {
         case (oracle: Records.ScriptOracleFiberRecord, FiberInput.MethodCall(method, args, caller, _)) =>
           evaluateOracle(oracle, method, args, caller)
 
-        case (_: Records.StateMachineFiberRecord, _: FiberInput.MethodCall) =>
-          (FiberOutcome.Failed(
-            StateMachine.FailureReason.Other("Cannot use MethodCall input with StateMachineFiberRecord")
-          ): FiberOutcome).pure[F]
+        case (sm: Records.StateMachineFiberRecord, _: FiberInput.MethodCall) =>
+          StateMachine.FailureReason
+            .FiberInputMismatch(sm.cid, "StateMachineFiberRecord", "MethodCall")
+            .pureOutcome[F]
 
-        case (_: Records.ScriptOracleFiberRecord, _: FiberInput.Transition) =>
-          (FiberOutcome.Failed(
-            StateMachine.FailureReason.Other("Cannot use Transition input with ScriptOracleFiberRecord")
-          ): FiberOutcome).pure[F]
+        case (oracle: Records.ScriptOracleFiberRecord, _: FiberInput.Transition) =>
+          StateMachine.FailureReason
+            .FiberInputMismatch(oracle.cid, "ScriptOracleFiberRecord", "Transition")
+            .pureOutcome[F]
       }
+
+      // ──────────────────────────────────────────────────────────────────────────
+      // State Machine Evaluation
+      // ──────────────────────────────────────────────────────────────────────────
 
       private def evaluateStateMachine(
         fiber:     Records.StateMachineFiberRecord,
@@ -82,26 +86,13 @@ object FiberEvaluator {
         proofs:    List[SignatureProof]
       ): F[FiberOutcome] = {
         val event = StateMachine.Event(eventType, payload)
-        val validationResult = InputValidation.validateTransaction(fiber.cid, event, limits.maxGas)
 
-        validationResult.isValid
-          .pure[F]
-          .ifM(
-            ifTrue = fiber.definition.transitionMap
-              .get((fiber.currentState, eventType))
-              .fold[F[FiberOutcome]](
-                (FiberOutcome.Failed(
-                  StateMachine.FailureReason.NoTransitionFound(fiber.currentState, eventType)
-                ): FiberOutcome).pure[F]
-              )(transitions =>
-                tryTransitions(fiber, event, proofs, transitions, attemptedGuards = 0, accumulatedGuardGas = 0L)
-              ),
-            ifFalse = (FiberOutcome.Failed(
-              StateMachine.FailureReason.ValidationFailed(
-                validationResult.errors.map(e => s"${e.field}: ${e.message}").mkString(", "),
-                ordinal
-              )
-            ): FiberOutcome).pure[F]
+        fiber.definition.transitionMap
+          .get((fiber.currentState, eventType))
+          .fold(
+            StateMachine.FailureReason.NoTransitionFound(fiber.currentState, eventType).pureOutcome[F]
+          )(
+            tryTransitions(fiber, event, proofs, _, attemptedGuards = 0, accumulatedGuardGas = 0L)
           )
       }
 
@@ -115,38 +106,27 @@ object FiberEvaluator {
       ): F[FiberOutcome] =
         transitions match {
           case Nil =>
-            // EVM semantics: charge for all guard evaluations even when all fail
             (FiberOutcome.GuardFailed(attemptedGuards, accumulatedGuardGas): FiberOutcome).pure[F]
 
           case transition :: rest =>
-            InputValidation.validateExpression(transition.guard) match {
-              case ValidationResult(false, errors) =>
-                (FiberOutcome.Failed(
-                  StateMachine.FailureReason.GuardEvaluationError(
-                    s"Invalid guard: ${errors.map(_.message).mkString(", ")}"
-                  )
-                ): FiberOutcome).pure[F]
-
-              case _ =>
-                for {
-                  contextData <- contextProvider.buildContext(
-                    fiber,
-                    FiberInput.Transition(event.eventType, event.payload),
-                    proofs,
-                    transition.dependencies
-                  )
-                  result <- evaluateGuardAndApply(
-                    fiber,
-                    transition,
-                    event,
-                    contextData,
-                    proofs,
-                    rest,
-                    attemptedGuards,
-                    accumulatedGuardGas
-                  )
-                } yield result
-            }
+            for {
+              contextData <- contextProvider.buildContext(
+                fiber,
+                FiberInput.Transition(event.eventType, event.payload),
+                proofs,
+                transition.dependencies
+              )
+              result <- evaluateGuardAndApply(
+                fiber,
+                transition,
+                event,
+                contextData,
+                proofs,
+                rest,
+                attemptedGuards,
+                accumulatedGuardGas
+              )
+            } yield result
         }
 
       private def evaluateGuardAndApply(
@@ -159,7 +139,6 @@ object FiberEvaluator {
         attemptedGuards:     Int,
         accumulatedGuardGas: Long
       ): F[FiberOutcome] = {
-        // Calculate remaining gas after previous guards (EVM: deduct from budget)
         val remainingGas = (limits.maxGas - accumulatedGuardGas).max(0L)
 
         JsonLogicEvaluator
@@ -167,147 +146,144 @@ object FiberEvaluator {
           .evaluateWithGas(transition.guard, contextData, None, GasLimit(remainingGas), gasConfig)
           .flatMap[FiberOutcome] {
             case Right(EvaluationResult(BoolValue(true), guardGasUsed, _, _)) =>
-              // Pass total accumulated gas (previous + current) to effect execution
-              applyTransition(fiber, transition, event, contextData, accumulatedGuardGas + guardGasUsed.amount)
+              executeEffect(fiber, transition, contextData, accumulatedGuardGas + guardGasUsed.amount)
 
             case Right(EvaluationResult(BoolValue(false), guardGasUsed, _, _)) =>
-              // EVM semantics: accumulate gas even for failed guards
-              tryTransitions(
-                fiber,
-                event,
-                proofs,
-                rest,
-                attemptedGuards + 1,
-                accumulatedGuardGas + guardGasUsed.amount
-              )
+              tryTransitions(fiber, event, proofs, rest, attemptedGuards + 1, accumulatedGuardGas + guardGasUsed.amount)
 
             case Right(EvaluationResult(other, _, _, _)) =>
-              (FiberOutcome.Failed(
-                StateMachine.FailureReason.GuardEvaluationError(
-                  s"Guard returned non-boolean value: ${other.getClass.getSimpleName}"
-                )
-              ): FiberOutcome).pure[F]
+              StateMachine.FailureReason
+                .GuardEvaluationError(s"Guard returned non-boolean: ${other.getClass.getSimpleName}")
+                .pureOutcome[F]
 
             case Left(_: GasExhaustedException) =>
-              (FiberOutcome.Failed(
-                StateMachine.FailureReason.GasExhaustedFailure(
-                  accumulatedGuardGas,
-                  limits.maxGas,
-                  StateMachine.GasExhaustionPhase.Guard
-                )
-              ): FiberOutcome).pure[F]
+              StateMachine.FailureReason
+                .GasExhaustedFailure(accumulatedGuardGas, limits.maxGas, StateMachine.GasExhaustionPhase.Guard)
+                .pureOutcome[F]
 
             case Left(err) =>
-              (FiberOutcome.Failed(
-                StateMachine.FailureReason.GuardEvaluationError(err.getMessage)
-              ): FiberOutcome).pure[F]
+              StateMachine.FailureReason.GuardEvaluationError(err.getMessage).pureOutcome[F]
           }
       }
 
-      private def applyTransition(
-        fiber:       Records.StateMachineFiberRecord,
-        transition:  StateMachine.Transition,
-        event:       StateMachine.Event,
-        contextData: JsonLogicValue,
-        guardGas:    Long
-      ): F[FiberOutcome] =
-        InputValidation.validateExpression(transition.effect) match {
-          case ValidationResult(false, errors) =>
-            (FiberOutcome.Failed(
-              StateMachine.FailureReason.EffectEvaluationError(
-                s"Invalid effect: ${errors.map(_.message).mkString(", ")}"
-              )
-            ): FiberOutcome).pure[F]
-
-          case _ =>
-            executeEffect(fiber, transition, event, contextData, guardGas)
-        }
+      // ──────────────────────────────────────────────────────────────────────────
+      // Effect Execution
+      // ──────────────────────────────────────────────────────────────────────────
 
       private def executeEffect(
         fiber:       Records.StateMachineFiberRecord,
         transition:  StateMachine.Transition,
-        event:       StateMachine.Event,
         contextData: JsonLogicValue,
         guardGas:    Long
-      ): F[FiberOutcome] = {
-        val remainingGas = limits.maxGas - guardGas
-
+      ): F[FiberOutcome] =
         fiber.stateData match {
           case currentMap: MapValue =>
-            JsonLogicEvaluator
-              .tailRecursive[F]
-              .evaluateWithGas(transition.effect, contextData, None, GasLimit(remainingGas), gasConfig)
-              .flatMap {
-                case Right(EvaluationResult(effectResult, effectGasUsed, _, _)) =>
-                  val gasAfterEffect = guardGas + effectGasUsed.amount
-
-                  InputValidation.validateStateSize(effectResult) match {
-                    case ValidationResult(false, errors) =>
-                      (FiberOutcome.Failed(
-                        StateMachine.FailureReason.EffectEvaluationError(
-                          s"Effect result too large: ${errors.mkString(", ")}"
-                        )
-                      ): FiberOutcome).pure[F]
-
-                    case _ =>
-                      for {
-                        outputs <- EffectExtractor.extractOutputs(effectResult).pure[F]
-                        spawnMachines = EffectExtractor.extractSpawnDirectivesFromExpression(transition.effect)
-                        triggerEvents <- EffectExtractor.extractTriggerEvents(effectResult, contextData)
-                        oracleCall    <- EffectExtractor.extractOracleCall(effectResult, contextData)
-                        allTriggers = triggerEvents ++ oracleCall.toList
-                        gasForTriggers = allTriggers.size * fiberGasConfig.triggerEvent.amount
-                        gasForSpawns = spawnMachines.size * fiberGasConfig.spawnDirective.amount
-                        finalGasUsed = gasAfterEffect + gasForTriggers + gasForSpawns
-                        result <-
-                          if (finalGasUsed > limits.maxGas) {
-                            (FiberOutcome.Failed(
-                              StateMachine.FailureReason.GasExhaustedFailure(
-                                finalGasUsed,
-                                limits.maxGas,
-                                StateMachine.GasExhaustionPhase.Effect
-                              )
-                            ): FiberOutcome).pure[F]
-                          } else {
-                            stateMerger.mergeEffectIntoState(currentMap, effectResult).map {
-                              case Right(newStateData) =>
-                                FiberOutcome.Success(
-                                  newStateData = newStateData,
-                                  newStateId = Some(transition.to),
-                                  triggers = allTriggers,
-                                  spawns = spawnMachines,
-                                  outputs = outputs,
-                                  returnValue = None,
-                                  gasUsed = finalGasUsed
-                                ): FiberOutcome
-                              case Left(reason) =>
-                                FiberOutcome.Failed(reason): FiberOutcome
-                            }
-                          }
-                      } yield result
-                  }
-
-                case Left(_: GasExhaustedException) =>
-                  (FiberOutcome.Failed(
-                    StateMachine.FailureReason.GasExhaustedFailure(
-                      guardGas,
-                      limits.maxGas,
-                      StateMachine.GasExhaustionPhase.Effect
-                    )
-                  ): FiberOutcome).pure[F]
-
-                case Left(err) =>
-                  (FiberOutcome.Failed(
-                    StateMachine.FailureReason.EffectEvaluationError(err.getMessage)
-                  ): FiberOutcome).pure[F]
-              }
+            evaluateEffectExpression(transition, contextData, guardGas).flatMap {
+              case Left(reason) => reason.pureOutcome[F]
+              case Right((effectResult, gasAfterEffect)) =>
+                processEffectResult(fiber.cid, currentMap, transition, effectResult, contextData, gasAfterEffect)
+            }
 
           case _ =>
-            (FiberOutcome.Failed(
-              StateMachine.FailureReason.EffectEvaluationError("State data must be MapValue")
-            ): FiberOutcome).pure[F]
+            StateMachine.FailureReason.EffectEvaluationError("State data must be MapValue").pureOutcome[F]
         }
+
+      private def evaluateEffectExpression(
+        transition:  StateMachine.Transition,
+        contextData: JsonLogicValue,
+        guardGas:    Long
+      ): F[Either[StateMachine.FailureReason, (JsonLogicValue, Long)]] = {
+        val remainingGas = limits.maxGas - guardGas
+
+        JsonLogicEvaluator
+          .tailRecursive[F]
+          .evaluateWithGas(transition.effect, contextData, None, GasLimit(remainingGas), gasConfig)
+          .map {
+            case Right(EvaluationResult(effectResult, effectGasUsed, _, _)) =>
+              (effectResult, guardGas + effectGasUsed.amount).asRight
+
+            case Left(_: GasExhaustedException) =>
+              StateMachine.FailureReason
+                .GasExhaustedFailure(guardGas, limits.maxGas, StateMachine.GasExhaustionPhase.Effect)
+                .asLeft
+
+            case Left(err) =>
+              StateMachine.FailureReason.EffectEvaluationError(err.getMessage).asLeft
+          }
       }
+
+      private def processEffectResult(
+        fiberId:        UUID,
+        currentMap:     MapValue,
+        transition:     StateMachine.Transition,
+        effectResult:   JsonLogicValue,
+        contextData:    JsonLogicValue,
+        gasAfterEffect: Long
+      ): F[FiberOutcome] =
+        for {
+          // Validate state size (runtime check - only known after effect execution)
+          sizeCheck <- validateStateSize(effectResult)
+          result <- sizeCheck match {
+            case Left(reason) => reason.pureOutcome[F]
+            case Right(_) =>
+              buildSuccessOutcome(fiberId, currentMap, transition, effectResult, contextData, gasAfterEffect)
+          }
+        } yield result
+
+      private def validateStateSize(effectResult: JsonLogicValue): F[Either[StateMachine.FailureReason, Unit]] =
+        JsonBinaryCodec[F, JsonLogicValue]
+          .serialize(effectResult)
+          .map { bytes =>
+            val size = bytes.length
+            if (size <= limits.maxStateSizeBytes) ().asRight
+            else StateMachine.FailureReason.StateSizeTooLarge(size, limits.maxStateSizeBytes).asLeft
+          }
+
+      private def buildSuccessOutcome(
+        fiberId:        UUID,
+        currentMap:     MapValue,
+        transition:     StateMachine.Transition,
+        effectResult:   JsonLogicValue,
+        contextData:    JsonLogicValue,
+        gasAfterEffect: Long
+      ): F[FiberOutcome] =
+        for {
+          // Extract side effects from result
+          outputs <- EffectExtractor.extractOutputs(effectResult).pure[F]
+          spawnMachines = EffectExtractor.extractSpawnDirectivesFromExpression(transition.effect)
+          triggerEvents <- EffectExtractor.extractTriggerEvents(effectResult, contextData)
+          oracleCall    <- EffectExtractor.extractOracleCall(effectResult, contextData)
+          allTriggers = triggerEvents ++ oracleCall.toList
+
+          // Calculate final gas with orchestration overhead
+          gasForTriggers = allTriggers.size * fiberGasConfig.triggerEvent.amount
+          gasForSpawns = spawnMachines.size * fiberGasConfig.spawnDirective.amount
+          finalGasUsed = gasAfterEffect + gasForTriggers + gasForSpawns
+
+          result <-
+            if (finalGasUsed > limits.maxGas)
+              StateMachine.FailureReason
+                .GasExhaustedFailure(finalGasUsed, limits.maxGas, StateMachine.GasExhaustionPhase.Effect)
+                .pureOutcome[F]
+            else
+              StateMerger.make[F].mergeEffectIntoState(currentMap, effectResult).map[FiberOutcome] {
+                case Right(newStateData) =>
+                  FiberOutcome.Success(
+                    newStateData = newStateData,
+                    newStateId = Some(transition.to),
+                    triggers = allTriggers,
+                    spawns = spawnMachines,
+                    outputs = outputs,
+                    returnValue = None,
+                    gasUsed = finalGasUsed
+                  )
+                case Left(reason) => reason.asOutcome
+              }
+        } yield result
+
+      // ──────────────────────────────────────────────────────────────────────────
+      // Oracle Evaluation
+      // ──────────────────────────────────────────────────────────────────────────
 
       private def evaluateOracle(
         oracle: Records.ScriptOracleFiberRecord,
@@ -316,8 +292,7 @@ object FiberEvaluator {
         caller: io.constellationnetwork.schema.address.Address
       ): F[FiberOutcome] =
         OracleProcessor.validateAccess[F](oracle.accessControl, caller, oracle.cid).flatMap {
-          case Left(reason) =>
-            (FiberOutcome.Failed(reason): FiberOutcome).pure[F]
+          case Left(reason) => reason.pureOutcome[F]
 
           case Right(_) =>
             val inputData = MapValue(
@@ -342,22 +317,16 @@ object FiberEvaluator {
                       outputs = List.empty,
                       returnValue = Some(returnValue),
                       gasUsed = gasUsed.amount
-                    ): FiberOutcome
+                    )
                   }
 
                 case Left(_: GasExhaustedException) =>
-                  (FiberOutcome.Failed(
-                    StateMachine.FailureReason.GasExhaustedFailure(
-                      limits.maxGas,
-                      limits.maxGas,
-                      StateMachine.GasExhaustionPhase.Oracle
-                    )
-                  ): FiberOutcome).pure[F]
+                  StateMachine.FailureReason
+                    .GasExhaustedFailure(limits.maxGas, limits.maxGas, StateMachine.GasExhaustionPhase.Oracle)
+                    .pureOutcome[F]
 
                 case Left(err) =>
-                  (FiberOutcome.Failed(
-                    StateMachine.FailureReason.EffectEvaluationError(err.getMessage)
-                  ): FiberOutcome).pure[F]
+                  StateMachine.FailureReason.EffectEvaluationError(err.getMessage).pureOutcome[F]
               }
         }
     }

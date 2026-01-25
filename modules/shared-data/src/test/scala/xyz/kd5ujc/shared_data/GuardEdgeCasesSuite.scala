@@ -102,17 +102,22 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
 
       } yield result match {
         case TransactionOutcome.Committed(machines, _, _, _, _, _) =>
-          // First guard should fail (missing field), fallback should succeed
+          // First guard should fail (missing field evaluates to null != true), fallback should succeed
           val updated = machines.get(fiberId)
-          expect(updated.isDefined) and
-          expect(updated.exists(_.currentState == StateMachine.StateId("end"))) and
-          expect(updated.exists(_.stateData match {
-            case MapValue(m) => m.get("path").contains(StrValue("fallback"))
-            case _           => false
-          }))
+          expect(updated.isDefined, "Updated fiber should exist") and
+          expect(
+            updated.exists(_.currentState == StateMachine.StateId("end")),
+            s"Expected state 'end', got ${updated.map(_.currentState)}"
+          ) and
+          expect(
+            updated.exists(_.stateData match {
+              case MapValue(m) => m.get("path").contains(StrValue("fallback"))
+              case _           => false
+            }),
+            "Expected 'path' to be 'fallback' (second transition taken)"
+          )
         case TransactionOutcome.Aborted(reason, _, _) =>
-          // Accessing missing field shouldn't crash - but if it does, document
-          expect(reason.toMessage.toLowerCase.contains("guard") || reason.toMessage.toLowerCase.contains("missing"))
+          failure(s"Expected Committed with fallback transition, but got Aborted: ${reason.toMessage}")
       }
     }
   }
@@ -185,14 +190,16 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
 
       } yield result match {
         case TransactionOutcome.Committed(machines, _, _, gasUsed, _, _) =>
-          expect(machines.get(fiberId).exists(_.currentState == StateMachine.StateId("end"))) and
-          expect(gasUsed > 0L) // Nested guard consumed some gas
-        case TransactionOutcome.Aborted(reason, _, _) =>
-          // If depth limit is exceeded, that's acceptable
+          // Deeply nested guard: 10 levels of nested conditionals
+          // Each level has: if (1) = 2 gas ops, so ~20 gas minimum
+          val expectedMinGas = 10L
           expect(
-            reason.toMessage.toLowerCase.contains("depth") ||
-            reason.toMessage.toLowerCase.contains("gas")
-          )
+            machines.get(fiberId).exists(_.currentState == StateMachine.StateId("end")),
+            s"Expected state 'end', got ${machines.get(fiberId).map(_.currentState)}"
+          ) and
+          expect(gasUsed >= expectedMinGas, s"Expected at least $expectedMinGas gas, got $gasUsed")
+        case TransactionOutcome.Aborted(reason, _, _) =>
+          failure(s"Expected Committed but got Aborted: ${reason.toMessage}")
       }
     }
   }
@@ -277,10 +284,8 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
         case TransactionOutcome.Aborted(reason, _, _) =>
           // Division by zero should cause guard evaluation error
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.GuardEvaluationError] ||
-            reason.toMessage.toLowerCase.contains("guard") ||
-            reason.toMessage.toLowerCase.contains("divide") ||
-            reason.toMessage.toLowerCase.contains("zero")
+            reason.isInstanceOf[StateMachine.FailureReason.GuardEvaluationError],
+            s"Expected GuardEvaluationError but got: ${reason.getClass.getSimpleName}"
           )
         case TransactionOutcome.Committed(machines, _, _, _, _, _) =>
           // If JsonLogic handles div-by-zero gracefully (returns null/false),
@@ -290,7 +295,8 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
             updated.exists(_.stateData match {
               case MapValue(m) => m.get("fallback").contains(BoolValue(true))
               case _           => false
-            })
+            }),
+            "Expected fallback transition to be taken when div-by-zero returns null"
           )
       }
     }
@@ -453,16 +459,13 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
 
       } yield result match {
         case TransactionOutcome.Aborted(reason, _, _) =>
-          // Guard that returns non-boolean should cause error or be treated as false
+          // Guard returning non-boolean (IntValue(42)) should error with GuardEvaluationError
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.GuardEvaluationError] ||
-            reason.isInstanceOf[StateMachine.FailureReason.NoGuardMatched] ||
-            reason.toMessage.toLowerCase.contains("boolean") ||
-            reason.toMessage.toLowerCase.contains("guard")
+            reason.isInstanceOf[StateMachine.FailureReason.GuardEvaluationError],
+            s"Expected GuardEvaluationError but got: ${reason.getClass.getSimpleName}: ${reason.toMessage}"
           )
         case TransactionOutcome.Committed(_, _, _, _, _, _) =>
-          // If the system treats non-boolean as truthy/falsy and proceeds, that's also valid behavior
-          success
+          failure("Expected Aborted with GuardEvaluationError, but transaction was committed")
       }
     }
   }
@@ -527,13 +530,11 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
       } yield result match {
         case TransactionOutcome.Aborted(reason, _, _) =>
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.EffectEvaluationError] ||
-            reason.toMessage.toLowerCase.contains("mapvalue") ||
-            reason.toMessage.toLowerCase.contains("state")
+            reason.isInstanceOf[StateMachine.FailureReason.EffectEvaluationError],
+            s"Expected EffectEvaluationError but got: ${reason.getClass.getSimpleName}"
           )
         case TransactionOutcome.Committed(_, _, _, _, _, _) =>
-          // If the effect somehow succeeds with array state, document that behavior
-          failure("Expected EffectEvaluationError for non-MapValue state data")
+          failure("Expected Aborted with EffectEvaluationError for non-MapValue state data")
       }
     }
   }

@@ -545,6 +545,18 @@ Effects can include special keys for side effects:
 - **Cause:** Accessing `event.field` or `state.field` that doesn't exist
 - **Solution:** Add guard to check field exists: `{ "!!": [{ "var": "event.field" }] }`
 
+**7. "Cannot process event on fiber: fiber is Archived"**
+- **Cause:** Sending an event to a state machine that has been archived
+- **Solution:** Check fiber status before sending events. Archived fibers cannot process events.
+
+**8. "Trigger target not found"**
+- **Cause:** A `_triggers` directive references a fiber UUID that doesn't exist
+- **Solution:** Verify the target fiber exists and the UUID is correct. This error aborts the entire transaction.
+
+**9. "Spawn validation failed"**
+- **Cause:** Invalid spawn directive (bad UUID format, duplicate child IDs, invalid owner addresses)
+- **Solution:** Check spawn expressions return valid UUIDs and addresses. Use unique child IDs per spawn batch.
+
 ### Debugging Tips
 
 1. **Test guards in isolation** - Verify they return booleans
@@ -569,6 +581,10 @@ Before deploying a state machine:
 - [ ] No circular trigger loops
 - [ ] Dependencies are specified when accessing other machines
 - [ ] Reserved keys (starting with `_`) only used for side effects
+- [ ] Trigger targets exist and are valid UUIDs
+- [ ] Spawn child IDs are unique within each effect
+- [ ] Owner addresses in spawns are valid DAG addresses
+- [ ] No events sent to archived fibers
 
 ## JSON Logic Reference
 

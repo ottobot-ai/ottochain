@@ -56,6 +56,21 @@ object ExecutionOps {
   def getDepth[G[_]](implicit S: Stateful[G, ExecutionState]): G[Int] =
     S.inspect(_.depth)
 
+  /** Record a trigger for debugging */
+  def recordTrigger[G[_]](
+    targetFiberId: UUID,
+    sourceFiberId: Option[UUID],
+    inputKey:      String,
+    gasUsed:       Long
+  )(implicit S: Stateful[G, ExecutionState]): G[Unit] =
+    S.modify(_.recordTrigger(targetFiberId, sourceFiberId, inputKey, gasUsed))
+
+  /** Get the trigger chain for debugging */
+  def getTriggerChain[G[_]](implicit
+    S: Stateful[G, ExecutionState]
+  ): G[List[xyz.kd5ujc.shared_data.fiber.domain.TriggerTraceEntry]] =
+    S.inspect(_.triggerChain)
+
   // === MTL-style context operations (work in any G[_] with Ask) ===
 
   /** Get the full fiber context */
@@ -95,7 +110,7 @@ object ExecutionOps {
       depth   <- getDepth
     } yield
       if (depth >= limits.maxDepth)
-        Some(StateMachine.FailureReason.Other(s"Depth exceeded: $depth"))
+        Some(StateMachine.FailureReason.DepthExceeded(depth, limits.maxDepth))
       else if (gasUsed >= limits.maxGas)
         Some(
           StateMachine.FailureReason
@@ -127,7 +142,7 @@ object ExecutionOps {
   ): ExecutionT[F, Option[StateMachine.FailureReason]] =
     StateT.inspect { state =>
       if (state.depth >= limits.maxDepth)
-        Some(StateMachine.FailureReason.Other(s"Depth exceeded: ${state.depth}"))
+        Some(StateMachine.FailureReason.DepthExceeded(state.depth, limits.maxDepth))
       else if (state.gasUsed >= limits.maxGas)
         Some(
           StateMachine.FailureReason

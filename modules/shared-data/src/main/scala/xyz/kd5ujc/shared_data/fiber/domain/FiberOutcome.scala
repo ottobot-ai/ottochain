@@ -1,5 +1,7 @@
 package xyz.kd5ujc.shared_data.fiber.domain
 
+import cats.Applicative
+
 import io.constellationnetwork.metagraph_sdk.json_logic.JsonLogicValue
 
 import xyz.kd5ujc.schema.{Records, StateMachine}
@@ -10,6 +12,11 @@ import xyz.kd5ujc.schema.{Records, StateMachine}
 sealed trait FiberOutcome
 
 object FiberOutcome {
+
+  implicit class FailureReasonOps(private val reason: StateMachine.FailureReason) extends AnyVal {
+    def pureOutcome[F[_]: Applicative]: F[FiberOutcome] = Applicative[F].pure(Failed(reason))
+    def asOutcome: FiberOutcome = Failed(reason)
+  }
 
   /**
    * Successful fiber evaluation.

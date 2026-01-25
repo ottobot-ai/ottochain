@@ -11,20 +11,7 @@ import derevo.derive
 case class CalculatedState(
   stateMachines: Map[UUID, Records.StateMachineFiberRecord],
   scriptOracles: Map[UUID, Records.ScriptOracleFiberRecord]
-) extends DataCalculatedState {
-
-  /** Lookup any fiber by ID */
-  def getFiber(id: UUID): Option[Records.FiberRecord] =
-    stateMachines.get(id).orElse(scriptOracles.get(id))
-
-  /** Update a fiber (dispatches to correct map) */
-  def updateFiber(fiber: Records.FiberRecord): CalculatedState = fiber match {
-    case sm: Records.StateMachineFiberRecord =>
-      copy(stateMachines = stateMachines.updated(sm.cid, sm))
-    case oracle: Records.ScriptOracleFiberRecord =>
-      copy(scriptOracles = scriptOracles.updated(oracle.cid, oracle))
-  }
-}
+) extends DataCalculatedState
 
 object CalculatedState {
   val genesis: CalculatedState = CalculatedState(Map.empty, Map.empty)

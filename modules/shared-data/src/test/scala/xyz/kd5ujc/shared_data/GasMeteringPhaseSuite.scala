@@ -307,7 +307,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
     }
   }
 
-  test("gas limit of zero causes failure") {
+  test("gas limit of zero causes failure with non-trivial guard") {
     TestFixture.resource(Set.empty).use { fixture =>
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
@@ -316,7 +316,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
 
         fiberId <- UUIDGen.randomUUID[IO]
 
-        // Simple state machine
+        // State machine with guard that accesses state (costs 2 gas for varAccess)
         definition = StateMachine.StateMachineDefinition(
           states = Map(
             StateMachine.StateId("start") -> StateMachine.State(StateMachine.StateId("start")),
@@ -328,7 +328,8 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
               from = StateMachine.StateId("start"),
               to = StateMachine.StateId("end"),
               eventType = StateMachine.EventType("go"),
-              guard = ConstExpression(BoolValue(true)),
+              // Guard that reads from state - varAccess costs 2 gas, !! (NOp) costs 1 gas
+              guard = ApplyExpression(NOp, List(VarExpression(Left("_state")))),
               effect = ConstExpression(MapValue(Map("done" -> BoolValue(true))))
             )
           )
@@ -358,7 +359,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           MapValue(Map.empty)
         )
 
-        // Zero gas limit
+        // Zero gas limit - will fail because guard needs gas for varAccess
         limits = ExecutionLimits(maxDepth = 10, maxGas = 0L)
         orchestrator = FiberOrchestrator.make[IO](calculatedState, fixture.ordinal, limits)
 
@@ -366,14 +367,12 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
 
       } yield result match {
         case TransactionOutcome.Aborted(reason, _, _) =>
-          // Should fail due to gas exhaustion
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.GasExhaustedFailure] ||
-            reason.toMessage.toLowerCase.contains("gas")
+            reason.isInstanceOf[StateMachine.FailureReason.GasExhaustedFailure],
+            s"Expected GasExhaustedFailure but got: ${reason.getClass.getSimpleName}"
           )
         case TransactionOutcome.Committed(_, _, _, _, _, _) =>
-          // If gas limit of 0 still allows transactions, that's acceptable
-          success
+          failure("Expected Aborted with GasExhaustedFailure for gas limit of 0")
       }
     }
   }
@@ -561,14 +560,13 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
 
         val lowFailed = resultLow match {
           case TransactionOutcome.Aborted(reason, _, _) =>
-            reason.toMessage.toLowerCase.contains("gas") ||
             reason.isInstanceOf[StateMachine.FailureReason.GasExhaustedFailure]
           case TransactionOutcome.Committed(_, _, _, _, _, _) =>
             false // Unexpectedly succeeded
         }
 
-        expect(highSuccess) and // High gas succeeds
-        expect(lowFailed) // Low gas fails
+        expect(highSuccess, "High gas limit should allow spawn to succeed") and
+        expect(lowFailed, "Low gas limit should cause GasExhaustedFailure")
       }
     }
   }
@@ -694,10 +692,18 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
       } yield result match {
         case TransactionOutcome.Committed(machines, _, _, gasUsed, _, _) =>
           // Both machines transitioned
-          expect(machines.get(machine1Id).exists(_.currentState == StateMachine.StateId("b"))) and
-          expect(machines.get(machine2Id).exists(_.currentState == StateMachine.StateId("y"))) and
-          // Gas was tracked (includes trigger overhead and evaluation)
-          expect(gasUsed > 0L)
+          // Gas includes: guard eval + effect eval + trigger overhead for both machines
+          // Actual gas depends on FiberGasConfig and VM gas costs
+          val expectedMinGas = 5L
+          expect(
+            machines.get(machine1Id).exists(_.currentState == StateMachine.StateId("b")),
+            s"Expected machine1 in state 'b', got ${machines.get(machine1Id).map(_.currentState)}"
+          ) and
+          expect(
+            machines.get(machine2Id).exists(_.currentState == StateMachine.StateId("y")),
+            s"Expected machine2 in state 'y', got ${machines.get(machine2Id).map(_.currentState)}"
+          ) and
+          expect(gasUsed >= expectedMinGas, s"Expected at least $expectedMinGas gas for trigger chain, got $gasUsed")
         case TransactionOutcome.Aborted(reason, _, _) =>
           failure(s"Expected Committed but got Aborted: ${reason.toMessage}")
       }
@@ -824,30 +830,28 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           FiberOrchestrator.make[IO](calculatedState, fixture.ordinal, limits, fiberGasConfig = FiberGasConfig.Minimal)
         resultMinimal <- orchestratorMinimal.process(machine1Id, input, List.empty)
 
-      } yield {
-        // All should succeed
-        val defaultGas = resultDefault match {
-          case TransactionOutcome.Committed(_, _, _, gas, _, _) => gas
-          case _                                                => -1L
-        }
-
-        val mainnetGas = resultMainnet match {
-          case TransactionOutcome.Committed(_, _, _, gas, _, _) => gas
-          case _                                                => -1L
-        }
-
-        val minimalGas = resultMinimal match {
-          case TransactionOutcome.Committed(_, _, _, gas, _, _) => gas
-          case _                                                => -1L
-        }
-
-        expect(defaultGas > 0L) and
-        expect(mainnetGas > 0L) and
-        expect(minimalGas > 0L) and
-        // Mainnet costs more than default (triggerEvent: 10 vs 5, etc.)
-        expect(mainnetGas >= defaultGas) and
-        // Minimal costs less than or equal to default (triggerEvent: 1 vs 5, etc.)
-        expect(minimalGas <= defaultGas)
+      } yield (resultDefault, resultMainnet, resultMinimal) match {
+        case (
+              TransactionOutcome.Committed(_, _, _, defaultGas, _, _),
+              TransactionOutcome.Committed(_, _, _, mainnetGas, _, _),
+              TransactionOutcome.Committed(_, _, _, minimalGas, _, _)
+            ) =>
+          // Verify gas was actually consumed (trigger chain has overhead)
+          // Each config: trigger overhead + guard + effect for 2 machines
+          val expectedMinGas = 5L
+          expect(defaultGas >= expectedMinGas, s"Default gas ($defaultGas) should be >= $expectedMinGas") and
+          expect(mainnetGas >= expectedMinGas, s"Mainnet gas ($mainnetGas) should be >= $expectedMinGas") and
+          expect(minimalGas >= 1L, s"Minimal gas ($minimalGas) should be >= 1") and
+          // Mainnet costs more than default (triggerEvent: 10 vs 5, etc.)
+          expect(mainnetGas >= defaultGas, s"Mainnet ($mainnetGas) should cost >= default ($defaultGas)") and
+          // Minimal costs less than or equal to default (triggerEvent: 1 vs 5, etc.)
+          expect(minimalGas <= defaultGas, s"Minimal ($minimalGas) should cost <= default ($defaultGas)")
+        case (TransactionOutcome.Aborted(reason, _, _), _, _) =>
+          failure(s"Default config transaction aborted: ${reason.toMessage}")
+        case (_, TransactionOutcome.Aborted(reason, _, _), _) =>
+          failure(s"Mainnet config transaction aborted: ${reason.toMessage}")
+        case (_, _, TransactionOutcome.Aborted(reason, _, _)) =>
+          failure(s"Minimal config transaction aborted: ${reason.toMessage}")
       }
     }
   }

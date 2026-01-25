@@ -3,33 +3,29 @@ package xyz.kd5ujc.shared_data.fiber.engine
 import java.util.UUID
 
 import cats.Functor
+import cats.data.Validated
 import cats.effect.Async
 import cats.mtl.Ask
 import cats.syntax.all._
 
 import io.constellationnetwork.metagraph_sdk.json_logic.JsonLogicValue
-import io.constellationnetwork.metagraph_sdk.json_logic.core.{ArrayValue, StrValue}
 import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluator
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.schema.SnapshotOrdinal
-import io.constellationnetwork.schema.address.{Address, DAGAddressRefined}
 import io.constellationnetwork.security.SecurityProvider
 
 import xyz.kd5ujc.schema.{Records, StateMachine}
 import xyz.kd5ujc.shared_data.fiber.domain.FiberContext
-
-import eu.timepit.refined.refineV
 
 /**
  * Processes spawn directives to create child fibers.
  *
  * Only applicable to state machines (oracles don't spawn children).
  *
- * For each SpawnDirective:
- * 1. Evaluate childIdExpr to get UUID
- * 2. Evaluate initialData expression
- * 3. Evaluate ownersExpr (or inherit from parent)
- * 4. Create new StateMachineFiberRecord
+ * Processing flow:
+ * 1. Validate all directives using SpawnValidator (collect all errors)
+ * 2. If validation passes, create fiber records for each validated spawn
+ * 3. Return clear error messages for validation failures
  */
 trait SpawnProcessor[F[_]] {
 
@@ -38,6 +34,23 @@ trait SpawnProcessor[F[_]] {
     parent:      Records.StateMachineFiberRecord,
     contextData: JsonLogicValue
   ): F[List[Records.StateMachineFiberRecord]]
+
+  def processSpawnsValidated(
+    directives:  List[StateMachine.SpawnDirective],
+    parent:      Records.StateMachineFiberRecord,
+    contextData: JsonLogicValue,
+    knownFibers: Set[UUID]
+  ): F[Either[SpawnProcessingError, List[Records.StateMachineFiberRecord]]]
+}
+
+/**
+ * Error produced when spawn processing fails.
+ */
+final case class SpawnProcessingError(
+  errors: List[SpawnValidationError]
+) {
+
+  def message: String = errors.map(_.message).mkString("; ")
 }
 
 object SpawnProcessor {
@@ -45,91 +58,92 @@ object SpawnProcessor {
   /**
    * Create SpawnProcessor with explicit ordinal parameter.
    */
-  def make[F[_]: Async: SecurityProvider: JsonLogicEvaluator](
+  def make[F[_]: Async: JsonLogicEvaluator](
     ordinal: SnapshotOrdinal
   ): SpawnProcessor[F] =
     new SpawnProcessor[F] {
+
+      private val validator: SpawnValidator[F] = SpawnValidator.make[F]
 
       def processSpawns(
         directives:  List[StateMachine.SpawnDirective],
         parent:      Records.StateMachineFiberRecord,
         contextData: JsonLogicValue
       ): F[List[Records.StateMachineFiberRecord]] =
-        directives.traverse(processSpawn(_, parent, contextData, ordinal))
+        processSpawnsValidated(directives, parent, contextData, Set.empty).flatMap {
+          case Right(fibers) => fibers.pure[F]
+          case Left(error) =>
+            Async[F].raiseError[List[Records.StateMachineFiberRecord]](
+              new RuntimeException(s"Spawn validation failed: ${error.message}")
+            )
+        }
 
-      private def processSpawn(
-        spawn:       StateMachine.SpawnDirective,
-        parentFiber: Records.StateMachineFiberRecord,
+      def processSpawnsValidated(
+        directives:  List[StateMachine.SpawnDirective],
+        parent:      Records.StateMachineFiberRecord,
         contextData: JsonLogicValue,
-        ordinal:     SnapshotOrdinal
+        knownFibers: Set[UUID]
+      ): F[Either[SpawnProcessingError, List[Records.StateMachineFiberRecord]]] =
+        directives.isEmpty
+          .pure[F]
+          .ifM(
+            ifTrue = List.empty[Records.StateMachineFiberRecord].asRight[SpawnProcessingError].pure[F],
+            ifFalse = validateAndProcess(directives, parent, contextData, knownFibers)
+          )
+
+      private def validateAndProcess(
+        directives:  List[StateMachine.SpawnDirective],
+        parent:      Records.StateMachineFiberRecord,
+        contextData: JsonLogicValue,
+        knownFibers: Set[UUID]
+      ): F[Either[SpawnProcessingError, List[Records.StateMachineFiberRecord]]] =
+        validator.validateSpawns(directives, parent, knownFibers, contextData).flatMap {
+          case Validated.Valid(plan) =>
+            createFibersFromPlan(plan, parent, contextData).map(_.asRight[SpawnProcessingError])
+
+          case Validated.Invalid(errors) =>
+            SpawnProcessingError(errors.toList).asLeft[List[Records.StateMachineFiberRecord]].pure[F]
+        }
+
+      private def createFibersFromPlan(
+        plan:        SpawnPlan,
+        parent:      Records.StateMachineFiberRecord,
+        contextData: JsonLogicValue
+      ): F[List[Records.StateMachineFiberRecord]] =
+        plan.validatedSpawns.traverse { validatedSpawn =>
+          createFiberRecord(validatedSpawn, parent, contextData)
+        }
+
+      private def createFiberRecord(
+        spawn:       ValidatedSpawn,
+        parent:      Records.StateMachineFiberRecord,
+        contextData: JsonLogicValue
       ): F[Records.StateMachineFiberRecord] =
         for {
-          // Evaluate childIdExpr to get the UUID
-          childIdValue <- JsonLogicEvaluator
-            .tailRecursive[F]
-            .evaluate(spawn.childIdExpr, contextData, None)
-            .flatMap(Async[F].fromEither)
-
-          childIdStr <- childIdValue match {
-            case StrValue(id) => id.pure[F]
-            case _ =>
-              Async[F].raiseError[String](
-                new RuntimeException(s"childId must evaluate to string, got: $childIdValue")
-              )
-          }
-
-          childId <- scala.util.Try(UUID.fromString(childIdStr)).toOption match {
-            case Some(uuid) => uuid.pure[F]
-            case None       => Async[F].raiseError[UUID](new RuntimeException(s"Invalid UUID format: $childIdStr"))
-          }
-
           // Evaluate initialData expression
           initialData <- JsonLogicEvaluator
             .tailRecursive[F]
-            .evaluate(spawn.initialData, contextData, None)
+            .evaluate(spawn.directive.initialData, contextData, None)
             .flatMap(Async[F].fromEither)
-
-          // Evaluate owners expression or inherit from parent
-          owners <- spawn.ownersExpr.fold(parentFiber.owners.pure[F]) { expr =>
-            JsonLogicEvaluator
-              .tailRecursive[F]
-              .evaluate(expr, contextData, None)
-              .flatMap(Async[F].fromEither)
-              .flatMap {
-                case ArrayValue(addresses) =>
-                  addresses
-                    .traverse[F, Address] {
-                      case StrValue(addr) =>
-                        refineV[DAGAddressRefined](addr) match {
-                          case Right(refined) => (Address(refined): Address).pure[F]
-                          case Left(err) =>
-                            Async[F].raiseError[Address](new RuntimeException(s"Invalid owner address: $err"))
-                        }
-                      case _ => Async[F].raiseError[Address](new RuntimeException("Invalid owner address format"))
-                    }
-                    .map(_.toSet)
-                case _ => Async[F].raiseError[Set[Address]](new RuntimeException("Owners expression must return array"))
-              }
-          }
 
           // Hash initial data
           initialDataHash <- initialData.computeDigest
 
           // Create child fiber record
           childFiber = Records.StateMachineFiberRecord(
-            cid = childId,
+            cid = spawn.childId,
             creationOrdinal = ordinal,
             previousUpdateOrdinal = ordinal,
             latestUpdateOrdinal = ordinal,
-            definition = spawn.definition,
-            currentState = spawn.definition.initialState,
+            definition = spawn.directive.definition,
+            currentState = spawn.directive.definition.initialState,
             stateData = initialData,
             stateDataHash = initialDataHash,
             sequenceNumber = 0,
-            owners = owners,
+            owners = spawn.resolvedOwners,
             status = Records.FiberStatus.Active,
             lastEventStatus = Records.EventProcessingStatus.Initialized,
-            parentFiberId = Some(parentFiber.cid),
+            parentFiberId = Some(parent.cid),
             childFiberIds = Set.empty
           )
         } yield childFiber

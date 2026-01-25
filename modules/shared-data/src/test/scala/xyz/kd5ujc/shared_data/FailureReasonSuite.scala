@@ -88,17 +88,16 @@ object FailureReasonSuite extends SimpleIOSuite {
         case TransactionOutcome.Aborted(reason, _, _) =>
           reason match {
             case StateMachine.FailureReason.NoTransitionFound(state, eventType) =>
-              expect(state == StateMachine.StateId("idle")) and
-              expect(eventType == StateMachine.EventType("unknown_event"))
-            case other =>
-              // Accept related error types
+              expect(state == StateMachine.StateId("idle"), s"Expected state 'idle', got $state") and
               expect(
-                other.toMessage.contains("transition") ||
-                other.toMessage.contains("unknown_event")
+                eventType == StateMachine.EventType("unknown_event"),
+                s"Expected event 'unknown_event', got $eventType"
               )
+            case other =>
+              failure(s"Expected NoTransitionFound but got: ${other.getClass.getSimpleName}")
           }
         case TransactionOutcome.Committed(_, _, _, _, _, _) =>
-          failure("Expected Aborted with NoTransitionFound, got Committed")
+          failure("Expected Aborted with NoTransitionFound, but transaction was committed")
       }
     }
   }
@@ -170,13 +169,12 @@ object FailureReasonSuite extends SimpleIOSuite {
         case TransactionOutcome.Aborted(reason, _, _) =>
           reason match {
             case StateMachine.FailureReason.NoGuardMatched(_, _, attemptedCount) =>
-              expect(attemptedCount == 2)
+              expect(attemptedCount == 2, s"Expected 2 guard attempts, got $attemptedCount")
             case other =>
-              // GuardFailed outcome is also acceptable
-              expect(other.toMessage.toLowerCase.contains("guard"))
+              failure(s"Expected NoGuardMatched but got: ${other.getClass.getSimpleName}")
           }
         case TransactionOutcome.Committed(_, _, _, _, _, _) =>
-          failure("Expected Aborted with NoGuardMatched, got Committed")
+          failure("Expected Aborted with NoGuardMatched, but transaction was committed")
       }
     }
   }
@@ -260,17 +258,12 @@ object FailureReasonSuite extends SimpleIOSuite {
         case TransactionOutcome.Aborted(reason, _, _) =>
           reason match {
             case StateMachine.FailureReason.TriggerTargetNotFound(targetId, _) =>
-              expect(targetId == nonExistentId)
+              expect(targetId == nonExistentId, s"Expected target $nonExistentId, got $targetId")
             case other =>
-              // Error should mention the missing target
-              expect(
-                other.toMessage.contains(nonExistentId.toString) ||
-                other.toMessage.toLowerCase.contains("target") ||
-                other.toMessage.toLowerCase.contains("not found")
-              )
+              failure(s"Expected TriggerTargetNotFound but got: ${other.getClass.getSimpleName}")
           }
         case TransactionOutcome.Committed(_, _, _, _, _, _) =>
-          failure("Expected Aborted with TriggerTargetNotFound, got Committed")
+          failure("Expected Aborted with TriggerTargetNotFound, but transaction was committed")
       }
     }
   }
@@ -438,8 +431,8 @@ object FailureReasonSuite extends SimpleIOSuite {
           MapValue(Map.empty)
         )
 
-        // Very low gas limit
-        limits = ExecutionLimits(maxDepth = 10, maxGas = 5L)
+        // Gas limit set to exhaust during guard evaluation (100 additions need ~100+ gas)
+        limits = ExecutionLimits(maxDepth = 10, maxGas = 50L)
         orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
@@ -447,21 +440,30 @@ object FailureReasonSuite extends SimpleIOSuite {
       } yield result match {
         case TransactionOutcome.Aborted(reason, _, _) =>
           reason match {
-            case StateMachine.FailureReason.GasExhaustedFailure(gasUsed, gasLimit, _) =>
-              expect(gasUsed >= 0L) and
-              expect(gasLimit == 5L)
-            case _ =>
-              // Accept any failure - the guard is expensive and might fail for other reasons
-              success
+            case StateMachine.FailureReason.GasExhaustedFailure(gasUsed, gasLimit, phase) =>
+              // Gas should exhaust during guard evaluation (100 additions with 50L limit)
+              expect(gasUsed <= gasLimit, s"Gas used ($gasUsed) should not exceed limit ($gasLimit)") and
+              expect(gasLimit == 50L, s"Expected gas limit 50L, got $gasLimit") and
+              expect(
+                phase == StateMachine.GasExhaustionPhase.Guard,
+                s"Expected Guard phase (guard has 100 additions), got $phase"
+              )
+            case other =>
+              failure(
+                s"Expected GasExhaustedFailure in Guard phase but got: ${other.getClass.getSimpleName}: ${other.toMessage}"
+              )
           }
         case TransactionOutcome.Committed(_, _, _, _, _, _) =>
-          // If it succeeded with 5 gas, that's also valid behavior
-          success
+          failure("Expected Aborted with GasExhaustedFailure, but transaction was committed")
       }
     }
   }
 
-  test("ValidationFailed for invalid input") {
+  // Note: Payload validation with control characters is now handled at L1 (validateUpdate)
+  // not at runtime in FiberOrchestrator. See ValidatorSuite and DeterministicExecutionSuite
+  // for tests covering L1 payload validation (CommonRules.payloadStructureValid).
+  // This test now verifies that payloads reaching the orchestrator are assumed to be valid.
+  test("Valid payload with proper characters succeeds") {
     TestFixture.resource().use { fixture =>
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
@@ -507,16 +509,16 @@ object FailureReasonSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
 
-        // Payload with control characters (should fail validation)
-        invalidPayload = MapValue(
+        // Valid payload (control character validation happens at L1)
+        validPayload = MapValue(
           Map(
-            "message" -> StrValue("Hello\u0000World")
+            "message" -> StrValue("Hello World")
           )
         )
 
         input = FiberInput.Transition(
           StateMachine.EventType("process"),
-          invalidPayload
+          validPayload
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
@@ -525,21 +527,10 @@ object FailureReasonSuite extends SimpleIOSuite {
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
-          reason match {
-            case StateMachine.FailureReason.ValidationFailed(message, _) =>
-              expect(message.toLowerCase.contains("control") || message.toLowerCase.contains("invalid"))
-            case other =>
-              // Accept validation-related errors
-              expect(
-                other.toMessage.toLowerCase.contains("validation") ||
-                other.toMessage.toLowerCase.contains("control") ||
-                other.toMessage.toLowerCase.contains("invalid")
-              )
-          }
         case TransactionOutcome.Committed(_, _, _, _, _, _) =>
-          // If validation doesn't catch control characters, document that
           success
+        case TransactionOutcome.Aborted(reason, _, _) =>
+          failure(s"Expected Committed but got Aborted: ${reason}")
       }
     }
   }
@@ -598,12 +589,19 @@ object FailureReasonSuite extends SimpleIOSuite {
 
       } yield result match {
         case TransactionOutcome.Aborted(reason, _, _) =>
-          expect(
-            reason.toMessage.contains("MethodCall") &&
-            reason.toMessage.contains("StateMachineFiberRecord")
-          )
+          reason match {
+            case StateMachine.FailureReason.FiberInputMismatch(fid, fiberType, inputType) =>
+              expect(fid == fiberId, s"Expected fiber $fiberId, got $fid") and
+              expect(
+                fiberType == "StateMachineFiberRecord",
+                s"Expected fiberType 'StateMachineFiberRecord', got $fiberType"
+              ) and
+              expect(inputType == "MethodCall", s"Expected inputType 'MethodCall', got $inputType")
+            case other =>
+              failure(s"Expected FiberInputMismatch but got: ${other.getClass.getSimpleName}")
+          }
         case TransactionOutcome.Committed(_, _, _, _, _, _) =>
-          failure("Expected Aborted with type mismatch error, got Committed")
+          failure("Expected Aborted with FiberInputMismatch, but transaction was committed")
       }
     }
   }
@@ -653,12 +651,19 @@ object FailureReasonSuite extends SimpleIOSuite {
 
       } yield result match {
         case TransactionOutcome.Aborted(reason, _, _) =>
-          expect(
-            reason.toMessage.contains("Transition") &&
-            reason.toMessage.contains("ScriptOracleFiberRecord")
-          )
+          reason match {
+            case StateMachine.FailureReason.FiberInputMismatch(oid, fiberType, inputType) =>
+              expect(oid == oracleId, s"Expected oracle $oracleId, got $oid") and
+              expect(
+                fiberType == "ScriptOracleFiberRecord",
+                s"Expected fiberType 'ScriptOracleFiberRecord', got $fiberType"
+              ) and
+              expect(inputType == "Transition", s"Expected inputType 'Transition', got $inputType")
+            case other =>
+              failure(s"Expected FiberInputMismatch but got: ${other.getClass.getSimpleName}")
+          }
         case TransactionOutcome.Committed(_, _, _, _, _, _) =>
-          failure("Expected Aborted with type mismatch error, got Committed")
+          failure("Expected Aborted with FiberInputMismatch, but transaction was committed")
       }
     }
   }

@@ -116,15 +116,19 @@ object DepthAndHashSuite extends SimpleIOSuite {
         result <- orchestrator.process(parentId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
-          // If depth is truly counted, this might fail
-          expect(
-            reason.toMessage.toLowerCase.contains("depth") ||
-            reason.isInstanceOf[StateMachine.FailureReason.Other]
-          )
         case TransactionOutcome.Committed(machines, _, _, _, _, _) =>
-          // If spawn doesn't count against depth, child should be created
-          expect(machines.contains(childId) || machines.contains(parentId))
+          // Spawns don't increment depth - only triggers do
+          // With maxDepth=1, parent transition at depth 0 succeeds, child is spawned
+          expect(
+            machines.contains(parentId),
+            "Parent machine should be in result"
+          ) and
+          expect(
+            machines.get(parentId).exists(_.currentState == StateMachine.StateId("spawned")),
+            s"Expected parent in 'spawned' state, got ${machines.get(parentId).map(_.currentState)}"
+          )
+        case TransactionOutcome.Aborted(reason, _, _) =>
+          failure(s"Expected Committed (spawns don't increment depth), but got Aborted: ${reason.toMessage}")
       }
     }
   }
@@ -375,11 +379,9 @@ object DepthAndHashSuite extends SimpleIOSuite {
 
       } yield result match {
         case TransactionOutcome.Aborted(reason, _, _) =>
-          // Should fail due to depth exceeded
-          expect(reason.toMessage.toLowerCase.contains("depth"))
+          expect(reason.isInstanceOf[StateMachine.FailureReason.DepthExceeded])
         case TransactionOutcome.Committed(_, _, _, _, _, _) =>
-          // If it succeeded, depth limit might work differently
-          success
+          failure("Expected to exceed depth")
       }
     }
   }

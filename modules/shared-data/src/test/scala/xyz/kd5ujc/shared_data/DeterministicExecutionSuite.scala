@@ -15,7 +15,7 @@ import io.constellationnetwork.security.SecurityProvider
 import xyz.kd5ujc.schema.{CalculatedState, Records, StateMachine}
 import xyz.kd5ujc.shared_data.fiber.domain._
 import xyz.kd5ujc.shared_data.fiber.engine._
-import xyz.kd5ujc.shared_data.lifecycle.InputValidation
+import xyz.kd5ujc.shared_data.lifecycle.validate.rules.CommonRules
 import xyz.kd5ujc.shared_test.{Participant, TestFixture}
 
 import weaver.SimpleIOSuite
@@ -171,63 +171,51 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         result <- orchestrator.process(fiberId, input, List.empty)
       } yield result match {
         case TransactionOutcome.Aborted(reason, _, _) =>
-          // Accept either "Gas exhausted" OR a successful evaluation that just doesn't use much gas
-          // The important thing is the transaction should complete
-          success
-        case TransactionOutcome.Committed(_, _, _, gasUsed, _, _) =>
-          // If it succeeds with gas limit 1, then gas metering might not be strict for simple ops
-          // This is acceptable - the test documents actual behavior
-          expect(gasUsed >= 0L)
+          expect(reason.isInstanceOf[StateMachine.FailureReason.GasExhaustedFailure])
+            .or(failure(s"Expected GasExhaustedFailure but got: ${reason.getClass.getSimpleName}"))
+        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+          failure("Expected Aborted with GasExhaustedFailure, but transaction was committed")
       }
     }
   }
 
   test("input validation: rejects deeply nested expressions") {
-    IO {
-      val deepExpression = (1 to 150).foldLeft[JsonLogicExpression](
-        ConstExpression(IntValue(1))
-      ) { (acc, _) =>
-        ApplyExpression(AddOp, List(acc, ConstExpression(IntValue(1))))
-      }
+    val deepExpression = (1 to 150).foldLeft[JsonLogicExpression](
+      ConstExpression(IntValue(1))
+    ) { (acc, _) =>
+      ApplyExpression(AddOp, List(acc, ConstExpression(IntValue(1))))
+    }
 
-      val result = InputValidation.validateExpression(deepExpression, maxDepth = 100)
-
-      expect(result.isValid == false) and
-      expect(result.errors.nonEmpty) and
-      expect(result.errors.head.message.contains("exceeds maximum"))
+    CommonRules.expressionWithinDepthLimit[IO](deepExpression, "testExpr", maxDepth = 100).map { result =>
+      expect(result.isInvalid) and
+      expect(result.swap.exists(_.exists(_.message.contains("exceeds maximum"))))
     }
   }
 
   test("input validation: rejects oversized state") {
-    IO {
-      val largeString = "x" * 1000000
-      val largeState = MapValue(
-        Map(
-          "data" -> StrValue(largeString)
-        )
+    val largeString = "x" * 1000000
+    val largeState = MapValue(
+      Map(
+        "data" -> StrValue(largeString)
       )
+    )
 
-      val result = InputValidation.validateStateSize(largeState, maxSizeBytes = 500000)
-
-      expect(result.isValid == false) and
-      expect(result.errors.nonEmpty) and
-      expect(result.errors.head.message.contains("exceeds maximum"))
+    CommonRules.valueWithinSizeLimit[IO](largeState, maxSizeBytes = 500000, "testState").map { result =>
+      expect(result.isInvalid) and
+      expect(result.swap.exists(_.exists(_.message.contains("exceeds maximum"))))
     }
   }
 
   test("input validation: rejects control characters in event payload") {
-    IO {
-      val dirtyPayload = MapValue(
-        Map(
-          "message" -> StrValue("Hello\u0000\u0001World")
-        )
+    val dirtyPayload = MapValue(
+      Map(
+        "message" -> StrValue("Hello\u0000\u0001World")
       )
+    )
 
-      val result = InputValidation.validateEventPayload(dirtyPayload)
-
-      expect(result.isValid == false) and
-      expect(result.errors.nonEmpty) and
-      expect(result.errors.head.message.contains("control characters"))
+    CommonRules.payloadStructureValid[IO](dirtyPayload, "testPayload").map { result =>
+      expect(result.isInvalid) and
+      expect(result.swap.exists(_.exists(_.message.contains("control characters"))))
     }
   }
 
@@ -468,8 +456,8 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         result match {
           case TransactionOutcome.Aborted(reason, _, _) =>
             reason match {
-              case StateMachine.FailureReason.Other(msg) => msg.contains("Depth exceeded")
-              case _                                     => false
+              case StateMachine.FailureReason.DepthExceeded(_, _) => true
+              case _                                              => false
             }
           case _ => false
         }
@@ -572,16 +560,21 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         dispatcher = TriggerDispatcher.make[IO](evaluatorFactory, ordinal, limits, GasConfig.Default)
         result <- dispatcher.dispatch(triggers, calculatedState)
 
-      } yield expect(
-        result match {
-          case TransactionOutcome.Committed(updatedSMs, _, _, _, _, _) =>
-            // Both fibers should be updated
-            updatedSMs.size == 2 &&
-            updatedSMs.get(fiber1Id).exists(_.currentState == StateMachine.StateId("state2")) &&
-            updatedSMs.get(fiber2Id).exists(_.currentState == StateMachine.StateId("state2"))
-          case _ => false
-        }
-      )
+      } yield result match {
+        case TransactionOutcome.Committed(updatedSMs, _, _, _, _, _) =>
+          // Both fibers should be updated atomically
+          expect(updatedSMs.size == 2, s"Expected 2 updated machines, got ${updatedSMs.size}") and
+          expect(
+            updatedSMs.get(fiber1Id).exists(_.currentState == StateMachine.StateId("state2")),
+            s"Expected fiber1 in state 'state2', got ${updatedSMs.get(fiber1Id).map(_.currentState)}"
+          ) and
+          expect(
+            updatedSMs.get(fiber2Id).exists(_.currentState == StateMachine.StateId("state2")),
+            s"Expected fiber2 in state 'state2', got ${updatedSMs.get(fiber2Id).map(_.currentState)}"
+          )
+        case TransactionOutcome.Aborted(reason, _, _) =>
+          failure(s"Expected Committed but got Aborted: ${reason.toMessage}")
+      }
     }
   }
 
@@ -733,19 +726,27 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
       } yield result match {
         case TransactionOutcome.Committed(machines, _, _, totalGasUsed, _, _) =>
           // Gas should include ALL guard evaluations (both failed ones + the successful one) + effect
-          // Each guard evaluation consumes some gas, so total should be > gas for just one guard
+          // First guard: == check (1) + add (1) + 2 consts (2) = 4
+          // Second guard: == check (1) + add (1) + 2 consts (2) = 4
+          // Third guard: const bool (1) = 1
+          // Effect: const map (1) = 1
+          // Minimum expected: 10 gas (guard evaluations + effect)
           val updatedFiber = machines.get(fiberId)
-          expect(totalGasUsed > 0L) and // Gas was consumed
+          val expectedMinGas = 10L
+          expect(totalGasUsed >= expectedMinGas, s"Expected at least $expectedMinGas gas used, got $totalGasUsed") and
           expect(
             updatedFiber.exists(_.stateData match {
               case MapValue(m) => m.get("path").contains(StrValue("third"))
               case _           => false
-            })
+            }),
+            "Expected 'path' to be 'third'"
           ) and
-          // Third transition was taken (first two guards failed)
-          expect(updatedFiber.exists(_.currentState == StateMachine.StateId("end")))
+          expect(
+            updatedFiber.exists(_.currentState == StateMachine.StateId("end")),
+            "Expected state to be 'end'"
+          )
         case TransactionOutcome.Aborted(reason, _, _) =>
-          failure(s"Expected success but got Aborted: ${reason.toMessage}")
+          failure(s"Expected Committed but got Aborted: ${reason.toMessage}")
       }
     }
   }
@@ -815,19 +816,17 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, gasUsed, _) =>
+        case TransactionOutcome.Aborted(reason, _, _) =>
           reason match {
             case StateMachine.FailureReason.GasExhaustedFailure(used, limit, phase) =>
-              expect(used >= 0L) and
-              expect(limit == 10L) and
-              expect(phase == StateMachine.GasExhaustionPhase.Guard)
-            case _ =>
-              // Accept other failures too if gas metering works differently
-              expect(gasUsed >= 0L)
+              expect(used <= limit, s"Gas used ($used) should be at or below limit ($limit)") and
+              expect(limit == 10L, s"Expected gas limit 10L, got $limit") and
+              expect(phase == StateMachine.GasExhaustionPhase.Guard, s"Expected Guard phase, got $phase")
+            case other =>
+              failure(s"Expected GasExhaustedFailure but got: ${other.getClass.getSimpleName}")
           }
-        case TransactionOutcome.Committed(_, _, _, gasUsed, _, _) =>
-          // If it succeeds with very low gas, document that behavior
-          expect(gasUsed <= 10L)
+        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+          failure("Expected Aborted with GasExhaustedFailure, but transaction was committed")
       }
     }
   }
@@ -876,18 +875,60 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                 )
               )
             ),
-            // Transition to handle incoming loop
+            // Transition to handle incoming loop - triggers B again to create cycle
             StateMachine.Transition(
               from = StateMachine.StateId("triggered"),
               to = StateMachine.StateId("idle"),
               eventType = StateMachine.EventType("loop"),
               guard = ConstExpression(BoolValue(true)),
-              effect = ConstExpression(MapValue(Map("looped" -> BoolValue(true))))
+              effect = ConstExpression(
+                MapValue(
+                  Map(
+                    "looped" -> BoolValue(true),
+                    "_triggers" -> ArrayValue(
+                      List(
+                        MapValue(
+                          Map(
+                            "targetMachineId" -> StrValue(machineB.toString),
+                            "eventType"       -> StrValue("continue"),
+                            "payload"         -> MapValue(Map.empty)
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            ),
+            // Also handle loop in idle state to keep cycle going
+            StateMachine.Transition(
+              from = StateMachine.StateId("idle"),
+              to = StateMachine.StateId("triggered"),
+              eventType = StateMachine.EventType("loop"),
+              guard = ConstExpression(BoolValue(true)),
+              effect = ConstExpression(
+                MapValue(
+                  Map(
+                    "looped" -> BoolValue(true),
+                    "_triggers" -> ArrayValue(
+                      List(
+                        MapValue(
+                          Map(
+                            "targetMachineId" -> StrValue(machineB.toString),
+                            "eventType"       -> StrValue("continue"),
+                            "payload"         -> MapValue(Map.empty)
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              )
             )
           )
         )
 
-        // B triggers C
+        // B triggers C (with self-transition to allow cycle to continue)
         defB = StateMachine.StateMachineDefinition(
           states = Map(
             StateMachine.StateId("waiting")   -> StateMachine.State(StateMachine.StateId("waiting")),
@@ -918,11 +959,36 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                   )
                 )
               )
+            ),
+            // Self-transition to handle continue event in cycle
+            StateMachine.Transition(
+              from = StateMachine.StateId("continued"),
+              to = StateMachine.StateId("continued"),
+              eventType = StateMachine.EventType("continue"),
+              guard = ConstExpression(BoolValue(true)),
+              effect = ConstExpression(
+                MapValue(
+                  Map(
+                    "step" -> IntValue(2),
+                    "_triggers" -> ArrayValue(
+                      List(
+                        MapValue(
+                          Map(
+                            "targetMachineId" -> StrValue(machineC.toString),
+                            "eventType"       -> StrValue("finish"),
+                            "payload"         -> MapValue(Map.empty)
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              )
             )
           )
         )
 
-        // C triggers A (completes the cycle)
+        // C triggers A (completes the cycle, with self-transition to allow cycle to continue)
         defC = StateMachine.StateMachineDefinition(
           states = Map(
             StateMachine.StateId("pending")  -> StateMachine.State(StateMachine.StateId("pending")),
@@ -945,6 +1011,31 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                           Map(
                             "targetMachineId" -> StrValue(machineA.toString),
                             "eventType"       -> StrValue("loop"), // Back to A!
+                            "payload"         -> MapValue(Map.empty)
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            ),
+            // Self-transition to handle finish event in cycle
+            StateMachine.Transition(
+              from = StateMachine.StateId("finished"),
+              to = StateMachine.StateId("finished"),
+              eventType = StateMachine.EventType("finish"),
+              guard = ConstExpression(BoolValue(true)),
+              effect = ConstExpression(
+                MapValue(
+                  Map(
+                    "step" -> IntValue(3),
+                    "_triggers" -> ArrayValue(
+                      List(
+                        MapValue(
+                          Map(
+                            "targetMachineId" -> StrValue(machineA.toString),
+                            "eventType"       -> StrValue("loop"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -1028,21 +1119,13 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
 
       } yield result match {
         case TransactionOutcome.Aborted(reason, _, _) =>
-          // Cycle detected and aborted - expected behavior
+          // 3-node cycle A→B→C→A should be detected before depth is exceeded
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.CycleDetected] ||
-            reason.toMessage.toLowerCase.contains("cycle") ||
-            reason.toMessage.toLowerCase.contains("depth")
+            reason.isInstanceOf[StateMachine.FailureReason.CycleDetected],
+            s"Expected CycleDetected but got: ${reason.getClass.getSimpleName}: ${reason.toMessage}"
           )
-        case TransactionOutcome.Committed(machines, _, _, _, _, _) =>
-          // If the system allows multi-node chains, document the actual behavior
-          // At least some machines should have transitioned
-          expect(
-            machines.values.exists(m => m.sequenceNumber > 0) ||
-            machines.get(machineA).exists(_.currentState != StateMachine.StateId("idle")) ||
-            machines.get(machineB).exists(_.currentState != StateMachine.StateId("waiting")) ||
-            machines.get(machineC).exists(_.currentState != StateMachine.StateId("pending"))
-          )
+        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+          failure("Expected Aborted with CycleDetected, but transaction was committed")
       }
     }
   }
@@ -1221,26 +1304,28 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           MapValue(Map.empty)
         )
 
-        limits = ExecutionLimits(maxDepth = 5, maxGas = 100_000L)
+        // Use high depth limit so cycle detection triggers before depth is exceeded
+        limits = ExecutionLimits(maxDepth = 100, maxGas = 100_000L)
         orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(machineA, input, List.empty)
 
       } yield result match {
         case TransactionOutcome.Aborted(reason, _, _) =>
-          // Should detect the ping-pong cycle
+          // Ping-pong cycle should be detected: A→ping→B→pong→A→ping→B (repeat!)
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.CycleDetected] ||
-            reason.toMessage.toLowerCase.contains("cycle") ||
-            reason.toMessage.toLowerCase.contains("depth")
+            reason.isInstanceOf[StateMachine.FailureReason.CycleDetected],
+            s"Expected CycleDetected but got: ${reason.getClass.getSimpleName}: ${reason.toMessage}"
           )
         case TransactionOutcome.Committed(_, _, _, _, _, _) =>
-          failure("Expected cycle/depth limit to prevent infinite ping-pong")
+          failure("Expected Aborted with CycleDetected, but transaction was committed")
       }
     }
   }
 
-  test("cycle detection: spawn-then-trigger-parent forms cycle") {
+  test("cycle detection: parent-child mutual trigger forms cycle") {
+    // Test cycle detection when parent triggers child, child triggers parent back
+    // Both fibers pre-exist to avoid spawn+trigger timing issues
     TestFixture.resource(Set.empty[Participant]).use { fixture =>
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
@@ -1251,36 +1336,55 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         childId  <- UUIDGen.randomUUID[IO]
         ordinal = fixture.ordinal
 
-        // Child definition that triggers parent on spawn
-        childDefinitionJson = MapValue(
-          Map(
-            "states" -> MapValue(
-              Map(
-                "init"      -> MapValue(Map("id" -> StrValue("init"))),
-                "triggered" -> MapValue(Map("id" -> StrValue("triggered")))
-              )
-            ),
-            "initialState" -> StrValue("init"),
-            "transitions" -> ArrayValue(
-              List(
+        // Child triggers parent on activate, creating half of the cycle
+        childDefinition = StateMachine.StateMachineDefinition(
+          states = Map(
+            StateMachine.StateId("init")      -> StateMachine.State(StateMachine.StateId("init")),
+            StateMachine.StateId("triggered") -> StateMachine.State(StateMachine.StateId("triggered"))
+          ),
+          initialState = StateMachine.StateId("init"),
+          transitions = List(
+            StateMachine.Transition(
+              from = StateMachine.StateId("init"),
+              to = StateMachine.StateId("triggered"),
+              eventType = StateMachine.EventType("activate"),
+              guard = ConstExpression(BoolValue(true)),
+              effect = ConstExpression(
                 MapValue(
                   Map(
-                    "from"      -> StrValue("init"),
-                    "to"        -> StrValue("triggered"),
-                    "eventType" -> StrValue("activate"),
-                    "guard"     -> BoolValue(true),
-                    "effect" -> MapValue(
-                      Map(
-                        "activated" -> BoolValue(true),
-                        "_triggers" -> ArrayValue(
-                          List(
-                            MapValue(
-                              Map(
-                                "targetMachineId" -> StrValue(parentId.toString),
-                                "eventType"       -> StrValue("child_callback"),
-                                "payload"         -> MapValue(Map.empty)
-                              )
-                            )
+                    "activated" -> BoolValue(true),
+                    "_triggers" -> ArrayValue(
+                      List(
+                        MapValue(
+                          Map(
+                            "targetMachineId" -> StrValue(parentId.toString),
+                            "eventType"       -> StrValue("child_callback"),
+                            "payload"         -> MapValue(Map.empty)
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            ),
+            // Self-transition to handle activate when already triggered (for cycle)
+            StateMachine.Transition(
+              from = StateMachine.StateId("triggered"),
+              to = StateMachine.StateId("init"),
+              eventType = StateMachine.EventType("activate"),
+              guard = ConstExpression(BoolValue(true)),
+              effect = ConstExpression(
+                MapValue(
+                  Map(
+                    "reactivated" -> BoolValue(true),
+                    "_triggers" -> ArrayValue(
+                      List(
+                        MapValue(
+                          Map(
+                            "targetMachineId" -> StrValue(parentId.toString),
+                            "eventType"       -> StrValue("child_callback"),
+                            "payload"         -> MapValue(Map.empty)
                           )
                         )
                       )
@@ -1292,35 +1396,25 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           )
         )
 
-        // Parent spawns child and triggers it, child triggers parent back
+        // Parent triggers child, creating the other half of the cycle
         parentDefinition = StateMachine.StateMachineDefinition(
           states = Map(
             StateMachine.StateId("ready")    -> StateMachine.State(StateMachine.StateId("ready")),
-            StateMachine.StateId("spawned")  -> StateMachine.State(StateMachine.StateId("spawned")),
+            StateMachine.StateId("active")   -> StateMachine.State(StateMachine.StateId("active")),
             StateMachine.StateId("callback") -> StateMachine.State(StateMachine.StateId("callback"))
           ),
           initialState = StateMachine.StateId("ready"),
           transitions = List(
+            // Start transition triggers child
             StateMachine.Transition(
               from = StateMachine.StateId("ready"),
-              to = StateMachine.StateId("spawned"),
-              eventType = StateMachine.EventType("spawn"),
+              to = StateMachine.StateId("active"),
+              eventType = StateMachine.EventType("start"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
                   Map(
-                    "spawned" -> BoolValue(true),
-                    "_spawn" -> ArrayValue(
-                      List(
-                        MapValue(
-                          Map(
-                            "childId"         -> StrValue(childId.toString),
-                            "definition"      -> childDefinitionJson,
-                            "initializerData" -> MapValue(Map("status" -> StrValue("spawned")))
-                          )
-                        )
-                      )
-                    ),
+                    "started" -> BoolValue(true),
                     "_triggers" -> ArrayValue(
                       List(
                         MapValue(
@@ -1336,19 +1430,64 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                 )
               )
             ),
-            // This transition handles the callback - if it triggers spawn again, cycle!
+            // Callback from child triggers child again - creates cycle!
             StateMachine.Transition(
-              from = StateMachine.StateId("spawned"),
+              from = StateMachine.StateId("active"),
               to = StateMachine.StateId("callback"),
               eventType = StateMachine.EventType("child_callback"),
               guard = ConstExpression(BoolValue(true)),
-              effect = ConstExpression(MapValue(Map("callback_received" -> BoolValue(true))))
+              effect = ConstExpression(
+                MapValue(
+                  Map(
+                    "callback_received" -> BoolValue(true),
+                    "_triggers" -> ArrayValue(
+                      List(
+                        MapValue(
+                          Map(
+                            "targetMachineId" -> StrValue(childId.toString),
+                            "eventType"       -> StrValue("activate"),
+                            "payload"         -> MapValue(Map.empty)
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            ),
+            // Handle callback from callback state to continue cycle
+            StateMachine.Transition(
+              from = StateMachine.StateId("callback"),
+              to = StateMachine.StateId("active"),
+              eventType = StateMachine.EventType("child_callback"),
+              guard = ConstExpression(BoolValue(true)),
+              effect = ConstExpression(
+                MapValue(
+                  Map(
+                    "callback_received" -> BoolValue(true),
+                    "_triggers" -> ArrayValue(
+                      List(
+                        MapValue(
+                          Map(
+                            "targetMachineId" -> StrValue(childId.toString),
+                            "eventType"       -> StrValue("activate"),
+                            "payload"         -> MapValue(Map.empty)
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              )
             )
           )
         )
 
         parentData = MapValue(Map.empty)
         parentHash <- (parentData: JsonLogicValue).computeDigest
+
+        childData = MapValue(Map.empty)
+        childHash <- (childData: JsonLogicValue).computeDigest
 
         parentFiber = Records.StateMachineFiberRecord(
           cid = parentId,
@@ -1365,34 +1504,48 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           lastEventStatus = Records.EventProcessingStatus.Initialized
         )
 
-        calculatedState = CalculatedState(Map(parentId -> parentFiber), Map.empty)
+        childFiber = Records.StateMachineFiberRecord(
+          cid = childId,
+          creationOrdinal = ordinal,
+          previousUpdateOrdinal = ordinal,
+          latestUpdateOrdinal = ordinal,
+          definition = childDefinition,
+          currentState = StateMachine.StateId("init"),
+          stateData = childData,
+          stateDataHash = childHash,
+          sequenceNumber = 0,
+          owners = Set.empty,
+          status = Records.FiberStatus.Active,
+          lastEventStatus = Records.EventProcessingStatus.Initialized
+        )
+
+        // Both fibers exist from the start
+        calculatedState = CalculatedState(Map(parentId -> parentFiber, childId -> childFiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("spawn"),
+          StateMachine.EventType("start"),
           MapValue(Map.empty)
         )
 
-        limits = ExecutionLimits(maxDepth = 10, maxGas = 100_000L)
+        // Use high depth limit so cycle detection triggers before depth is exceeded
+        limits = ExecutionLimits(maxDepth = 100, maxGas = 100_000L)
         orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(parentId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Committed(machines, _, _, _, _, _) =>
-          // The parent should have processed the spawn and callback
-          val parent = machines.get(parentId)
-          expect(
-            parent.exists(_.currentState == StateMachine.StateId("callback")) ||
-            parent.exists(_.currentState == StateMachine.StateId("spawned"))
-          )
         case TransactionOutcome.Aborted(reason, _, _) =>
-          // If cycle detection or spawn validation kicks in, that's also valid
-          // The child definition format might cause parsing issues
-          success
+          // Parent→child→parent→child... cycle should be detected
+          expect(
+            reason.isInstanceOf[StateMachine.FailureReason.CycleDetected],
+            s"Expected CycleDetected but got: ${reason.getClass.getSimpleName}: ${reason.toMessage}"
+          )
+        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+          failure("Expected Aborted with CycleDetected, but transaction was committed")
       }
     }
   }
 
-  test("dependency resolution: non-existent machine dependency is silently skipped") {
+  test("dependency resolution: non-existent machine dependency aborts transaction") {
     TestFixture.resource(Set.empty[Participant]).use { fixture =>
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
@@ -1453,12 +1606,18 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
+        case TransactionOutcome.Aborted(reason, _, _) =>
+          // Missing trigger target should cause TriggerTargetNotFound
+          expect(
+            reason.isInstanceOf[StateMachine.FailureReason.TriggerTargetNotFound],
+            s"Expected TriggerTargetNotFound but got: ${reason.getClass.getSimpleName}"
+          )
         case TransactionOutcome.Committed(machines, _, _, _, _, _) =>
-          // Missing dependency should be silently skipped, transition succeeds
-          expect(machines.get(fiberId).exists(_.currentState == StateMachine.StateId("end")))
-        case TransactionOutcome.Aborted(_, _, _) =>
-          // If it fails due to missing dependency, that's also valid behavior
-          success
+          // If missing dependencies are skipped, verify the main transition completed
+          expect(
+            machines.get(fiberId).exists(_.currentState == StateMachine.StateId("end")),
+            "If dependencies are skipped, transition should still complete"
+          )
       }
     }
   }
