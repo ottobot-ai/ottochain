@@ -7,7 +7,7 @@ A metagraph for creating automated workflow contracts using JSON-encoded state m
 - 📖 **[Documentation](docs/README.md)** - Complete documentation hub
 - 🚀 **[Getting Started](docs/guides/deployment.md)** - Deploy your first metagraph
 - 💡 **[Examples](docs/examples/README.md)** - Real-world state machine examples
-- 🧪 **[Testing Terminal](e2e-test/README.md)** - Interactive CLI for testing
+- 🧪 **[Testing Terminal](e2e-test-archive/README.md)** - Interactive CLI for testing
 - 📦 **[Deployment](deploy/README.md)** - Production deployment scripts
 
 ## What is Ottochain?

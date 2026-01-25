@@ -1,0 +1,79 @@
+sequenceDiagram
+    autonumber
+    participant C as Combiner
+    participant O as FiberOrchestrator
+    participant E as FiberEvaluator
+    participant T as TriggerDispatcher
+    participant S as SpawnProcessor
+    participant V as JsonLogicVM
+
+    Note over C,V: Event Processing Flow
+
+    C->>O: processEvent(fiberId, event, proofs)
+    activate O
+
+    O->>E: evaluate(fiber, Transition, proofs)
+    activate E
+
+    E->>E: buildContext(fiber, input, proofs, deps)
+    E->>V: evaluateWithGas(guard, context)
+    V-->>E: EvaluationResult(true, gasUsed)
+
+    E->>V: evaluateWithGas(effect, context)
+    V-->>E: EvaluationResult(effectValue, gasUsed)
+
+    E->>E: extractTriggers(effectValue)
+    E->>E: extractSpawns(effectExpr)
+    E->>E: mergeState(current, effectValue)
+
+    E-->>O: FiberOutcome.Success(newState, triggers, spawns)
+    deactivate E
+
+    Note over O,S: Spawn Processing (if any)
+
+    opt Has Spawns
+        O->>S: processSpawns(spawns, context)
+        activate S
+        S->>V: evaluate(childIdExpr)
+        S->>V: evaluate(initialDataExpr)
+        S-->>O: List[StateMachineFiberRecord]
+        deactivate S
+    end
+
+    Note over O,T: Trigger Cascade Processing
+
+    opt Has Triggers
+        O->>T: processTriggers(triggers, state)
+        activate T
+
+        loop For each trigger
+            T->>T: checkDepthLimit()
+            T->>T: checkGasLimit()
+            T->>T: checkCycleDetection()
+
+            alt Target is StateMachine
+                T->>E: evaluate(targetFiber, Transition)
+                E-->>T: FiberOutcome
+            else Target is Oracle
+                T->>E: evaluate(targetFiber, MethodCall)
+                E-->>T: FiberOutcome
+            end
+
+            T->>T: mergeState(accumulated, outcome)
+            T->>T: collectNewTriggers(outcome)
+        end
+
+        T-->>O: TransactionOutcome
+        deactivate T
+    end
+
+    alt Success
+        O-->>C: TransactionOutcome.Committed(state, spawns, gas, depth)
+    else Failure
+        O-->>C: TransactionOutcome.Aborted(reason, gas, depth)
+    end
+
+    deactivate O
+
+    C->>C: updateCalculatedState()
+    C->>C: recordEventStatus()

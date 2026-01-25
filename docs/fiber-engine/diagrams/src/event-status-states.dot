@@ -1,0 +1,36 @@
+// EventProcessingStatus state diagram
+// Render with: dot -Tpng event-status-states.dot -o event-status-states.png
+
+digraph EventProcessingStatus {
+    rankdir=LR;
+    node [shape=box, style=rounded, fontname="Helvetica"];
+    edge [fontname="Helvetica", fontsize=10];
+
+    // States
+    Initialized [label="Initialized\n(fiber created)"];
+    Success [label="Success\n(sequenceNumber, processedAt)", style="rounded,filled", fillcolor="#c8e6c9"];
+    GuardFailed [label="GuardFailed\n(reason, attemptedAt,\nattemptedEventType)", style="rounded,filled", fillcolor="#fff9c4"];
+    ExecutionFailed [label="ExecutionFailed\n(reason, attemptedAt,\nattemptedEventType,\ngasUsed, depth)", style="rounded,filled", fillcolor="#ffcdd2"];
+    ValidationFailed [label="ValidationFailed\n(reason, attemptedAt)", style="rounded,filled", fillcolor="#ffcdd2"];
+    DepthExceeded [label="DepthExceeded\n(attemptedAt, depth,\nmaxDepth, gasUsed)", style="rounded,filled", fillcolor="#ffcdd2"];
+    GasExhausted [label="GasExhausted\n(attemptedAt, gasUsed,\ngasLimit, depth)", style="rounded,filled", fillcolor="#ffcdd2"];
+
+    // Transitions
+    Initialized -> Success [label="event processed\nsuccessfully"];
+    Initialized -> GuardFailed [label="no guard matched\n(own fiber)"];
+    Initialized -> ExecutionFailed [label="effect/trigger\nfailure"];
+    Initialized -> ValidationFailed [label="input validation\nfailed"];
+
+    Success -> Success [label="next event\nprocessed"];
+    Success -> GuardFailed [label="no guard matched"];
+    Success -> ExecutionFailed [label="effect/trigger\nfailure"];
+    Success -> DepthExceeded [label="trigger depth\nexceeded"];
+    Success -> GasExhausted [label="gas limit\nexceeded"];
+
+    GuardFailed -> Success [label="retry with\nvalid event"];
+    GuardFailed -> GuardFailed [label="another\nguard miss"];
+    GuardFailed -> ExecutionFailed [label="effect failure\non retry"];
+
+    // Note
+    note [shape=note, label="Green = Success\nYellow = Recoverable\nRed = Failure"];
+}

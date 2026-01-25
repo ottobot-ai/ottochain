@@ -1,0 +1,58 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#e1f5fe', 'primaryBorderColor': '#01579b', 'lineColor': '#01579b'}}}%%
+flowchart TB
+    subgraph Lifecycle["Lifecycle Layer"]
+        Combiner["Combiner<br/><i>Entry point for all updates</i>"]
+    end
+
+    subgraph Orchestration["Orchestration Layer"]
+        FiberOrch["FiberOrchestrator<br/><i>Coordinates full transaction</i>"]
+    end
+
+    subgraph Engine["Engine Layer"]
+        FiberEval["FiberEvaluator<br/><i>Evaluates single fiber</i>"]
+        TriggerDisp["TriggerDispatcher<br/><i>Cascading triggers</i>"]
+        SpawnProc["SpawnProcessor<br/><i>Child fiber creation</i>"]
+        StateMerge["StateMerger<br/><i>State composition</i>"]
+    end
+
+    subgraph Support["Support Layer"]
+        ContextProv["ContextProvider<br/><i>Builds evaluation context</i>"]
+        EffectExt["EffectExtractor<br/><i>Extracts triggers/spawns</i>"]
+        OracleProc["OracleProcessor<br/><i>Oracle CRUD operations</i>"]
+    end
+
+    subgraph Domain["Domain Types"]
+        FiberInput["FiberInput<br/><i>Transition | MethodCall</i>"]
+        FiberOutcome["FiberOutcome<br/><i>Success | Failed | GuardFailed</i>"]
+        TxOutcome["TransactionOutcome<br/><i>Committed | Aborted</i>"]
+        ExecState["ExecutionState<br/><i>gas, depth, processed</i>"]
+    end
+
+    subgraph External["External Dependencies"]
+        JLVM["JsonLogicEvaluator<br/><i>metakit VM</i>"]
+        GasConfig["GasConfig<br/><i>VM gas costs</i>"]
+        FiberGasConfig["FiberGasConfig<br/><i>Fiber gas costs</i>"]
+    end
+
+    Combiner --> FiberOrch
+    FiberOrch --> FiberEval
+    FiberOrch --> TriggerDisp
+    FiberOrch --> SpawnProc
+
+    FiberEval --> ContextProv
+    FiberEval --> StateMerge
+    FiberEval --> EffectExt
+    FiberEval --> JLVM
+
+    TriggerDisp --> FiberEval
+    TriggerDisp --> ContextProv
+
+    SpawnProc --> JLVM
+
+    FiberEval -.-> FiberInput
+    FiberEval -.-> FiberOutcome
+    FiberOrch -.-> TxOutcome
+    TriggerDisp -.-> ExecState
+
+    FiberEval --> GasConfig
+    FiberEval --> FiberGasConfig

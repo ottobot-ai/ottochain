@@ -46,5 +46,5 @@ Technical reference documentation:
 ## Quick Navigation
 
 - 🏠 [Back to Main README](../README.md)
-- 🧪 [Testing Terminal](../e2e-test/README.md)
+- 🧪 [Testing Terminal](../e2e-test-archive/README.md)
 - 📦 [Deployment Scripts](../deploy/README.md)
