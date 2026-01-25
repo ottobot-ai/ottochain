@@ -6,16 +6,17 @@ import cats.effect.std.UUIDGen
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
-import xyz.kd5ujc.shared_data.lifecycle.Combiner
-
-import io.circe.parser._
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
 import io.constellationnetwork.ext.cats.syntax.next.catsSyntaxNext
 import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
+
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
+import xyz.kd5ujc.shared_data.lifecycle.Combiner
+
+import io.circe.parser._
 import weaver.SimpleIOSuite
 import weaver.scalacheck.Checkers
 import zyx.kd5ujc.shared_test.Mock.MockL0NodeContext

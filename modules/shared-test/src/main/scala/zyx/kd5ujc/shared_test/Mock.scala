@@ -3,17 +3,19 @@ package zyx.kd5ujc.shared_test
 import cats.effect.Sync
 import cats.syntax.applicative._
 import cats.syntax.option._
-import Generators.{genHashedCurrencyIncSnapshot, generateValueWithRetry}
+
+import scala.collection.immutable.{SortedMap, SortedSet}
+
 import io.constellationnetwork.currency.dataApplication.L0NodeContext
 import io.constellationnetwork.currency.schema.currency
 import io.constellationnetwork.domain.seedlist.SeedlistEntry
 import io.constellationnetwork.schema.address.Address
-import io.constellationnetwork.schema.{GlobalIncrementalSnapshot, GlobalSnapshotInfo, SnapshotOrdinal, swap, tokenLock}
 import io.constellationnetwork.schema.swap.CurrencyId
+import io.constellationnetwork.schema.{GlobalIncrementalSnapshot, GlobalSnapshotInfo, SnapshotOrdinal, swap, tokenLock}
 import io.constellationnetwork.security.signature.Signed
 import io.constellationnetwork.security.{Hashed, SecurityProvider}
 
-import scala.collection.immutable.{SortedMap, SortedSet}
+import Generators.{genHashedCurrencyIncSnapshot, generateValueWithRetry}
 
 object Mock {
 
@@ -31,11 +33,11 @@ object Mock {
             currencySnapshot.pure[F]
 
           def getCurrencySnapshot(
-                                            ordinal: SnapshotOrdinal
-                                          ): F[Option[Hashed[currency.CurrencyIncrementalSnapshot]]] = ???
+            ordinal: SnapshotOrdinal
+          ): F[Option[Hashed[currency.CurrencyIncrementalSnapshot]]] = ???
 
           def getLastCurrencySnapshotCombined
-          : F[Option[(Hashed[currency.CurrencyIncrementalSnapshot], currency.CurrencySnapshotInfo)]] = ???
+            : F[Option[(Hashed[currency.CurrencyIncrementalSnapshot], currency.CurrencySnapshotInfo)]] = ???
 
           def securityProvider: SecurityProvider[F] = ???
 
@@ -43,13 +45,15 @@ object Mock {
 
           def getMetagraphL0Seedlist: Option[Set[SeedlistEntry]] = None
 
-          def getLastSynchronizedAllowSpends: F[Option[SortedMap[Option[Address], SortedMap[Address, SortedSet[Signed[swap.AllowSpend]]]]]] = ???
+          def getLastSynchronizedAllowSpends
+            : F[Option[SortedMap[Option[Address], SortedMap[Address, SortedSet[Signed[swap.AllowSpend]]]]]] = ???
 
           def getLastSynchronizedTokenLocks: F[Option[SortedMap[Address, SortedSet[Signed[tokenLock.TokenLock]]]]] = ???
 
           def getLastSynchronizedGlobalSnapshot: F[Option[GlobalIncrementalSnapshot]] = ???
 
-          def getLastSynchronizedGlobalSnapshotCombined: F[Option[(GlobalIncrementalSnapshot, GlobalSnapshotInfo)]] = ???
+          def getLastSynchronizedGlobalSnapshotCombined: F[Option[(GlobalIncrementalSnapshot, GlobalSnapshotInfo)]] =
+            ???
         }
       )
     }

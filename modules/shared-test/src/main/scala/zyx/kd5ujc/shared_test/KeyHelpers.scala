@@ -1,15 +1,17 @@
 package zyx.kd5ujc.shared_test
 
-import cats.effect.Sync
-import cats.implicits.{toFlatMapOps, toFunctorOps}
-import org.bouncycastle.jce.ECNamedCurveTable
-import org.bouncycastle.jce.spec.ECNamedCurveParameterSpec
-import org.bouncycastle.math.ec.ECPoint
-import io.constellationnetwork.security.{SecurityProvider, key}
-
 import java.math.BigInteger
 import java.security.spec.{PKCS8EncodedKeySpec, X509EncodedKeySpec}
 import java.security.{KeyFactory, KeyPair}
+
+import cats.effect.Sync
+import cats.implicits.{toFlatMapOps, toFunctorOps}
+
+import io.constellationnetwork.security.{SecurityProvider, key}
+
+import org.bouncycastle.jce.ECNamedCurveTable
+import org.bouncycastle.jce.spec.ECNamedCurveParameterSpec
+import org.bouncycastle.math.ec.ECPoint
 
 object KeyHelpers {
 
@@ -32,7 +34,10 @@ object KeyHelpers {
 
     for {
       vkHex <- derivePublicKeyHex(skHex)
-      skEncodedBytes = new BigInteger(key.PrivateKeyHexPrefix ++ skHex ++ key.secp256kHexIdentifier ++ vkHex, 16).toByteArray
+      skEncodedBytes = new BigInteger(
+        key.PrivateKeyHexPrefix ++ skHex ++ key.secp256kHexIdentifier ++ vkHex,
+        16
+      ).toByteArray
       vkEncodedBytes = new BigInteger(key.PublicKeyHexPrefix ++ vkHex.drop(2), 16).toByteArray
       skSpec <- Sync[F].delay {
         new PKCS8EncodedKeySpec(skEncodedBytes)

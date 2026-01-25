@@ -1,9 +1,9 @@
 package zyx.kd5ujc.shared_test
 
 import cats.data.NonEmptySet
-import eu.timepit.refined.scalacheck.numeric._
-import eu.timepit.refined.types.numeric.NonNegLong
-import org.scalacheck.{Arbitrary, Gen}
+
+import scala.collection.immutable.SortedSet
+
 import io.constellationnetwork.currency.schema.currency.{CurrencyIncrementalSnapshot, CurrencySnapshotStateProof}
 import io.constellationnetwork.schema.ID.Id
 import io.constellationnetwork.schema.epoch.EpochProgress
@@ -16,8 +16,9 @@ import io.constellationnetwork.security.hex.Hex
 import io.constellationnetwork.security.signature.Signed
 import io.constellationnetwork.security.signature.signature.{Signature, SignatureProof}
 
-import java.math.BigInteger
-import scala.collection.immutable.SortedSet
+import eu.timepit.refined.scalacheck.numeric._
+import eu.timepit.refined.types.numeric.NonNegLong
+import org.scalacheck.{Arbitrary, Gen}
 
 object Generators {
 
