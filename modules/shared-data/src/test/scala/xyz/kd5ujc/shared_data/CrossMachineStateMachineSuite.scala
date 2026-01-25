@@ -1,11 +1,10 @@
 package xyz.kd5ujc.shared_data
 
+import cats.effect.IO
 import cats.effect.std.UUIDGen
-import cats.effect.{IO, Resource}
 import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
-import io.constellationnetwork.ext.cats.syntax.next.catsSyntaxNext
 import io.constellationnetwork.metagraph_sdk.json_logic.JsonLogicOp._
 import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
@@ -14,22 +13,21 @@ import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_test.Participant._
+import xyz.kd5ujc.shared_test.TestFixture
 
 import weaver.SimpleIOSuite
-import zyx.kd5ujc.shared_test.Mock.MockL0NodeContext
-import zyx.kd5ujc.shared_test.Participant._
 
 object CrossMachineStateMachineSuite extends SimpleIOSuite {
 
-  private val securityProviderResource: Resource[IO, SecurityProvider[IO]] = SecurityProvider.forAsync[IO]
-
   test("cross-machine: escrow with seller dependency") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource().use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
+      val registry = fixture.registry
+      val ordinal = fixture.ordinal
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
-        ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
+        combiner <- Combiner.make[IO].pure[IO]
 
         sellerCid <- UUIDGen.randomUUID[IO]
         sellerDef = StateMachine.StateMachineDefinition(
@@ -143,7 +141,7 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
         buyProof   <- registry.generateProofs(buyUpdate, Set(Bob))
         finalState <- combiner.insert(inState, Signed(buyUpdate, buyProof))
 
-        updatedBuyer = finalState.calculated.records
+        updatedBuyer = finalState.calculated.stateMachines
           .get(buyerCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -159,12 +157,10 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
             case _           => None
           }
         }
-      } yield expect.all(
-        updatedBuyer.isDefined,
-        updatedBuyer.map(_.currentState).contains(StateMachine.StateId("purchased")),
-        buyerBalance.contains(BigInt(0)),
-        buyerPurchased.contains(true)
-      )
+      } yield expect(updatedBuyer.isDefined) and
+      expect(updatedBuyer.map(_.currentState).contains(StateMachine.StateId("purchased"))) and
+      expect(buyerBalance.contains(BigInt(0))) and
+      expect(buyerPurchased.contains(true))
     }
   }
 }

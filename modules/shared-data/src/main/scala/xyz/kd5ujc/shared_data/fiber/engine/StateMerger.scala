@@ -1,0 +1,112 @@
+package xyz.kd5ujc.shared_data.fiber.engine
+
+import cats.Monad
+import cats.syntax.all._
+
+import io.constellationnetwork.metagraph_sdk.json_logic._
+import io.constellationnetwork.metagraph_sdk.json_logic.core.StrValue
+
+import xyz.kd5ujc.schema.StateMachine
+import xyz.kd5ujc.shared_data.fiber.domain.ReservedKeys
+
+/**
+ * Centralized state merging with unified semantics.
+ *
+ * Supports two merge formats:
+ * - MapValue: Shallow merge of keys (new values overwrite old)
+ * - ArrayValue of [key, value] pairs: Sequential updates
+ *
+ * Internal/reserved keys are automatically filtered out.
+ */
+trait StateMerger[F[_]] {
+
+  /**
+   * Merge effect result into current state.
+   *
+   * @param currentState The current fiber state (must be MapValue)
+   * @param effectResult The effect evaluation result
+   * @return Either a failure reason or the merged state
+   */
+  def mergeEffectIntoState(
+    currentState: MapValue,
+    effectResult: JsonLogicValue
+  ): F[Either[StateMachine.FailureReason, MapValue]]
+}
+
+object StateMerger {
+
+  /**
+   * Create a StateMerger instance.
+   */
+  def make[F[_]: Monad]: StateMerger[F] = new StateMerger[F] {
+
+    def mergeEffectIntoState(
+      currentState: MapValue,
+      effectResult: JsonLogicValue
+    ): F[Either[StateMachine.FailureReason, MapValue]] =
+      effectResult match {
+        case m: MapValue =>
+          mergeMapValue(currentState, m)
+
+        case ArrayValue(updates) =>
+          mergeArrayUpdates(currentState, updates)
+
+        case _ =>
+          (StateMachine.FailureReason.EffectEvaluationError(
+            s"Effect must return MapValue or ArrayValue, got: ${effectResult.getClass.getSimpleName}"
+          ): StateMachine.FailureReason)
+            .asLeft[MapValue]
+            .pure[F]
+      }
+
+    /**
+     * Merge a MapValue effect into current state.
+     * Filters out internal/reserved keys.
+     */
+    private def mergeMapValue(
+      currentState: MapValue,
+      effectMap:    MapValue
+    ): F[Either[StateMachine.FailureReason, MapValue]] = {
+      val filteredMap = effectMap.value.filterNot { case (key, _) => ReservedKeys.isInternal(key) }
+      MapValue(currentState.value ++ filteredMap).asRight[StateMachine.FailureReason].pure[F]
+    }
+
+    /**
+     * Merge an array of [key, value] pairs into current state.
+     * Each element must be ArrayValue(List(StrValue(key), value)).
+     */
+    private def mergeArrayUpdates(
+      currentState: MapValue,
+      updates:      List[JsonLogicValue]
+    ): F[Either[StateMachine.FailureReason, MapValue]] =
+      updates
+        .foldLeftM[F, Either[StateMachine.FailureReason, Map[String, JsonLogicValue]]](
+          currentState.value.asRight
+        ) {
+          case (Right(acc), ArrayValue(List(StrValue(key), value))) if !ReservedKeys.isInternal(key) =>
+            (acc + (key -> value)).asRight[StateMachine.FailureReason].pure[F]
+
+          case (Right(acc), ArrayValue(List(StrValue(key), _))) if ReservedKeys.isInternal(key) =>
+            // Skip internal keys silently
+            acc.asRight[StateMachine.FailureReason].pure[F]
+
+          case (Left(err), _) =>
+            // Propagate earlier error
+            err.asLeft[Map[String, JsonLogicValue]].pure[F]
+
+          case (_, other) =>
+            (StateMachine.FailureReason.EffectEvaluationError(
+              s"Invalid effect update format, expected [key, value] array: $other"
+            ): StateMachine.FailureReason)
+              .asLeft[Map[String, JsonLogicValue]]
+              .pure[F]
+        }
+        .map(_.map(MapValue(_)))
+  }
+
+  /**
+   * Default singleton instance for use without effect context.
+   * Suitable for pure computations.
+   */
+  def default[F[_]: Monad]: StateMerger[F] = make[F]
+}

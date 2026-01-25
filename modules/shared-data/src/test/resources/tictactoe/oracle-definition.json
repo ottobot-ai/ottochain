@@ -25,31 +25,31 @@
       {"===": [{"var": "method"}, "makeMove"]},
       {
         "if": [
-          {"!==": [{"var": "content.status"}, "InProgress"]},
+          {"!==": [{"var": "state.status"}, "InProgress"]},
           {"_result": {"valid": false, "error": "Game is not in progress"}},
           {"if": [
-            {"!==": [{"var": "args.player"}, {"var": "content.currentTurn"}]},
+            {"!==": [{"var": "args.player"}, {"var": "state.currentTurn"}]},
             {"_result": {"valid": false, "error": "Not your turn"}},
             {"if": [
               {"or": [{"<": [{"var": "args.cell"}, 0]}, {">": [{"var": "args.cell"}, 8]}]},
               {"_result": {"valid": false, "error": "Cell out of bounds"}},
               {"if": [
-                {"!!": [{"var": {"cat": ["content.board.", {"var": "args.cell"}]}}]},
+                {"!!": [{"var": {"cat": ["state.board.", {"var": "args.cell"}]}}]},
                 {"_result": {"valid": false, "error": "Cell already occupied"}},
                 {
                   "_state": {
                     "board": {
                       "merge": [
-                        {"slice": [{"var": "content.board"}, 0, {"var": "args.cell"}]},
+                        {"slice": [{"var": "state.board"}, 0, {"var": "args.cell"}]},
                         [{"var": "args.player"}],
-                        {"slice": [{"var": "content.board"}, {"+": [{"var": "args.cell"}, 1]}]}
+                        {"slice": [{"var": "state.board"}, {"+": [{"var": "args.cell"}, 1]}]}
                       ]
                     },
-                    "moveCount": {"+": [{"var": "content.moveCount"}, 1]},
+                    "moveCount": {"+": [{"var": "state.moveCount"}, 1]},
                     "currentTurn": {"if": [{"===": [{"var": "args.player"}, "X"]}, "O", "X"]},
                     "moveHistory": {
                       "merge": [
-                        {"var": "content.moveHistory"},
+                        {"var": "state.moveHistory"},
                         [{"player": {"var": "args.player"}, "cell": {"var": "args.cell"}}]
                       ]
                     },
@@ -58,51 +58,51 @@
                         {
                           "or": [
                             {"and": [
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 0]}, {"var": "args.player"}, {"var": "content.board.0"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 1]}, {"var": "args.player"}, {"var": "content.board.1"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 2]}, {"var": "args.player"}, {"var": "content.board.2"}]}, {"var": "args.player"}]}
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 0]}, {"var": "args.player"}, {"var": "state.board.0"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 1]}, {"var": "args.player"}, {"var": "state.board.1"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 2]}, {"var": "args.player"}, {"var": "state.board.2"}]}, {"var": "args.player"}]}
                             ]},
                             {"and": [
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 3]}, {"var": "args.player"}, {"var": "content.board.3"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 4]}, {"var": "args.player"}, {"var": "content.board.4"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 5]}, {"var": "args.player"}, {"var": "content.board.5"}]}, {"var": "args.player"}]}
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 3]}, {"var": "args.player"}, {"var": "state.board.3"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 4]}, {"var": "args.player"}, {"var": "state.board.4"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 5]}, {"var": "args.player"}, {"var": "state.board.5"}]}, {"var": "args.player"}]}
                             ]},
                             {"and": [
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 6]}, {"var": "args.player"}, {"var": "content.board.6"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 7]}, {"var": "args.player"}, {"var": "content.board.7"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 8]}, {"var": "args.player"}, {"var": "content.board.8"}]}, {"var": "args.player"}]}
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 6]}, {"var": "args.player"}, {"var": "state.board.6"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 7]}, {"var": "args.player"}, {"var": "state.board.7"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 8]}, {"var": "args.player"}, {"var": "state.board.8"}]}, {"var": "args.player"}]}
                             ]},
                             {"and": [
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 0]}, {"var": "args.player"}, {"var": "content.board.0"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 3]}, {"var": "args.player"}, {"var": "content.board.3"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 6]}, {"var": "args.player"}, {"var": "content.board.6"}]}, {"var": "args.player"}]}
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 0]}, {"var": "args.player"}, {"var": "state.board.0"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 3]}, {"var": "args.player"}, {"var": "state.board.3"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 6]}, {"var": "args.player"}, {"var": "state.board.6"}]}, {"var": "args.player"}]}
                             ]},
                             {"and": [
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 1]}, {"var": "args.player"}, {"var": "content.board.1"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 4]}, {"var": "args.player"}, {"var": "content.board.4"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 7]}, {"var": "args.player"}, {"var": "content.board.7"}]}, {"var": "args.player"}]}
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 1]}, {"var": "args.player"}, {"var": "state.board.1"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 4]}, {"var": "args.player"}, {"var": "state.board.4"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 7]}, {"var": "args.player"}, {"var": "state.board.7"}]}, {"var": "args.player"}]}
                             ]},
                             {"and": [
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 2]}, {"var": "args.player"}, {"var": "content.board.2"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 5]}, {"var": "args.player"}, {"var": "content.board.5"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 8]}, {"var": "args.player"}, {"var": "content.board.8"}]}, {"var": "args.player"}]}
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 2]}, {"var": "args.player"}, {"var": "state.board.2"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 5]}, {"var": "args.player"}, {"var": "state.board.5"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 8]}, {"var": "args.player"}, {"var": "state.board.8"}]}, {"var": "args.player"}]}
                             ]},
                             {"and": [
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 0]}, {"var": "args.player"}, {"var": "content.board.0"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 4]}, {"var": "args.player"}, {"var": "content.board.4"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 8]}, {"var": "args.player"}, {"var": "content.board.8"}]}, {"var": "args.player"}]}
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 0]}, {"var": "args.player"}, {"var": "state.board.0"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 4]}, {"var": "args.player"}, {"var": "state.board.4"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 8]}, {"var": "args.player"}, {"var": "state.board.8"}]}, {"var": "args.player"}]}
                             ]},
                             {"and": [
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 2]}, {"var": "args.player"}, {"var": "content.board.2"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 4]}, {"var": "args.player"}, {"var": "content.board.4"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 6]}, {"var": "args.player"}, {"var": "content.board.6"}]}, {"var": "args.player"}]}
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 2]}, {"var": "args.player"}, {"var": "state.board.2"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 4]}, {"var": "args.player"}, {"var": "state.board.4"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 6]}, {"var": "args.player"}, {"var": "state.board.6"}]}, {"var": "args.player"}]}
                             ]}
                           ]
                         },
                         "Won",
                         {
                           "if": [
-                            {"===": [{"+": [{"var": "content.moveCount"}, 1]}, 9]},
+                            {"===": [{"+": [{"var": "state.moveCount"}, 1]}, 9]},
                             "Draw",
                             "InProgress"
                           ]
@@ -114,44 +114,44 @@
                         {
                           "or": [
                             {"and": [
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 0]}, {"var": "args.player"}, {"var": "content.board.0"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 1]}, {"var": "args.player"}, {"var": "content.board.1"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 2]}, {"var": "args.player"}, {"var": "content.board.2"}]}, {"var": "args.player"}]}
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 0]}, {"var": "args.player"}, {"var": "state.board.0"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 1]}, {"var": "args.player"}, {"var": "state.board.1"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 2]}, {"var": "args.player"}, {"var": "state.board.2"}]}, {"var": "args.player"}]}
                             ]},
                             {"and": [
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 3]}, {"var": "args.player"}, {"var": "content.board.3"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 4]}, {"var": "args.player"}, {"var": "content.board.4"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 5]}, {"var": "args.player"}, {"var": "content.board.5"}]}, {"var": "args.player"}]}
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 3]}, {"var": "args.player"}, {"var": "state.board.3"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 4]}, {"var": "args.player"}, {"var": "state.board.4"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 5]}, {"var": "args.player"}, {"var": "state.board.5"}]}, {"var": "args.player"}]}
                             ]},
                             {"and": [
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 6]}, {"var": "args.player"}, {"var": "content.board.6"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 7]}, {"var": "args.player"}, {"var": "content.board.7"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 8]}, {"var": "args.player"}, {"var": "content.board.8"}]}, {"var": "args.player"}]}
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 6]}, {"var": "args.player"}, {"var": "state.board.6"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 7]}, {"var": "args.player"}, {"var": "state.board.7"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 8]}, {"var": "args.player"}, {"var": "state.board.8"}]}, {"var": "args.player"}]}
                             ]},
                             {"and": [
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 0]}, {"var": "args.player"}, {"var": "content.board.0"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 3]}, {"var": "args.player"}, {"var": "content.board.3"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 6]}, {"var": "args.player"}, {"var": "content.board.6"}]}, {"var": "args.player"}]}
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 0]}, {"var": "args.player"}, {"var": "state.board.0"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 3]}, {"var": "args.player"}, {"var": "state.board.3"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 6]}, {"var": "args.player"}, {"var": "state.board.6"}]}, {"var": "args.player"}]}
                             ]},
                             {"and": [
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 1]}, {"var": "args.player"}, {"var": "content.board.1"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 4]}, {"var": "args.player"}, {"var": "content.board.4"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 7]}, {"var": "args.player"}, {"var": "content.board.7"}]}, {"var": "args.player"}]}
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 1]}, {"var": "args.player"}, {"var": "state.board.1"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 4]}, {"var": "args.player"}, {"var": "state.board.4"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 7]}, {"var": "args.player"}, {"var": "state.board.7"}]}, {"var": "args.player"}]}
                             ]},
                             {"and": [
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 2]}, {"var": "args.player"}, {"var": "content.board.2"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 5]}, {"var": "args.player"}, {"var": "content.board.5"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 8]}, {"var": "args.player"}, {"var": "content.board.8"}]}, {"var": "args.player"}]}
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 2]}, {"var": "args.player"}, {"var": "state.board.2"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 5]}, {"var": "args.player"}, {"var": "state.board.5"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 8]}, {"var": "args.player"}, {"var": "state.board.8"}]}, {"var": "args.player"}]}
                             ]},
                             {"and": [
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 0]}, {"var": "args.player"}, {"var": "content.board.0"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 4]}, {"var": "args.player"}, {"var": "content.board.4"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 8]}, {"var": "args.player"}, {"var": "content.board.8"}]}, {"var": "args.player"}]}
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 0]}, {"var": "args.player"}, {"var": "state.board.0"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 4]}, {"var": "args.player"}, {"var": "state.board.4"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 8]}, {"var": "args.player"}, {"var": "state.board.8"}]}, {"var": "args.player"}]}
                             ]},
                             {"and": [
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 2]}, {"var": "args.player"}, {"var": "content.board.2"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 4]}, {"var": "args.player"}, {"var": "content.board.4"}]}, {"var": "args.player"}]},
-                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 6]}, {"var": "args.player"}, {"var": "content.board.6"}]}, {"var": "args.player"}]}
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 2]}, {"var": "args.player"}, {"var": "state.board.2"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 4]}, {"var": "args.player"}, {"var": "state.board.4"}]}, {"var": "args.player"}]},
+                              {"===": [{"if": [{"===": [{"var": "args.cell"}, 6]}, {"var": "args.player"}, {"var": "state.board.6"}]}, {"var": "args.player"}]}
                             ]}
                           ]
                         },
@@ -159,9 +159,9 @@
                         null
                       ]
                     },
-                    "playerX": {"var": "content.playerX"},
-                    "playerO": {"var": "content.playerO"},
-                    "gameId": {"var": "content.gameId"},
+                    "playerX": {"var": "state.playerX"},
+                    "playerO": {"var": "state.playerO"},
+                    "gameId": {"var": "state.gameId"},
                     "cancelledBy": null,
                     "cancelReason": null
                   },
@@ -180,17 +180,17 @@
       {"===": [{"var": "method"}, "checkWinner"]},
       {
         "_result": {
-          "status": {"var": "content.status"},
-          "winner": {"var": "content.winner"}
+          "status": {"var": "state.status"},
+          "winner": {"var": "state.winner"}
         }
       },
 
       {"===": [{"var": "method"}, "getBoard"]},
       {
         "_result": {
-          "board": {"var": "content.board"},
-          "currentTurn": {"var": "content.currentTurn"},
-          "moveCount": {"var": "content.moveCount"}
+          "board": {"var": "state.board"},
+          "currentTurn": {"var": "state.currentTurn"},
+          "moveCount": {"var": "state.moveCount"}
         }
       },
 
@@ -201,9 +201,9 @@
           "currentTurn": "X",
           "moveCount": 0,
           "status": "InProgress",
-          "playerX": {"var": "content.playerX"},
-          "playerO": {"var": "content.playerO"},
-          "gameId": {"var": "content.gameId"},
+          "playerX": {"var": "state.playerX"},
+          "playerO": {"var": "state.playerO"},
+          "gameId": {"var": "state.gameId"},
           "moveHistory": [],
           "winner": null,
           "cancelledBy": null,
@@ -220,7 +220,7 @@
       {
         "_state": {
           "merge": [
-            {"var": "content"},
+            {"var": "state"},
             {
               "status": "Cancelled",
               "cancelledBy": {"var": "args.requestedBy"},

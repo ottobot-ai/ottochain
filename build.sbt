@@ -29,6 +29,7 @@ lazy val commonSettings = Seq(
     CompilerPlugin.semanticDB,
     Libraries.cats,
     Libraries.catsEffect,
+    Libraries.catsMtl,
     Libraries.enumeratum,
     Libraries.enumeratumCirce,
     Libraries.declineCore,

@@ -4,10 +4,13 @@ import cats.syntax.all._
 
 import io.constellationnetwork.metagraph_sdk.json_logic._
 
+import xyz.kd5ujc.schema.StateMachine
+
 /**
  * Input validation for deterministic blockchain VM execution.
  * Only validates inputs - no error recovery or retries.
  */
+// todo: ensure that incoming json does not contain reserved words (state.count issue from oracle)
 object InputValidation {
 
   final case class ValidationError(field: String, message: String)
@@ -158,7 +161,7 @@ object InputValidation {
    */
   def validateTransaction(
     fiberId:  java.util.UUID,
-    event:    xyz.kd5ujc.schema.StateMachine.Event,
+    event:    StateMachine.Event,
     gasLimit: Long
   ): ValidationResult = {
 
@@ -176,29 +179,5 @@ object InputValidation {
 
     // All validations passed
     ValidationResult.success
-  }
-
-  /**
-   * Sanitizes dangerous inputs (removes but doesn't reject)
-   * Used only for display/logging, never for execution
-   */
-  def sanitizeForDisplay(value: JsonLogicValue): JsonLogicValue = {
-    def sanitize(v: JsonLogicValue): JsonLogicValue = v match {
-      case StrValue(s) =>
-        // Remove control characters for display
-        StrValue(s.filter(c => !c.isControl || c == '\n' || c == '\r' || c == '\t'))
-
-      case ArrayValue(items) =>
-        // Limit array display size
-        ArrayValue(items.take(100).map(sanitize))
-
-      case MapValue(map) =>
-        // Limit map display size
-        MapValue(map.take(50).map { case (k, v) => k -> sanitize(v) })
-
-      case other => other
-    }
-
-    sanitize(value)
   }
 }

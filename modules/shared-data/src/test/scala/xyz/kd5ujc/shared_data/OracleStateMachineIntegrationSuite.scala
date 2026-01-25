@@ -1,7 +1,7 @@
 package xyz.kd5ujc.shared_data
 
+import cats.effect.IO
 import cats.effect.std.UUIDGen
-import cats.effect.{IO, Resource}
 import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
@@ -11,22 +11,21 @@ import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_test.Participant._
+import xyz.kd5ujc.shared_test.TestFixture
 
 import io.circe.parser._
 import weaver.SimpleIOSuite
-import zyx.kd5ujc.shared_test.Mock.MockL0NodeContext
-import zyx.kd5ujc.shared_test.Participant._
 
 object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
 
-  private val securityProviderResource: Resource[IO, SecurityProvider[IO]] = SecurityProvider.forAsync[IO]
-
   test("state machine effect invokes oracle during transition") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource().use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
+      val registry = fixture.registry
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         oracleCid  <- UUIDGen.randomUUID[IO]
         machineCid <- UUIDGen.randomUUID[IO]
@@ -100,7 +99,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         submitProof <- registry.generateProofs(submitEvent, Set(Bob))
         finalState  <- combiner.insert(stateAfterMachine, Signed(submitEvent, submitProof))
 
-        machine = finalState.calculated.records
+        machine = finalState.calculated.stateMachines
           .get(machineCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -120,28 +119,27 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
           }
         }
 
-      } yield expect.all(
-        machine.isDefined,
-        machine.map(_.currentState).contains(StateMachine.StateId("validated")),
-        machineStatus.contains("validated"),
-        submittedAmount.contains(BigInt(150)),
-        oracle.isDefined,
-        oracle.map(_.invocationCount).contains(1L),
-        oracle.flatMap(_.invocationLog.headOption.map(_.method)).contains("validateAmount"),
-        oracle.flatMap(_.invocationLog.headOption.map(_.result)).exists {
-          case BoolValue(true) => true
-          case _               => false
-        }
-      )
+      } yield expect(machine.isDefined) and
+      expect(machine.map(_.currentState).contains(StateMachine.StateId("validated"))) and
+      expect(machineStatus.contains("validated")) and
+      expect(submittedAmount.contains(BigInt(150))) and
+      expect(oracle.isDefined) and
+      expect(oracle.map(_.invocationCount).contains(1L)) and
+      expect(oracle.flatMap(_.invocationLog.headOption.map(_.method)).contains("validateAmount")) and
+      expect(oracle.flatMap(_.invocationLog.headOption.map(_.result)).exists {
+        case BoolValue(true) => true
+        case _               => false
+      })
     }
   }
 
   test("state machine effect invokes oracle and oracle call fails - transition should fail") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource().use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
+      val registry = fixture.registry
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         oracleCid  <- UUIDGen.randomUUID[IO]
         machineCid <- UUIDGen.randomUUID[IO]
@@ -215,32 +213,31 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         submitProof <- registry.generateProofs(submitEvent, Set(Bob))
         finalState  <- combiner.insert(stateAfterMachine, Signed(submitEvent, submitProof))
 
-        machine = finalState.calculated.records
+        machine = finalState.calculated.stateMachines
           .get(machineCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         oracle = finalState.calculated.scriptOracles.get(oracleCid)
 
-      } yield expect.all(
-        machine.isDefined,
-        machine.map(_.currentState).contains(StateMachine.StateId("pending")),
-        machine.map(_.lastEventStatus).exists {
-          case Records.EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
-          case _                                                            => false
-        },
-        oracle.isDefined,
-        oracle.map(_.invocationCount).contains(0L),
-        oracle.map(_.invocationLog.isEmpty).contains(true)
-      )
+      } yield expect(machine.isDefined) and
+      expect(machine.map(_.currentState).contains(StateMachine.StateId("pending"))) and
+      expect(machine.map(_.lastEventStatus).exists {
+        case Records.EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
+        case _                                                            => false
+      }) and
+      expect(oracle.isDefined) and
+      expect(oracle.map(_.invocationCount).contains(0L)) and
+      expect(oracle.map(_.invocationLog.isEmpty).contains(true))
     }
   }
 
   test("state machine guard reads oracle state before transition") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource().use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
+      val registry = fixture.registry
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         oracleCid  <- UUIDGen.randomUUID[IO]
         machineCid <- UUIDGen.randomUUID[IO]
@@ -306,7 +303,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         unlockProof           <- registry.generateProofs(unlockEvent, Set(Bob))
         stateAfterFirstUnlock <- combiner.insert(stateAfterMachine, Signed(unlockEvent, unlockProof))
 
-        machineAfterFirstUnlock = stateAfterFirstUnlock.calculated.records
+        machineAfterFirstUnlock = stateAfterFirstUnlock.calculated.stateMachines
           .get(machineCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -321,29 +318,28 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         secondUnlockProof <- registry.generateProofs(unlockEvent, Set(Bob))
         finalState        <- combiner.insert(stateAfterInvoke, Signed(unlockEvent, secondUnlockProof))
 
-        machineAfterSecondUnlock = finalState.calculated.records
+        machineAfterSecondUnlock = finalState.calculated.stateMachines
           .get(machineCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-      } yield expect.all(
-        machineAfterFirstUnlock.isDefined,
-        machineAfterFirstUnlock.map(_.currentState).contains(StateMachine.StateId("locked")),
-        machineAfterFirstUnlock.map(_.lastEventStatus).exists {
-          case Records.EventProcessingStatus.GuardFailed(_, _, _) => true
-          case _                                                  => false
-        },
-        machineAfterSecondUnlock.isDefined,
-        machineAfterSecondUnlock.map(_.currentState).contains(StateMachine.StateId("unlocked"))
-      )
+      } yield expect(machineAfterFirstUnlock.isDefined) and
+      expect(machineAfterFirstUnlock.map(_.currentState).contains(StateMachine.StateId("locked"))) and
+      expect(machineAfterFirstUnlock.map(_.lastEventStatus).exists {
+        case Records.EventProcessingStatus.GuardFailed(_, _, _) => true
+        case _                                                  => false
+      }) and
+      expect(machineAfterSecondUnlock.isDefined) and
+      expect(machineAfterSecondUnlock.map(_.currentState).contains(StateMachine.StateId("unlocked")))
     }
   }
 
   test("state machine uses oracle invocation result in subsequent state") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource().use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
+      val registry = fixture.registry
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         oracleCid  <- UUIDGen.randomUUID[IO]
         machineCid <- UUIDGen.randomUUID[IO]
@@ -442,7 +438,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         finalizeProof <- registry.generateProofs(finalizeEvent, Set(Bob))
         finalState    <- combiner.insert(stateAfterInitiate, Signed(finalizeEvent, finalizeProof))
 
-        machine = finalState.calculated.records
+        machine = finalState.calculated.stateMachines
           .get(machineCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -475,22 +471,21 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
           }
         }
 
-      } yield expect.all(
-        machine.isDefined,
-        machine.map(_.currentState).contains(StateMachine.StateId("completed")),
-        feeCalculated.contains(BigInt(50)),
-        totalAmount.contains(BigInt(1050)),
-        status.contains("completed")
-      )
+      } yield expect(machine.isDefined) and
+      expect(machine.map(_.currentState).contains(StateMachine.StateId("completed"))) and
+      expect(feeCalculated.contains(BigInt(50))) and
+      expect(totalAmount.contains(BigInt(1050))) and
+      expect(status.contains("completed"))
     }
   }
 
   test("multiple state machines invoking same oracle maintains invocation count") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice, Bob, Charlie)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
+      val registry = fixture.registry
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob, Charlie))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         oracleCid   <- UUIDGen.randomUUID[IO]
         machine1Cid <- UUIDGen.randomUUID[IO]
@@ -571,18 +566,20 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         finalState     <- combiner.insert(stateAfterValidate1, Signed(validateEvent2, validate2Proof))
 
         oracle = finalState.calculated.scriptOracles.get(oracleCid)
-        machine1 = finalState.calculated.records.get(machine1Cid)
-        machine2 = finalState.calculated.records.get(machine2Cid)
+        machine1 = finalState.calculated.stateMachines.get(machine1Cid)
+        machine2 = finalState.calculated.stateMachines.get(machine2Cid)
 
-      } yield expect.all(
-        oracle.isDefined,
-        oracle.map(_.invocationCount).contains(2L),
-        oracle.map(_.invocationLog.size).contains(2),
-        machine1.isDefined,
-        machine2.isDefined,
+      } yield expect(oracle.isDefined) and
+      expect(oracle.map(_.invocationCount).contains(2L)) and
+      expect(oracle.map(_.invocationLog.size).contains(2)) and
+      expect(machine1.isDefined) and
+      expect(machine2.isDefined) and
+      expect(
         machine1
           .collect { case r: Records.StateMachineFiberRecord => r.currentState }
-          .contains(StateMachine.StateId("validated")),
+          .contains(StateMachine.StateId("validated"))
+      ) and
+      expect(
         machine2
           .collect { case r: Records.StateMachineFiberRecord => r.currentState }
           .contains(StateMachine.StateId("validated"))

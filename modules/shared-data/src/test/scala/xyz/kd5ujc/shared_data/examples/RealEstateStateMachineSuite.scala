@@ -13,11 +13,11 @@ import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
+import xyz.kd5ujc.shared_test.Participant._
 
 import io.circe.parser._
 import weaver.SimpleIOSuite
-import zyx.kd5ujc.shared_test.Mock.MockL0NodeContext
-import zyx.kd5ujc.shared_test.Participant._
 
 object RealEstateStateMachineSuite extends SimpleIOSuite {
 
@@ -1704,7 +1704,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         state21        <- combiner.insert(state20, Signed(closeSaleUpdate, closeSaleProof))
 
         // Verify mortgage was activated by trigger
-        mortgageAfterClose = state21.calculated.records
+        mortgageAfterClose = state21.calculated.stateMachines
           .get(mortgageCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -1738,11 +1738,11 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         firstPaymentProof <- registry.generateProofs(firstPaymentUpdate, Set(Bob))
         state23           <- combiner.insert(state22, Signed(firstPaymentUpdate, firstPaymentProof))
 
-        mortgageAfterFirstPayment = state23.calculated.records
+        mortgageAfterFirstPayment = state23.calculated.stateMachines
           .get(mortgageCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        propertyAfterSale = state23.calculated.records
+        propertyAfterSale = state23.calculated.stateMachines
           .get(propertyCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -1769,52 +1769,52 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
 
       } yield expect.all(
         // Verify contract signed
-        state1.calculated.records.get(contractCid).exists {
+        state1.calculated.stateMachines.get(contractCid).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("signed")
           case _                                  => false
         },
         // Verify property under contract
-        state2.calculated.records.get(propertyCid).exists {
+        state2.calculated.stateMachines.get(propertyCid).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("under_contract")
           case _                                  => false
         },
         // Verify escrow funded
-        state3.calculated.records.get(escrowCid).exists {
+        state3.calculated.stateMachines.get(escrowCid).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("funded")
           case _                                  => false
         },
         // Verify contract in contingency
-        state5.calculated.records.get(contractCid).exists {
+        state5.calculated.stateMachines.get(contractCid).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("contingent")
           case _                                  => false
         },
         // Verify inspection passed with repairs
-        state8.calculated.records.get(inspectionCid).exists {
+        state8.calculated.stateMachines.get(inspectionCid).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("passed_with_repairs")
           case _                                  => false
         },
         // Verify appraisal approved
-        state11.calculated.records.get(appraisalCid).exists {
+        state11.calculated.stateMachines.get(appraisalCid).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("approved")
           case _                                  => false
         },
         // Verify mortgage approved
-        state13.calculated.records.get(mortgageCid).exists {
+        state13.calculated.stateMachines.get(mortgageCid).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("approved")
           case _                                  => false
         },
         // Verify property pending sale
-        state14.calculated.records.get(propertyCid).exists {
+        state14.calculated.stateMachines.get(propertyCid).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("pending_sale")
           case _                                  => false
         },
         // Verify title transferred
-        state18.calculated.records.get(titleCid).exists {
+        state18.calculated.stateMachines.get(titleCid).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("transferred")
           case _                                  => false
         },
         // Verify escrow closed
-        state20.calculated.records.get(escrowCid).exists {
+        state20.calculated.stateMachines.get(escrowCid).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("closed")
           case _                                  => false
         },
@@ -1831,7 +1831,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         mortgageAfterFirstPayment.map(_.currentState).contains(StateMachine.StateId("current")),
         mortgageBalance.contains(BigInt(399500)), // 400000 - 500
         // Verify contract executed
-        state22.calculated.records.get(contractCid).exists {
+        state22.calculated.stateMachines.get(contractCid).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("executed")
           case _                                  => false
         }

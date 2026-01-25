@@ -1,11 +1,10 @@
 package xyz.kd5ujc.shared_data
 
+import cats.effect.IO
 import cats.effect.std.UUIDGen
-import cats.effect.{IO, Resource}
 import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
-import io.constellationnetwork.ext.cats.syntax.next.catsSyntaxNext
 import io.constellationnetwork.metagraph_sdk.json_logic.JsonLogicOp._
 import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
@@ -14,16 +13,14 @@ import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_test.Participant._
+import xyz.kd5ujc.shared_test.TestFixture
 
 import org.scalacheck.Gen
 import weaver.SimpleIOSuite
 import weaver.scalacheck.Checkers
-import zyx.kd5ujc.shared_test.Mock.MockL0NodeContext
-import zyx.kd5ujc.shared_test.Participant._
 
 object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
-
-  private val securityProviderResource: Resource[IO, SecurityProvider[IO]] = SecurityProvider.forAsync[IO]
 
   def createCounterStateMachine(): StateMachine.StateMachineDefinition = {
     val waitingState = StateMachine.StateId("waiting")
@@ -115,48 +112,46 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
   }
 
   test("create state machine fiber with initial state") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource().use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         cid <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
         initialData = MapValue(Map.empty[String, JsonLogicValue])
 
         update = Updates.CreateStateMachineFiber(cid, definition, initialData)
-        updateProof <- registry.generateProofs(update, Set(Alice, Bob))
+        updateProof <- fixture.registry.generateProofs(update, Set(Alice, Bob))
 
         inState = DataState(OnChain.genesis, CalculatedState.genesis)
         outState <- combiner.insert(inState, Signed(update, updateProof))
 
-        fiber = outState.calculated.records
+        fiber = outState.calculated.stateMachines
           .get(cid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-      } yield expect.all(
-        fiber.isDefined,
-        fiber.map(_.currentState).contains(StateMachine.StateId("waiting")),
-        fiber.map(_.sequenceNumber).contains(0L),
-        fiber.map(_.status).contains(Records.FiberStatus.Active)
-      )
+      } yield expect(fiber.isDefined) and
+      expect(fiber.map(_.currentState).contains(StateMachine.StateId("waiting"))) and
+      expect(fiber.map(_.sequenceNumber).contains(0L)) and
+      expect(fiber.map(_.status).contains(Records.FiberStatus.Active))
     }
   }
 
   test("process 'start' event transitions from waiting to counting") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource().use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         cid <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
         initialData = MapValue(Map.empty[String, JsonLogicValue])
 
         createUpdate = Updates.CreateStateMachineFiber(cid, definition, initialData)
-        createProof <- registry.generateProofs(createUpdate, Set(Alice, Bob))
+        createProof <- fixture.registry.generateProofs(createUpdate, Set(Alice, Bob))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createUpdate, createProof)
@@ -167,10 +162,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           payload = MapValue(Map.empty[String, JsonLogicValue])
         )
         processUpdate = Updates.ProcessFiberEvent(cid, startEvent)
-        processProof    <- registry.generateProofs(processUpdate, Set(Alice))
+        processProof    <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         stateAfterStart <- combiner.insert(stateAfterCreate, Signed(processUpdate, processProof))
 
-        fiber = stateAfterStart.calculated.records
+        fiber = stateAfterStart.calculated.stateMachines
           .get(cid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -180,22 +175,19 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
             case _           => None
           }
         }
-      } yield expect.all(
-        fiber.isDefined,
-        fiber.map(_.currentState).contains(StateMachine.StateId("counting")),
-        fiber.map(_.sequenceNumber).contains(1L),
-        counterValue.contains(BigInt(0))
-      )
+      } yield expect(fiber.isDefined) and
+      expect(fiber.map(_.currentState).contains(StateMachine.StateId("counting"))) and
+      expect(fiber.map(_.sequenceNumber).contains(1L)) and
+      expect(counterValue.contains(BigInt(0)))
     }
   }
 
   test("process 'increment' event increases counter") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource().use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
-        ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
+        combiner <- Combiner.make[IO].pure[IO]
 
         cid <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
@@ -210,15 +202,15 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
         fiber = Records.StateMachineFiberRecord(
           cid = cid,
-          creationOrdinal = ordinal,
-          previousUpdateOrdinal = ordinal,
-          latestUpdateOrdinal = ordinal,
+          creationOrdinal = fixture.ordinal,
+          previousUpdateOrdinal = fixture.ordinal,
+          latestUpdateOrdinal = fixture.ordinal,
           definition = definition,
           currentState = StateMachine.StateId("counting"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
-          owners = Set(Alice, Bob).map(registry.addresses),
+          owners = Set(Alice, Bob).map(fixture.registry.addresses),
           status = Records.FiberStatus.Active,
           lastEventStatus = Records.EventProcessingStatus.Initialized
         )
@@ -233,10 +225,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           payload = MapValue(Map.empty[String, JsonLogicValue])
         )
         processUpdate = Updates.ProcessFiberEvent(cid, incrementEvent)
-        processProof <- registry.generateProofs(processUpdate, Set(Alice))
+        processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         outState     <- combiner.insert(inState, Signed(processUpdate, processProof))
 
-        updatedFiber = outState.calculated.records
+        updatedFiber = outState.calculated.stateMachines
           .get(cid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -252,23 +244,20 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
             case _           => None
           }
         }
-      } yield expect.all(
-        updatedFiber.isDefined,
-        updatedFiber.map(_.currentState).contains(StateMachine.StateId("counting")),
-        updatedFiber.map(_.sequenceNumber).contains(1L),
-        counterValue.contains(BigInt(6)),
-        activeValue.contains(true)
-      )
+      } yield expect(updatedFiber.isDefined) and
+      expect(updatedFiber.map(_.currentState).contains(StateMachine.StateId("counting"))) and
+      expect(updatedFiber.map(_.sequenceNumber).contains(1L)) and
+      expect(counterValue.contains(BigInt(6))) and
+      expect(activeValue.contains(true))
     }
   }
 
   test("process 'finish' event transitions to done state") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource().use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
-        ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
+        combiner <- Combiner.make[IO].pure[IO]
 
         cid <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
@@ -283,15 +272,15 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
         fiber = Records.StateMachineFiberRecord(
           cid = cid,
-          creationOrdinal = ordinal,
-          previousUpdateOrdinal = ordinal,
-          latestUpdateOrdinal = ordinal,
+          creationOrdinal = fixture.ordinal,
+          previousUpdateOrdinal = fixture.ordinal,
+          latestUpdateOrdinal = fixture.ordinal,
           definition = definition,
           currentState = StateMachine.StateId("counting"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
-          owners = Set(Alice, Bob).map(registry.addresses),
+          owners = Set(Alice, Bob).map(fixture.registry.addresses),
           status = Records.FiberStatus.Active,
           lastEventStatus = Records.EventProcessingStatus.Initialized
         )
@@ -306,10 +295,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           payload = MapValue(Map.empty[String, JsonLogicValue])
         )
         processUpdate = Updates.ProcessFiberEvent(cid, finishEvent)
-        processProof <- registry.generateProofs(processUpdate, Set(Alice))
+        processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         outState     <- combiner.insert(inState, Signed(processUpdate, processProof))
 
-        updatedFiber = outState.calculated.records
+        updatedFiber = outState.calculated.stateMachines
           .get(cid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -325,23 +314,20 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
             case _           => None
           }
         }
-      } yield expect.all(
-        updatedFiber.isDefined,
-        updatedFiber.map(_.currentState).contains(StateMachine.StateId("done")),
-        updatedFiber.map(_.sequenceNumber).contains(1L),
-        activeValue.contains(false),
-        counterValue.contains(BigInt(99))
-      )
+      } yield expect(updatedFiber.isDefined) and
+      expect(updatedFiber.map(_.currentState).contains(StateMachine.StateId("done"))) and
+      expect(updatedFiber.map(_.sequenceNumber).contains(1L)) and
+      expect(activeValue.contains(false)) and
+      expect(counterValue.contains(BigInt(99)))
     }
   }
 
   test("guard condition prevents transition when counter >= 10") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource().use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
-        ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
+        combiner <- Combiner.make[IO].pure[IO]
 
         cid <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
@@ -356,15 +342,15 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
         fiber = Records.StateMachineFiberRecord(
           cid = cid,
-          creationOrdinal = ordinal,
-          previousUpdateOrdinal = ordinal,
-          latestUpdateOrdinal = ordinal,
+          creationOrdinal = fixture.ordinal,
+          previousUpdateOrdinal = fixture.ordinal,
+          latestUpdateOrdinal = fixture.ordinal,
           definition = definition,
           currentState = StateMachine.StateId("counting"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
-          owners = Set(Alice, Bob).map(registry.addresses),
+          owners = Set(Alice, Bob).map(fixture.registry.addresses),
           status = Records.FiberStatus.Active,
           lastEventStatus = Records.EventProcessingStatus.Initialized
         )
@@ -379,33 +365,30 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           payload = MapValue(Map.empty[String, JsonLogicValue])
         )
         processUpdate = Updates.ProcessFiberEvent(cid, incrementEvent)
-        processProof <- registry.generateProofs(processUpdate, Set(Alice))
+        processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
 
         result <- combiner.insert(inState, Signed(processUpdate, processProof))
 
-        updatedFiber = result.calculated.records
+        updatedFiber = result.calculated.stateMachines
           .get(cid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-      } yield expect.all(
-        updatedFiber.isDefined,
-        updatedFiber.map(_.currentState).contains(StateMachine.StateId("counting")), // State unchanged
-        updatedFiber.map(_.sequenceNumber).contains(0L), // Sequence not incremented
-        updatedFiber.map(_.lastEventStatus).exists {
-          case Records.EventProcessingStatus.GuardFailed(_, _, _) => true
-          case _                                                  => false
-        }
-      )
+      } yield expect(updatedFiber.isDefined) and
+      expect(updatedFiber.map(_.currentState).contains(StateMachine.StateId("counting"))) and // State unchanged
+      expect(updatedFiber.map(_.sequenceNumber).contains(0L)) and // Sequence not incremented
+      expect(updatedFiber.map(_.lastEventStatus).exists {
+        case Records.EventProcessingStatus.GuardFailed(_, _, _) => true
+        case _                                                  => false
+      })
     }
   }
 
   test("archive fiber changes status to archived") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource().use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
-        ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
+        combiner <- Combiner.make[IO].pure[IO]
 
         cid <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
@@ -414,15 +397,15 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
         fiber = Records.StateMachineFiberRecord(
           cid = cid,
-          creationOrdinal = ordinal,
-          previousUpdateOrdinal = ordinal,
-          latestUpdateOrdinal = ordinal,
+          creationOrdinal = fixture.ordinal,
+          previousUpdateOrdinal = fixture.ordinal,
+          latestUpdateOrdinal = fixture.ordinal,
           definition = definition,
           currentState = StateMachine.StateId("waiting"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
-          owners = Set(Alice, Bob).map(registry.addresses),
+          owners = Set(Alice, Bob).map(fixture.registry.addresses),
           status = Records.FiberStatus.Active,
           lastEventStatus = Records.EventProcessingStatus.Initialized
         )
@@ -433,27 +416,97 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         )
 
         archiveUpdate = Updates.ArchiveFiber(cid)
-        archiveProof <- registry.generateProofs(archiveUpdate, Set(Alice))
+        archiveProof <- fixture.registry.generateProofs(archiveUpdate, Set(Alice))
         outState     <- combiner.insert(inState, Signed(archiveUpdate, archiveProof))
 
-        archivedFiber = outState.calculated.records
+        archivedFiber = outState.calculated.stateMachines
           .get(cid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-      } yield expect.all(
-        archivedFiber.isDefined,
-        archivedFiber.map(_.status).contains(Records.FiberStatus.Archived)
-      )
+      } yield expect(archivedFiber.isDefined) and
+      expect(archivedFiber.map(_.status).contains(Records.FiberStatus.Archived))
+    }
+  }
+
+  test("archived fiber rejects events") {
+    TestFixture.resource().use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
+      for {
+        combiner <- Combiner.make[IO].pure[IO]
+
+        cid <- UUIDGen.randomUUID[IO]
+        definition = createCounterStateMachine()
+        initialData = MapValue(Map.empty[String, JsonLogicValue])
+        initialHash <- (initialData: JsonLogicValue).computeDigest
+
+        fiber = Records.StateMachineFiberRecord(
+          cid = cid,
+          creationOrdinal = fixture.ordinal,
+          previousUpdateOrdinal = fixture.ordinal,
+          latestUpdateOrdinal = fixture.ordinal,
+          definition = definition,
+          currentState = StateMachine.StateId("waiting"),
+          stateData = initialData,
+          stateDataHash = initialHash,
+          sequenceNumber = 0,
+          owners = Set(Alice, Bob).map(fixture.registry.addresses),
+          status = Records.FiberStatus.Active,
+          lastEventStatus = Records.EventProcessingStatus.Initialized
+        )
+
+        inState = DataState(
+          OnChain(Map(cid -> initialHash)),
+          CalculatedState(Map(cid -> fiber), Map.empty)
+        )
+
+        // Archive the fiber first
+        archiveUpdate = Updates.ArchiveFiber(cid)
+        archiveProof  <- fixture.registry.generateProofs(archiveUpdate, Set(Alice))
+        archivedState <- combiner.insert(inState, Signed(archiveUpdate, archiveProof))
+
+        // Attempt to process an event on the archived fiber
+        startEvent = Updates.ProcessFiberEvent(
+          cid,
+          StateMachine.Event(StateMachine.EventType("start"), MapValue(Map.empty))
+        )
+        eventProof <- fixture.registry.generateProofs(startEvent, Set(Alice))
+
+        // The event should fail because fiber is archived
+        eventResult <- combiner.insert(archivedState, Signed(startEvent, eventProof)).attempt
+
+      } yield eventResult match {
+        case Left(err) =>
+          // Should fail with an error about fiber not being active
+          expect(
+            err.getMessage.toLowerCase.contains("archived") ||
+            err.getMessage.toLowerCase.contains("not active") ||
+            err.getMessage.toLowerCase.contains("inactive")
+          )
+        case Right(state) =>
+          // If it doesn't throw, check that the fiber wasn't modified
+          val fiberAfter = state.calculated.stateMachines.get(cid)
+          expect(fiberAfter.isDefined) and
+          expect(fiberAfter.map(_.status).contains(Records.FiberStatus.Archived)) and
+          // Sequence number should not have changed
+          expect(
+            fiberAfter
+              .flatMap {
+                case r: Records.StateMachineFiberRecord => Some(r.sequenceNumber)
+                case _                                  => None
+              }
+              .contains(0L)
+          )
+      }
     }
   }
 
   test("sequence number increments correctly") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource().use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
-        ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
+        combiner <- Combiner.make[IO].pure[IO]
 
         cid <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
@@ -468,15 +521,15 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
         fiber = Records.StateMachineFiberRecord(
           cid = cid,
-          creationOrdinal = ordinal,
-          previousUpdateOrdinal = ordinal,
-          latestUpdateOrdinal = ordinal,
+          creationOrdinal = fixture.ordinal,
+          previousUpdateOrdinal = fixture.ordinal,
+          latestUpdateOrdinal = fixture.ordinal,
           definition = definition,
           currentState = StateMachine.StateId("counting"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
-          owners = Set(Alice, Bob).map(registry.addresses),
+          owners = Set(Alice, Bob).map(fixture.registry.addresses),
           status = Records.FiberStatus.Active,
           lastEventStatus = Records.EventProcessingStatus.Initialized
         )
@@ -492,10 +545,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         )
 
         processUpdate = Updates.ProcessFiberEvent(cid, incrementEvent)
-        processProof <- registry.generateProofs(processUpdate, Set(Alice))
+        processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         finalState   <- combiner.insert(inState, Signed(processUpdate, processProof))
 
-        finalFiber = finalState.calculated.records
+        finalFiber = finalState.calculated.stateMachines
           .get(cid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -505,21 +558,18 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
             case _           => None
           }
         }
-      } yield expect.all(
-        finalFiber.isDefined,
-        finalFiber.map(_.sequenceNumber).contains(1L),
-        counterValue.contains(BigInt(1))
-      )
+      } yield expect(finalFiber.isDefined) and
+      expect(finalFiber.map(_.sequenceNumber).contains(1L)) and
+      expect(counterValue.contains(BigInt(1)))
     }
   }
 
   test("event payload is accessible in guard condition") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
-        ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
+        combiner <- Combiner.make[IO].pure[IO]
 
         cid <- UUIDGen.randomUUID[IO]
 
@@ -557,15 +607,15 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
         fiber = Records.StateMachineFiberRecord(
           cid = cid,
-          creationOrdinal = ordinal,
-          previousUpdateOrdinal = ordinal,
-          latestUpdateOrdinal = ordinal,
+          creationOrdinal = fixture.ordinal,
+          previousUpdateOrdinal = fixture.ordinal,
+          latestUpdateOrdinal = fixture.ordinal,
           definition = definition,
           currentState = StateMachine.StateId("open"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
-          owners = Set(Alice).map(registry.addresses),
+          owners = Set(Alice).map(fixture.registry.addresses),
           status = Records.FiberStatus.Active,
           lastEventStatus = Records.EventProcessingStatus.Initialized
         )
@@ -580,27 +630,24 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           payload = MapValue(Map("authorized" -> BoolValue(true)))
         )
         processUpdate = Updates.ProcessFiberEvent(cid, lockEvent)
-        processProof <- registry.generateProofs(processUpdate, Set(Alice))
+        processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         outState     <- combiner.insert(inState, Signed(processUpdate, processProof))
 
-        updatedFiber = outState.calculated.records
+        updatedFiber = outState.calculated.stateMachines
           .get(cid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-      } yield expect.all(
-        updatedFiber.isDefined,
-        updatedFiber.map(_.currentState).contains(StateMachine.StateId("locked"))
-      )
+      } yield expect(updatedFiber.isDefined) and
+      expect(updatedFiber.map(_.currentState).contains(StateMachine.StateId("locked")))
     }
   }
 
   test("unauthorized event payload fails guard condition") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
-        ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
+        combiner <- Combiner.make[IO].pure[IO]
 
         cid <- UUIDGen.randomUUID[IO]
 
@@ -632,15 +679,15 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
         fiber = Records.StateMachineFiberRecord(
           cid = cid,
-          creationOrdinal = ordinal,
-          previousUpdateOrdinal = ordinal,
-          latestUpdateOrdinal = ordinal,
+          creationOrdinal = fixture.ordinal,
+          previousUpdateOrdinal = fixture.ordinal,
+          latestUpdateOrdinal = fixture.ordinal,
           definition = definition,
           currentState = StateMachine.StateId("open"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
-          owners = Set(Alice).map(registry.addresses),
+          owners = Set(Alice).map(fixture.registry.addresses),
           status = Records.FiberStatus.Active,
           lastEventStatus = Records.EventProcessingStatus.Initialized
         )
@@ -655,33 +702,30 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           payload = MapValue(Map("authorized" -> BoolValue(false)))
         )
         processUpdate = Updates.ProcessFiberEvent(cid, lockEvent)
-        processProof <- registry.generateProofs(processUpdate, Set(Alice))
+        processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- combiner.insert(inState, Signed(processUpdate, processProof))
 
-        updatedFiber = result.calculated.records
+        updatedFiber = result.calculated.stateMachines
           .get(cid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-      } yield expect.all(
-        updatedFiber.isDefined,
-        updatedFiber.map(_.currentState).contains(StateMachine.StateId("open")), // State unchanged
-        updatedFiber.map(_.sequenceNumber).contains(0L), // Sequence not incremented
-        updatedFiber.map(_.lastEventStatus).exists {
-          case Records.EventProcessingStatus.GuardFailed(_, _, _) => true
-          case _                                                  => false
-        }
-      )
+      } yield expect(updatedFiber.isDefined) and
+      expect(updatedFiber.map(_.currentState).contains(StateMachine.StateId("open"))) and // State unchanged
+      expect(updatedFiber.map(_.sequenceNumber).contains(0L)) and // Sequence not incremented
+      expect(updatedFiber.map(_.lastEventStatus).exists {
+        case Records.EventProcessingStatus.GuardFailed(_, _, _) => true
+        case _                                                  => false
+      })
     }
   }
 
   test("multiple sequential increments") {
     forall(Gen.choose(1, 9)) { increments =>
-      securityProviderResource.use { implicit s =>
+      TestFixture.resource().use { fixture =>
+        implicit val s: SecurityProvider[IO] = fixture.securityProvider
+        implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
         for {
-          implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-          registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob))
-          combiner                            <- Combiner.make[IO].pure[IO]
-          ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
+          combiner <- Combiner.make[IO].pure[IO]
 
           cid <- UUIDGen.randomUUID[IO]
           definition = createCounterStateMachine()
@@ -696,15 +740,15 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
           fiber = Records.StateMachineFiberRecord(
             cid = cid,
-            creationOrdinal = ordinal,
-            previousUpdateOrdinal = ordinal,
-            latestUpdateOrdinal = ordinal,
+            creationOrdinal = fixture.ordinal,
+            previousUpdateOrdinal = fixture.ordinal,
+            latestUpdateOrdinal = fixture.ordinal,
             definition = definition,
             currentState = StateMachine.StateId("counting"),
             stateData = initialData,
             stateDataHash = initialHash,
             sequenceNumber = 0,
-            owners = Set(Alice, Bob).map(registry.addresses),
+            owners = Set(Alice, Bob).map(fixture.registry.addresses),
             status = Records.FiberStatus.Active,
             lastEventStatus = Records.EventProcessingStatus.Initialized
           )
@@ -722,12 +766,12 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           finalState <- (1 to increments).toList.foldLeftM(inState) { (state, _) =>
             val processUpdate = Updates.ProcessFiberEvent(cid, incrementEvent)
             for {
-              processProof <- registry.generateProofs(processUpdate, Set(Alice))
+              processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
               newState     <- combiner.insert(state, Signed(processUpdate, processProof))
             } yield newState
           }
 
-          finalFiber = finalState.calculated.records
+          finalFiber = finalState.calculated.stateMachines
             .get(cid)
             .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -737,11 +781,9 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
               case _           => None
             }
           }
-        } yield expect.all(
-          finalFiber.isDefined,
-          finalFiber.map(_.sequenceNumber).contains(increments.toLong),
-          counterValue.contains(BigInt(increments))
-        )
+        } yield expect(finalFiber.isDefined) and
+        expect(finalFiber.map(_.sequenceNumber).contains(increments.toLong)) and
+        expect(counterValue.contains(BigInt(increments)))
       }
     }
   }

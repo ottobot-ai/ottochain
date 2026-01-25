@@ -1,4 +1,4 @@
-package zyx.kd5ujc.shared_test
+package xyz.kd5ujc.shared_test
 
 import java.security.KeyPair
 
@@ -51,7 +51,7 @@ object Participant {
   case object Yolanda extends Participant
   case object Zoe extends Participant
 
-  final case class ParticipantData[F[_]: Async](
+  final case class ParticipantData[F[_]](
     keyPair: KeyPair,
     address: Address,
     proof:   OttochainMessage => F[SignatureProof]

@@ -1,7 +1,7 @@
 package xyz.kd5ujc.shared_data
 
+import cats.effect.IO
 import cats.effect.std.UUIDGen
-import cats.effect.{IO, Resource}
 import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
@@ -11,22 +11,20 @@ import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_test.Participant._
+import xyz.kd5ujc.shared_test.TestFixture
 
 import io.circe.parser._
 import weaver.SimpleIOSuite
-import zyx.kd5ujc.shared_test.Mock.MockL0NodeContext
-import zyx.kd5ujc.shared_test.Participant._
 
 object ExecutionLimitsSuite extends SimpleIOSuite {
 
-  private val securityProviderResource: Resource[IO, SecurityProvider[IO]] = SecurityProvider.forAsync[IO]
-
   test("depth exceeded: nested triggers hit maxDepth") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         machine1Cid <- UUIDGen.randomUUID[IO]
         machine2Cid <- UUIDGen.randomUUID[IO]
@@ -114,14 +112,14 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
         initialData = MapValue(Map("count" -> IntValue(0)))
 
         createMachine1 = Updates.CreateStateMachineFiber(machine1Cid, machine1Def, initialData)
-        machine1Proof <- registry.generateProofs(createMachine1, Set(Alice))
+        machine1Proof <- fixture.registry.generateProofs(createMachine1, Set(Alice))
         stateAfterMachine1 <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createMachine1, machine1Proof)
         )
 
         createMachine2 = Updates.CreateStateMachineFiber(machine2Cid, machine2Def, initialData)
-        machine2Proof      <- registry.generateProofs(createMachine2, Set(Alice))
+        machine2Proof      <- fixture.registry.generateProofs(createMachine2, Set(Alice))
         stateAfterMachine2 <- combiner.insert(stateAfterMachine1, Signed(createMachine2, machine2Proof))
 
         // Send initial ping - should hit depth limit due to ping-pong loop
@@ -132,14 +130,14 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
             MapValue(Map.empty)
           )
         )
-        pingProof  <- registry.generateProofs(pingEvent, Set(Alice))
+        pingProof  <- fixture.registry.generateProofs(pingEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterMachine2, Signed(pingEvent, pingProof))
 
-        machine1 = finalState.calculated.records
+        machine1 = finalState.calculated.stateMachines
           .get(machine1Cid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        machine2 = finalState.calculated.records
+        machine2 = finalState.calculated.stateMachines
           .get(machine2Cid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -158,27 +156,25 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
           }
         }
 
-      } yield expect.all(
-        machine1.isDefined,
-        machine2.isDefined,
-        machine1Count.contains(BigInt(0)),
-        machine2Count.contains(BigInt(0)),
-        machine1.map(_.currentState).contains(StateMachine.StateId("idle")),
-        machine2.map(_.currentState).contains(StateMachine.StateId("idle")),
-        machine1.map(_.lastEventStatus).exists {
-          case Records.EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
-          case _                                                            => false
-        }
-      )
+      } yield expect(machine1.isDefined) and
+      expect(machine2.isDefined) and
+      expect(machine1Count.contains(BigInt(0))) and
+      expect(machine2Count.contains(BigInt(0))) and
+      expect(machine1.map(_.currentState).contains(StateMachine.StateId("idle"))) and
+      expect(machine2.map(_.currentState).contains(StateMachine.StateId("idle"))) and
+      expect(machine1.map(_.lastEventStatus).exists {
+        case Records.EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
+        case _                                                            => false
+      })
     }
   }
 
   test("gas exhausted: expensive computation hits maxGas") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         machineCid <- UUIDGen.randomUUID[IO]
 
@@ -260,7 +256,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
         initialData = MapValue(Map("step" -> IntValue(0)))
 
         createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
-        machineProof <- registry.generateProofs(createMachine, Set(Alice))
+        machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createMachine, machineProof)
@@ -274,10 +270,10 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
             MapValue(Map.empty)
           )
         )
-        advanceProof <- registry.generateProofs(advanceEvent, Set(Alice))
+        advanceProof <- fixture.registry.generateProofs(advanceEvent, Set(Alice))
         finalState   <- combiner.insert(stateAfterCreate, Signed(advanceEvent, advanceProof))
 
-        machine = finalState.calculated.records
+        machine = finalState.calculated.stateMachines
           .get(machineCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -288,26 +284,24 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
           }
         }
 
-      } yield expect.all(
-        machine.isDefined,
-        // Atomic rollback - transaction aborted due to gas exhaustion
-        step.contains(BigInt(0)), // No state changes
-        machine.map(_.currentState).contains(StateMachine.StateId("s0")), // Original state
-        machine.map(_.sequenceNumber).contains(0L), // Sequence not incremented
-        machine.map(_.lastEventStatus).exists {
-          case Records.EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
-          case _                                                            => false
-        }
-      )
+      } yield expect(machine.isDefined) and
+      // Atomic rollback - transaction aborted due to gas exhaustion
+      expect(step.contains(BigInt(0))) and // No state changes
+      expect(machine.map(_.currentState).contains(StateMachine.StateId("s0"))) and // Original state
+      expect(machine.map(_.sequenceNumber).contains(0L)) and // Sequence not incremented
+      expect(machine.map(_.lastEventStatus).exists {
+        case Records.EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
+        case _                                                            => false
+      })
     }
   }
 
   test("cycle detection: same event processed twice on same fiber") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         machineCid <- UUIDGen.randomUUID[IO]
 
@@ -362,7 +356,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
         initialData = MapValue(Map("count" -> IntValue(0)))
 
         createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
-        machineProof <- registry.generateProofs(createMachine, Set(Alice))
+        machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createMachine, machineProof)
@@ -376,10 +370,10 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
             MapValue(Map.empty)
           )
         )
-        startProof <- registry.generateProofs(startEvent, Set(Alice))
+        startProof <- fixture.registry.generateProofs(startEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterCreate, Signed(startEvent, startProof))
 
-        machine = finalState.calculated.records
+        machine = finalState.calculated.stateMachines
           .get(machineCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -390,17 +384,15 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
           }
         }
 
-      } yield expect.all(
-        machine.isDefined,
-        // Atomic rollback - cycle detected, transaction aborted
-        count.contains(BigInt(0)), // No state changes
-        machine.map(_.currentState).contains(StateMachine.StateId("idle")), // Original state
-        machine.map(_.sequenceNumber).contains(0L), // Sequence not incremented
-        machine.map(_.lastEventStatus).exists {
-          case Records.EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
-          case _                                                            => false
-        }
-      )
+      } yield expect(machine.isDefined) and
+      // Atomic rollback - cycle detected, transaction aborted
+      expect(count.contains(BigInt(0))) and // No state changes
+      expect(machine.map(_.currentState).contains(StateMachine.StateId("idle"))) and // Original state
+      expect(machine.map(_.sequenceNumber).contains(0L)) and // Sequence not incremented
+      expect(machine.map(_.lastEventStatus).exists {
+        case Records.EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
+        case _                                                            => false
+      })
     }
   }
 }

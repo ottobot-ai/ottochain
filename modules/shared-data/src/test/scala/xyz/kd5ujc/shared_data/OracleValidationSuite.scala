@@ -1,26 +1,22 @@
 package xyz.kd5ujc.shared_data
 
-import cats.effect.{IO, Resource}
+import cats.effect.IO
 import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
-import io.constellationnetwork.ext.cats.syntax.next.catsSyntaxNext
 import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_test.Participant._
+import xyz.kd5ujc.shared_test.TestFixture
 
 import io.circe.parser
 import weaver.SimpleIOSuite
-import zyx.kd5ujc.shared_test.Mock.MockL0NodeContext
-import zyx.kd5ujc.shared_test.Participant
-import zyx.kd5ujc.shared_test.Participant._
 
 object OracleValidationSuite extends SimpleIOSuite {
-
-  private val securityProviderResource: Resource[IO, SecurityProvider[IO]] = SecurityProvider.forAsync[IO]
 
   test("create script oracle with public access") {
     val oracleScript =
@@ -30,12 +26,11 @@ object OracleValidationSuite extends SimpleIOSuite {
          |  false
          |]}""".stripMargin
 
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
-        ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
+        combiner <- Combiner.make[IO].pure[IO]
 
         cid  <- IO.randomUUID
         prog <- IO.fromEither(parser.parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
@@ -47,15 +42,13 @@ object OracleValidationSuite extends SimpleIOSuite {
           accessControl = Records.AccessControlPolicy.Public
         )
 
-        createProof <- registry.generateProofs(createUpdate, Set(Alice))
+        createProof <- fixture.registry.generateProofs(createUpdate, Set(Alice))
         state <- combiner.insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
         oracle = state.calculated.scriptOracles.get(cid)
-      } yield expect.all(
-        oracle.isDefined,
-        oracle.map(_.status).contains(Records.FiberStatus.Active),
-        oracle.map(_.owners).contains(Set(registry.addresses(Alice)))
-      )
+      } yield expect(oracle.isDefined) and
+      expect(oracle.map(_.status).contains(Records.FiberStatus.Active)) and
+      expect(oracle.map(_.owners).contains(Set(fixture.registry.addresses(Alice))))
     }
   }
 
@@ -67,12 +60,11 @@ object OracleValidationSuite extends SimpleIOSuite {
          |  false
          |]}""".stripMargin
 
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
-        ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
+        combiner <- Combiner.make[IO].pure[IO]
 
         cid  <- IO.randomUUID
         prog <- IO.fromEither(parser.parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
@@ -84,7 +76,7 @@ object OracleValidationSuite extends SimpleIOSuite {
           accessControl = Records.AccessControlPolicy.Public
         )
 
-        createProof <- registry.generateProofs(createUpdate, Set(Alice))
+        createProof <- fixture.registry.generateProofs(createUpdate, Set(Alice))
         state1 <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createUpdate, createProof)
@@ -96,17 +88,17 @@ object OracleValidationSuite extends SimpleIOSuite {
           args = MapValue(Map("value" -> IntValue(15)))
         )
 
-        invokeProof <- registry.generateProofs(invokeUpdate, Set(Alice))
+        invokeProof <- fixture.registry.generateProofs(invokeUpdate, Set(Alice))
         state2      <- combiner.insert(state1, Signed(invokeUpdate, invokeProof))
 
         oracle = state2.calculated.scriptOracles.get(cid)
         lastInvocation = oracle.flatMap(_.invocationLog.headOption)
 
-      } yield expect.all(
-        oracle.isDefined,
-        oracle.map(_.invocationCount).contains(1L),
-        lastInvocation.isDefined,
-        lastInvocation.map(_.method).contains("validate"),
+      } yield expect(oracle.isDefined) and
+      expect(oracle.map(_.invocationCount).contains(1L)) and
+      expect(lastInvocation.isDefined) and
+      expect(lastInvocation.map(_.method).contains("validate")) and
+      expect(
         lastInvocation
           .flatMap(inv =>
             inv.result match {
@@ -127,11 +119,11 @@ object OracleValidationSuite extends SimpleIOSuite {
          |  false
          |]}""".stripMargin
 
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         cid  <- IO.randomUUID
         prog <- IO.fromEither(parser.parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
@@ -143,7 +135,7 @@ object OracleValidationSuite extends SimpleIOSuite {
           accessControl = Records.AccessControlPolicy.Public
         )
 
-        createProof <- registry.generateProofs(createUpdate, Set(Alice))
+        createProof <- fixture.registry.generateProofs(createUpdate, Set(Alice))
         state1 <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createUpdate, createProof)
@@ -155,7 +147,7 @@ object OracleValidationSuite extends SimpleIOSuite {
           args = MapValue(Map("value" -> IntValue(5)))
         )
 
-        invokeProof <- registry.generateProofs(invokeUpdate, Set(Alice))
+        invokeProof <- fixture.registry.generateProofs(invokeUpdate, Set(Alice))
         state2      <- combiner.insert(state1, Signed(invokeUpdate, invokeProof))
 
         lastInvocation = state2.calculated.scriptOracles.get(cid).flatMap(_.invocationLog.headOption)

@@ -1,4 +1,4 @@
-package zyx.kd5ujc.shared_test
+package xyz.kd5ujc.shared_test
 
 import cats.data.NonEmptySet
 

@@ -13,10 +13,10 @@ import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
+import xyz.kd5ujc.shared_test.Participant._
 
 import weaver.SimpleIOSuite
-import zyx.kd5ujc.shared_test.Mock.MockL0NodeContext
-import zyx.kd5ujc.shared_test.Participant._
 
 object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
 
@@ -890,19 +890,19 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         finalizeSettlementProof <- registry.generateProofs(finalizeSettlementUpdate, Set(Alice))
         finalState              <- combiner.insert(state19, Signed(finalizeSettlementUpdate, finalizeSettlementProof))
 
-        finalContract = finalState.calculated.records
+        finalContract = finalState.calculated.stateMachines
           .get(contractCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalGpsTracker = finalState.calculated.records
+        finalGpsTracker = finalState.calculated.stateMachines
           .get(gpsTrackerCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalSupplier = finalState.calculated.records
+        finalSupplier = finalState.calculated.stateMachines
           .get(supplierCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalInspection = finalState.calculated.records
+        finalInspection = finalState.calculated.stateMachines
           .get(inspectionCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 

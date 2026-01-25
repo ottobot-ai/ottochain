@@ -14,10 +14,10 @@ import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
+import xyz.kd5ujc.shared_test.Participant._
 
 import weaver.SimpleIOSuite
-import zyx.kd5ujc.shared_test.Mock.MockL0NodeContext
-import zyx.kd5ujc.shared_test.Participant._
 
 object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
@@ -137,7 +137,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         validProof <- registry.generateProofs(validUpdate, Set(Alice))
         finalState <- combiner.insert(inState, Signed(validUpdate, validProof))
 
-        unlockedFiber = finalState.calculated.records
+        unlockedFiber = finalState.calculated.stateMachines
           .get(lockCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -329,7 +329,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         correctClaimProof <- registry.generateProofs(correctClaimUpdate, Set(Bob))
         claimedState      <- combiner.insert(inState, Signed(correctClaimUpdate, correctClaimProof))
 
-        claimedFiber = claimedState.calculated.records
+        claimedFiber = claimedState.calculated.stateMachines
           .get(htlcCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -424,7 +424,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         refundProof   <- registry.generateProofs(refundUpdate, Set(Alice))
         refundedState <- combiner.insert(inState2, Signed(refundUpdate, refundProof))
 
-        refundedFiber = refundedState.calculated.records
+        refundedFiber = refundedState.calculated.stateMachines
           .get(htlcCid2)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -1450,23 +1450,23 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         completeOrderProof <- registry.generateProofs(completeOrderUpdate, Set(Alice))
         finalState         <- combiner.insert(state17, Signed(completeOrderUpdate, completeOrderProof))
 
-        finalOrder = finalState.calculated.records
+        finalOrder = finalState.calculated.stateMachines
           .get(orderCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalEscrow = finalState.calculated.records
+        finalEscrow = finalState.calculated.stateMachines
           .get(escrowCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalShipping = finalState.calculated.records
+        finalShipping = finalState.calculated.stateMachines
           .get(shippingCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalInspection = finalState.calculated.records
+        finalInspection = finalState.calculated.stateMachines
           .get(inspectionCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalInsurance = finalState.calculated.records
+        finalInsurance = finalState.calculated.stateMachines
           .get(insuranceCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -1902,7 +1902,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         earlySubmitProof      <- registry.generateProofs(earlySubmitUpdate, Set(Charlie))
         stateAfterEarlySubmit <- combiner.insert(inState, Signed(earlySubmitUpdate, earlySubmitProof))
 
-        earlyActionFiberResult = stateAfterEarlySubmit.calculated.records
+        earlyActionFiberResult = stateAfterEarlySubmit.calculated.stateMachines
           .get(earlyActionCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -1936,7 +1936,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         collectProof1 <- registry.generateProofs(collectUpdate1, Set(Alice))
         state1        <- combiner.insert(inState, Signed(collectUpdate1, collectProof1))
 
-        proposalAfterOpen = state1.calculated.records
+        proposalAfterOpen = state1.calculated.stateMachines
           .get(proposalCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -1955,7 +1955,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         validSubmitProof <- registry.generateProofs(validSubmitUpdate, Set(Charlie))
         state1_5         <- combiner.insert(state1, Signed(validSubmitUpdate, validSubmitProof))
 
-        validActionFiberResult = state1_5.calculated.records
+        validActionFiberResult = state1_5.calculated.stateMachines
           .get(validActionCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -1974,7 +1974,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         aliceVoteProof <- registry.generateProofs(aliceVoteUpdate, Set(Alice))
         state2         <- combiner.insert(state1_5, Signed(aliceVoteUpdate, aliceVoteProof))
 
-        aliceAfterVote = state2.calculated.records
+        aliceAfterVote = state2.calculated.stateMachines
           .get(aliceCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -1993,13 +1993,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         bobVoteProof <- registry.generateProofs(bobVoteUpdate, Set(Bob))
         state3       <- combiner.insert(state2, Signed(bobVoteUpdate, bobVoteProof))
 
-        bobAfterVote = state3.calculated.records
+        bobAfterVote = state3.calculated.stateMachines
           .get(bobCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Step 4: Manually update proposal with vote counts (simulating aggregation)
         // In a real system, this would happen via cross-machine dependencies
-        proposalWithVotes = state3.calculated.records
+        proposalWithVotes = state3.calculated.stateMachines
           .get(proposalCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
           .map { p =>
@@ -2045,7 +2045,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         closeProof <- registry.generateProofs(closeUpdate, Set(Alice))
         state5     <- combiner.insert(state4, Signed(closeUpdate, closeProof))
 
-        proposalAfterClose = state5.calculated.records
+        proposalAfterClose = state5.calculated.stateMachines
           .get(proposalCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -2058,7 +2058,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         finalCollectProof <- registry.generateProofs(finalCollectUpdate, Set(Alice))
         finalState        <- combiner.insert(state5, Signed(finalCollectUpdate, finalCollectProof))
 
-        finalProposal = finalState.calculated.records
+        finalProposal = finalState.calculated.stateMachines
           .get(proposalCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 

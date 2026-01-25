@@ -15,12 +15,12 @@ import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
+import xyz.kd5ujc.shared_test.Participant._
 
 import io.circe.parser._
 import weaver.SimpleIOSuite
 import weaver.scalacheck.Checkers
-import zyx.kd5ujc.shared_test.Mock.MockL0NodeContext
-import zyx.kd5ujc.shared_test.Participant._
 
 /**
  * Riverdale Economy: Complex State Machine Test
@@ -1904,7 +1904,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         state6 <- combiner.insert(state5, Signed(update6, proof6))
 
         // Verify Heidi's state changed to inventory_low
-        heidiFiberAfterCheck = state6.calculated.records
+        heidiFiberAfterCheck = state6.calculated.stateMachines
           .get(heidiCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -1948,7 +1948,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         state9 <- combiner.insert(state8, Signed(update9, proof9))
 
         // Verify Charlie entered supply_shortage state
-        charlieFiberAfterShortage = state9.calculated.records
+        charlieFiberAfterShortage = state9.calculated.stateMachines
           .get(charlieCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -2167,24 +2167,24 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         state24 <- combiner.insert(state23, Signed(update23, proof23))
 
         // Capture stress test state for validation
-        oscarFiberAfterStressTest = state23.calculated.records
+        oscarFiberAfterStressTest = state23.calculated.stateMachines
           .get(oscarCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        peggyFiberAfterStressTest = state23.calculated.records
+        peggyFiberAfterStressTest = state23.calculated.stateMachines
           .get(peggyCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        quentinFiberAfterStressTest = state23.calculated.records
+        quentinFiberAfterStressTest = state23.calculated.stateMachines
           .get(quentinCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        yolandaFiberAfterStressTest = state23.calculated.records
+        yolandaFiberAfterStressTest = state23.calculated.stateMachines
           .get(yolandaCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Capture holiday sale state for validation
-        heidiFiberAfterSale = state24.calculated.records
+        heidiFiberAfterSale = state24.calculated.stateMachines
           .get(heidiCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -2235,11 +2235,11 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         state27 <- combiner.insert(state26, Signed(update26, proof26))
 
         // Capture C2C marketplace state for validation
-        auctionFiberAfterBidAccepted = state27.calculated.records
+        auctionFiberAfterBidAccepted = state27.calculated.stateMachines
           .get(auctionCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        sybilFiberAfterSale = state27.calculated.records
+        sybilFiberAfterSale = state27.calculated.stateMachines
           .get(sybilCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -2586,101 +2586,101 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Extract final states for validation (use state54 to include all tax payments)
-        finalAliceFiber = state54.calculated.records
+        finalAliceFiber = state54.calculated.stateMachines
           .get(aliceCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalBobFiber = state54.calculated.records
+        finalBobFiber = state54.calculated.stateMachines
           .get(bobCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalCharlieFiber = state54.calculated.records
+        finalCharlieFiber = state54.calculated.stateMachines
           .get(charlieCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalDaveFiber = state54.calculated.records
+        finalDaveFiber = state54.calculated.stateMachines
           .get(daveCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalGraceFiber = state54.calculated.records
+        finalGraceFiber = state54.calculated.stateMachines
           .get(graceCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalHeidiFiber = state54.calculated.records
+        finalHeidiFiber = state54.calculated.stateMachines
           .get(heidiCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalIvanFiber = state54.calculated.records
+        finalIvanFiber = state54.calculated.stateMachines
           .get(ivanCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalOscarFiber = state54.calculated.records
+        finalOscarFiber = state54.calculated.stateMachines
           .get(oscarCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalPeggyFiber = state54.calculated.records
+        finalPeggyFiber = state54.calculated.stateMachines
           .get(peggyCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalQuentinFiber = state54.calculated.records
+        finalQuentinFiber = state54.calculated.stateMachines
           .get(quentinCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalRuthFiber = state54.calculated.records
+        finalRuthFiber = state54.calculated.stateMachines
           .get(ruthCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalSybilFiber = state54.calculated.records
+        finalSybilFiber = state54.calculated.stateMachines
           .get(sybilCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalVictorFiber = state54.calculated.records
+        finalVictorFiber = state54.calculated.stateMachines
           .get(victorCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalYolandaFiber = state54.calculated.records
+        finalYolandaFiber = state54.calculated.stateMachines
           .get(yolandaCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Extract auction states
-        finalAuction1Fiber = state54.calculated.records
+        finalAuction1Fiber = state54.calculated.stateMachines
           .get(auctionCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalAuction2Fiber = state54.calculated.records
+        finalAuction2Fiber = state54.calculated.stateMachines
           .get(auction2Cid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Extract intermediate states for Ruth's payment
-        ruthAfterPayment = state28.calculated.records
+        ruthAfterPayment = state28.calculated.stateMachines
           .get(ruthCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        oscarAfterPayment = state28.calculated.records
+        oscarAfterPayment = state28.calculated.stateMachines
           .get(oscarCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Extract states after Ruth's service provision
-        ruthAfterService = state38.calculated.records
+        ruthAfterService = state38.calculated.stateMachines
           .get(ruthCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Extract states for Ivan and Dave supply chain
-        ivanAfterInventoryCheck = state37.calculated.records
+        ivanAfterInventoryCheck = state37.calculated.stateMachines
           .get(ivanCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        daveAfterFulfillment = state37.calculated.records
+        daveAfterFulfillment = state37.calculated.stateMachines
           .get(daveCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Extract Xavier's final state after tax collection
-        finalXavierFiber = state54.calculated.records
+        finalXavierFiber = state54.calculated.stateMachines
           .get(xavierCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Extract Niaj's final state
-        finalNiajFiber = state54.calculated.records
+        finalNiajFiber = state54.calculated.stateMachines
           .get(niajCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 

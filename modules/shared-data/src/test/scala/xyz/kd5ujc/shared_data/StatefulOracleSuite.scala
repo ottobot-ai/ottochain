@@ -1,6 +1,6 @@
 package xyz.kd5ujc.shared_data
 
-import cats.effect.{IO, Resource}
+import cats.effect.IO
 import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
@@ -10,25 +10,22 @@ import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_test.Participant._
+import xyz.kd5ujc.shared_test.TestFixture
 
 import io.circe.parser
 import weaver.SimpleIOSuite
-import zyx.kd5ujc.shared_test.Mock.MockL0NodeContext
-import zyx.kd5ujc.shared_test.Participant
-import zyx.kd5ujc.shared_test.Participant._
 
 object StatefulOracleSuite extends SimpleIOSuite {
-
-  private val securityProviderResource: Resource[IO, SecurityProvider[IO]] = SecurityProvider.forAsync[IO]
 
   test("oracle state initialization: null initial state") {
     val oracleScript = """{"method":{"var":"method"},"result":42}"""
 
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         cid  <- IO.randomUUID
         prog <- IO.fromEither(parser.parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
@@ -40,16 +37,14 @@ object StatefulOracleSuite extends SimpleIOSuite {
           accessControl = Records.AccessControlPolicy.Public
         )
 
-        createProof <- registry.generateProofs(createOracle, Set(Alice))
+        createProof <- fixture.registry.generateProofs(createOracle, Set(Alice))
         state <- combiner.insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createOracle, createProof))
 
         oracle = state.calculated.scriptOracles.get(cid)
-      } yield expect.all(
-        oracle.isDefined,
-        oracle.map(_.stateData).contains(None),
-        oracle.map(_.stateDataHash).contains(None),
-        oracle.map(_.invocationCount).contains(0L)
-      )
+      } yield expect(oracle.isDefined) and
+      expect(oracle.map(_.stateData).contains(None)) and
+      expect(oracle.map(_.stateDataHash).contains(None)) and
+      expect(oracle.map(_.invocationCount).contains(0L))
     }
   }
 
@@ -59,11 +54,11 @@ object StatefulOracleSuite extends SimpleIOSuite {
                           |  "_result": {"success": true, "newValue": 5}
                           |}""".stripMargin
 
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         cid  <- IO.randomUUID
         prog <- IO.fromEither(parser.parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
@@ -77,7 +72,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
           accessControl = Records.AccessControlPolicy.Public
         )
 
-        createProof <- registry.generateProofs(createOracle, Set(Alice))
+        createProof <- fixture.registry.generateProofs(createOracle, Set(Alice))
         state1 <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createOracle, createProof)
@@ -89,29 +84,27 @@ object StatefulOracleSuite extends SimpleIOSuite {
           args = MapValue(Map.empty)
         )
 
-        invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
+        invokeProof <- fixture.registry.generateProofs(invokeOracle, Set(Alice))
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
         oracle = state2.calculated.scriptOracles.get(cid)
         expectedState = MapValue(Map("counter" -> IntValue(5)))
         expectedResult = MapValue(Map("success" -> BoolValue(true), "newValue" -> IntValue(5)))
-      } yield expect.all(
-        oracle.isDefined,
-        oracle.flatMap(_.stateData).contains(expectedState),
-        oracle.map(_.invocationCount).contains(1L),
-        oracle.flatMap(_.invocationLog.headOption.map(_.result)).contains(expectedResult)
-      )
+      } yield expect(oracle.isDefined) and
+      expect(oracle.flatMap(_.stateData).contains(expectedState)) and
+      expect(oracle.map(_.invocationCount).contains(1L)) and
+      expect(oracle.flatMap(_.invocationLog.headOption.map(_.result)).contains(expectedResult))
     }
   }
 
   test("oracle state transformation: simple return value becomes state") {
     val oracleScript = """{"counter": 1}"""
 
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         cid  <- IO.randomUUID
         prog <- IO.fromEither(parser.parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
@@ -123,7 +116,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
           accessControl = Records.AccessControlPolicy.Public
         )
 
-        createProof <- registry.generateProofs(createOracle, Set(Alice))
+        createProof <- fixture.registry.generateProofs(createOracle, Set(Alice))
         state1 <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createOracle, createProof)
@@ -135,17 +128,15 @@ object StatefulOracleSuite extends SimpleIOSuite {
           args = MapValue(Map.empty)
         )
 
-        invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
+        invokeProof <- fixture.registry.generateProofs(invokeOracle, Set(Alice))
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
         oracle = state2.calculated.scriptOracles.get(cid)
         expectedState = MapValue(Map("counter" -> IntValue(1)))
-      } yield expect.all(
-        oracle.isDefined,
-        oracle.flatMap(_.stateData).contains(expectedState),
-        oracle.map(_.invocationCount).contains(1L),
-        oracle.flatMap(_.invocationLog.headOption.map(_.result)).contains(expectedState)
-      )
+      } yield expect(oracle.isDefined) and
+      expect(oracle.flatMap(_.stateData).contains(expectedState)) and
+      expect(oracle.map(_.invocationCount).contains(1L)) and
+      expect(oracle.flatMap(_.invocationLog.headOption.map(_.result)).contains(expectedState))
     }
   }
 
@@ -155,11 +146,11 @@ object StatefulOracleSuite extends SimpleIOSuite {
                           |  "message": "Visit recorded"
                           |}""".stripMargin
 
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         cid  <- IO.randomUUID
         prog <- IO.fromEither(parser.parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
@@ -173,7 +164,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
           accessControl = Records.AccessControlPolicy.Public
         )
 
-        createProof <- registry.generateProofs(createOracle, Set(Alice))
+        createProof <- fixture.registry.generateProofs(createOracle, Set(Alice))
         state1 <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createOracle, createProof)
@@ -185,7 +176,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
           args = MapValue(Map.empty)
         )
 
-        invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
+        invokeProof <- fixture.registry.generateProofs(invokeOracle, Set(Alice))
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
         oracle = state2.calculated.scriptOracles.get(cid)
@@ -196,11 +187,9 @@ object StatefulOracleSuite extends SimpleIOSuite {
             "message" -> StrValue("Visit recorded")
           )
         )
-      } yield expect.all(
-        oracle.isDefined,
-        oracle.flatMap(_.stateData).contains(expectedState),
-        oracle.flatMap(_.invocationLog.headOption.map(_.result)).contains(expectedResult)
-      )
+      } yield expect(oracle.isDefined) and
+      expect(oracle.flatMap(_.stateData).contains(expectedState)) and
+      expect(oracle.flatMap(_.invocationLog.headOption.map(_.result)).contains(expectedResult))
     }
   }
 
@@ -210,11 +199,11 @@ object StatefulOracleSuite extends SimpleIOSuite {
                           |  "_result": "incremented"
                           |}""".stripMargin
 
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         cid  <- IO.randomUUID
         prog <- IO.fromEither(parser.parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
@@ -228,7 +217,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
           accessControl = Records.AccessControlPolicy.Public
         )
 
-        createProof <- registry.generateProofs(createOracle, Set(Alice))
+        createProof <- fixture.registry.generateProofs(createOracle, Set(Alice))
         state0 <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createOracle, createProof)
@@ -236,25 +225,23 @@ object StatefulOracleSuite extends SimpleIOSuite {
 
         // First invocation
         invoke1 = Updates.InvokeScriptOracle(cid, "inc", MapValue(Map.empty))
-        proof1 <- registry.generateProofs(invoke1, Set(Alice))
+        proof1 <- fixture.registry.generateProofs(invoke1, Set(Alice))
         state1 <- combiner.insert(state0, Signed(invoke1, proof1))
 
         oracle1 = state1.calculated.scriptOracles.get(cid)
 
         // Second invocation
         invoke2 = Updates.InvokeScriptOracle(cid, "inc", MapValue(Map.empty))
-        proof2 <- registry.generateProofs(invoke2, Set(Alice))
+        proof2 <- fixture.registry.generateProofs(invoke2, Set(Alice))
         state2 <- combiner.insert(state1, Signed(invoke2, proof2))
 
         oracle2 = state2.calculated.scriptOracles.get(cid)
 
-      } yield expect.all(
-        oracle1.map(_.invocationCount).contains(1L),
-        oracle1.flatMap(_.stateData).contains(MapValue(Map("callCount" -> IntValue(99)))),
-        oracle2.map(_.invocationCount).contains(2L),
-        oracle2.flatMap(_.stateData).contains(MapValue(Map("callCount" -> IntValue(99)))),
-        oracle2.map(_.invocationLog.size).contains(2)
-      )
+      } yield expect(oracle1.map(_.invocationCount).contains(1L)) and
+      expect(oracle1.flatMap(_.stateData).contains(MapValue(Map("callCount" -> IntValue(99))))) and
+      expect(oracle2.map(_.invocationCount).contains(2L)) and
+      expect(oracle2.flatMap(_.stateData).contains(MapValue(Map("callCount" -> IntValue(99))))) and
+      expect(oracle2.map(_.invocationLog.size).contains(2))
     }
   }
 }

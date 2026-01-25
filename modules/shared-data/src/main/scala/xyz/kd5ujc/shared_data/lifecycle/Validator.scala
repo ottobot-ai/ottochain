@@ -337,7 +337,7 @@ object Validator {
       cid:   UUID,
       state: CalculatedState
     ): EitherT[F, DataApplicationValidationError, Records.StateMachineFiberRecord] =
-      EitherT.fromOption(state.records.get(cid), Errors.FiberNotFound(cid)).flatMap { record =>
+      EitherT.fromOption(state.stateMachines.get(cid), Errors.FiberNotFound(cid)).flatMap { record =>
         EitherT.fromEither(record match {
           case value: Records.StateMachineFiberRecord => value.asRight[DataApplicationValidationError]
           case _ => Errors.MalformedFiberRecord.asLeft[Records.StateMachineFiberRecord]

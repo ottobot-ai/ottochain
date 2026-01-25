@@ -13,11 +13,11 @@ import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
+import xyz.kd5ujc.shared_test.Participant._
 
 import io.circe.parser.{decode, parse}
 import weaver.SimpleIOSuite
-import zyx.kd5ujc.shared_test.Mock.MockL0NodeContext
-import zyx.kd5ujc.shared_test.Participant._
 
 object TicTacToeGameSuite extends SimpleIOSuite {
 
@@ -116,7 +116,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         startGameProof <- registry.generateProofs(startGameUpdate, Set(Alice))
         state1         <- combiner.insert(stateAfterMachine, Signed(startGameUpdate, startGameProof))
 
-        machineAfterStart = state1.calculated.records
+        machineAfterStart = state1.calculated.stateMachines
           .get(machineCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -172,7 +172,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         finalState <- combiner.insert(state5, Signed(move5Update, move5Proof))
 
         // Verify final state
-        finalMachine = finalState.calculated.records
+        finalMachine = finalState.calculated.stateMachines
           .get(machineCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -348,7 +348,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           } yield nextState
         }
 
-        finalMachine = finalState.calculated.records
+        finalMachine = finalState.calculated.stateMachines
           .get(machineCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -488,7 +488,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         invalidMoveProof <- registry.generateProofs(invalidMoveUpdate, Set(Bob))
         state3           <- combiner.insert(state2, Signed(invalidMoveUpdate, invalidMoveProof))
 
-        machineAfterInvalid = state3.calculated.records
+        machineAfterInvalid = state3.calculated.stateMachines
           .get(machineCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -616,7 +616,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           } yield nextState
         }
 
-        machineAfterWin = stateAfterWin.calculated.records
+        machineAfterWin = stateAfterWin.calculated.stateMachines
           .get(machineCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -634,7 +634,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         resetProof      <- registry.generateProofs(resetUpdate, Set(Alice))
         stateAfterReset <- combiner.insert(stateAfterWin, Signed(resetUpdate, resetProof))
 
-        machineAfterReset = stateAfterReset.calculated.records
+        machineAfterReset = stateAfterReset.calculated.stateMachines
           .get(machineCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 

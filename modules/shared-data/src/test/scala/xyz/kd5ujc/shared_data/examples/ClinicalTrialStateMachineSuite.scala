@@ -13,11 +13,11 @@ import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
+import xyz.kd5ujc.shared_test.Participant._
 
 import io.circe.parser._
 import weaver.SimpleIOSuite
-import zyx.kd5ujc.shared_test.Mock.MockL0NodeContext
-import zyx.kd5ujc.shared_test.Participant._
 
 object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
 
@@ -1139,7 +1139,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         state6             <- combiner.insert(state5, Signed(completeVisitUpdate, completeVisitProof))
 
         // Verify trigger fired and lab is now processing
-        labAfterTrigger = state6.calculated.records
+        labAfterTrigger = state6.calculated.stateMachines
           .get(labCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -1166,7 +1166,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         completeLabProof <- registry.generateProofs(completeLabUpdate, Set(Charlie))
         state7           <- combiner.insert(state6, Signed(completeLabUpdate, completeLabProof))
 
-        labAfterComplete = state7.calculated.records
+        labAfterComplete = state7.calculated.stateMachines
           .get(labCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -1186,7 +1186,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         continueProof <- registry.generateProofs(continueUpdate, Set(Bob))
         state8        <- combiner.insert(state7, Signed(continueUpdate, continueProof))
 
-        patientAfterContinue = state8.calculated.records
+        patientAfterContinue = state8.calculated.stateMachines
           .get(patientCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -1204,7 +1204,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
           }
         }
 
-        trialAfterVisit = state8.calculated.records
+        trialAfterVisit = state8.calculated.stateMachines
           .get(trialCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -1217,27 +1217,27 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
 
       } yield expect.all(
         // Verify patient enrollment succeeded
-        state1.calculated.records.get(patientCid).exists {
+        state1.calculated.stateMachines.get(patientCid).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("enrolled")
           case _                                  => false
         },
         // Verify trial started
-        state2.calculated.records.get(trialCid).exists {
+        state2.calculated.stateMachines.get(trialCid).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("active")
           case _                                  => false
         },
         // Verify patient activated
-        state3.calculated.records.get(patientCid).exists {
+        state3.calculated.stateMachines.get(patientCid).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("active")
           case _                                  => false
         },
         // Verify visit scheduled
-        state4.calculated.records.get(patientCid).exists {
+        state4.calculated.stateMachines.get(patientCid).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("visit_scheduled")
           case _                                  => false
         },
         // Verify lab received sample
-        state5.calculated.records.get(labCid).exists {
+        state5.calculated.stateMachines.get(labCid).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("sample_received")
           case _                                  => false
         },

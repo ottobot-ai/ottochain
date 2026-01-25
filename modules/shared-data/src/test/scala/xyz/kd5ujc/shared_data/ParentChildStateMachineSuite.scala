@@ -1,7 +1,7 @@
 package xyz.kd5ujc.shared_data
 
+import cats.effect.IO
 import cats.effect.std.UUIDGen
-import cats.effect.{IO, Resource}
 import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
@@ -11,23 +11,21 @@ import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_test.Participant._
+import xyz.kd5ujc.shared_test.TestFixture
 
 import io.circe.parser._
 import weaver.SimpleIOSuite
-import zyx.kd5ujc.shared_test.Mock.MockL0NodeContext
-import zyx.kd5ujc.shared_test.Participant._
 
 object ParentChildStateMachineSuite extends SimpleIOSuite {
 
-  private val securityProviderResource: Resource[IO, SecurityProvider[IO]] = SecurityProvider.forAsync[IO]
-
   test("structured outputs: webhook and notification emissions") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
+      val registry = fixture.registry
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
-
+        combiner <- Combiner.make[IO].pure[IO]
         orderCid <- UUIDGen.randomUUID[IO]
 
         orderJson = s"""{
@@ -130,7 +128,7 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
         shipProof      <- registry.generateProofs(shipEvent, Set(Alice))
         stateAfterShip <- combiner.insert(stateAfterConfirm, Signed(shipEvent, shipProof))
 
-        finalOrder = stateAfterShip.calculated.records
+        finalOrder = stateAfterShip.calculated.stateMachines
           .get(orderCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -142,21 +140,20 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
         status = orderState.flatMap(_.value.get("status")).collect { case StrValue(s) => s }
         tracking = orderState.flatMap(_.value.get("trackingNumber")).collect { case StrValue(s) => s }
 
-      } yield expect.all(
-        finalOrder.isDefined,
-        finalOrder.map(_.currentState).contains(StateMachine.StateId("shipped")),
-        status.contains("shipped"),
-        tracking.contains("TRACK-456")
-      )
+      } yield expect(finalOrder.isDefined) and
+      expect(finalOrder.map(_.currentState).contains(StateMachine.StateId("shipped"))) and
+      expect(status.contains("shipped")) and
+      expect(tracking.contains("TRACK-456"))
     }
   }
 
   test("parent-child context: child can access parent state") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice, Bob)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
+      val registry = fixture.registry
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         parentCid <- UUIDGen.randomUUID[IO]
         childCid  <- UUIDGen.randomUUID[IO]
@@ -240,11 +237,11 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
         checkProof <- registry.generateProofs(checkUpdate, Set(Bob))
         finalState <- combiner.insert(stateAfterSuspend, Signed(checkUpdate, checkProof))
 
-        finalParent = finalState.calculated.records
+        finalParent = finalState.calculated.stateMachines
           .get(parentCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalChild = finalState.calculated.records
+        finalChild = finalState.calculated.stateMachines
           .get(childCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -271,25 +268,24 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
 
         childParentId = finalChild.flatMap(_.parentFiberId)
 
-      } yield expect.all(
-        finalParent.isDefined,
-        finalParent.map(_.currentState).contains(StateMachine.StateId("suspended")),
-        parentStatus.contains("suspended"),
-        finalChild.isDefined,
-        finalChild.map(_.currentState).contains(StateMachine.StateId("paused")),
-        childStatus.contains("paused"),
-        childReason.contains("parent_suspended"),
-        childParentId.contains(parentCid)
-      )
+      } yield expect(finalParent.isDefined) and
+      expect(finalParent.map(_.currentState).contains(StateMachine.StateId("suspended"))) and
+      expect(parentStatus.contains("suspended")) and
+      expect(finalChild.isDefined) and
+      expect(finalChild.map(_.currentState).contains(StateMachine.StateId("paused"))) and
+      expect(childStatus.contains("paused")) and
+      expect(childReason.contains("parent_suspended")) and
+      expect(childParentId.contains(parentCid))
     }
   }
 
   test("parent-child relationship: parent tracks children") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
+      val registry = fixture.registry
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         parentCid <- UUIDGen.randomUUID[IO]
         child1Cid <- UUIDGen.randomUUID[IO]
@@ -320,25 +316,23 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
         child2Proof <- registry.generateProofs(createChild2, Set(Alice))
         finalState  <- combiner.insert(stateAfterChild1, Signed(createChild2, child2Proof))
 
-        parent = finalState.calculated.records
+        parent = finalState.calculated.stateMachines
           .get(parentCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        child1 = finalState.calculated.records
+        child1 = finalState.calculated.stateMachines
           .get(child1Cid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        child2 = finalState.calculated.records
+        child2 = finalState.calculated.stateMachines
           .get(child2Cid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-      } yield expect.all(
-        parent.isDefined,
-        child1.isDefined,
-        child2.isDefined,
-        child1.flatMap(_.parentFiberId).contains(parentCid),
-        child2.flatMap(_.parentFiberId).contains(parentCid)
-      )
+      } yield expect(parent.isDefined) and
+      expect(child1.isDefined) and
+      expect(child2.isDefined) and
+      expect(child1.flatMap(_.parentFiberId).contains(parentCid)) and
+      expect(child2.flatMap(_.parentFiberId).contains(parentCid))
     }
   }
 }

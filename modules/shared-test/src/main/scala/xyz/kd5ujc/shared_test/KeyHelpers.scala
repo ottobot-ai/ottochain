@@ -1,4 +1,4 @@
-package zyx.kd5ujc.shared_test
+package xyz.kd5ujc.shared_test
 
 import java.math.BigInteger
 import java.security.spec.{PKCS8EncodedKeySpec, X509EncodedKeySpec}

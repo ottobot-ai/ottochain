@@ -13,6 +13,18 @@ import enumeratum._
 
 object Records {
 
+  /**
+   * Unified trait for all fiber types.
+   * Allows uniform handling of state machines and oracles.
+   */
+  sealed trait FiberRecord {
+    def cid: UUID
+    def status: FiberStatus
+    def owners: Set[Address]
+    def creationOrdinal: SnapshotOrdinal
+    def latestUpdateOrdinal: SnapshotOrdinal
+  }
+
   sealed trait FiberStatus extends EnumEntry
 
   @derive(encoder, decoder)
@@ -60,6 +72,20 @@ object Records {
       attemptedAt: SnapshotOrdinal
     ) extends EventProcessingStatus
 
+    final case class DepthExceeded(
+      attemptedAt: SnapshotOrdinal,
+      depth:       Int,
+      maxDepth:    Int,
+      gasUsed:     Long
+    ) extends EventProcessingStatus
+
+    final case class GasExhausted(
+      attemptedAt: SnapshotOrdinal,
+      gasUsed:     Long,
+      gasLimit:    Long,
+      depth:       Int
+    ) extends EventProcessingStatus
+
     final case object Initialized extends EventProcessingStatus
   }
 
@@ -92,11 +118,12 @@ object Records {
     status:                FiberStatus,
     lastEventStatus:       EventProcessingStatus,
     eventBatch:            List[EventProcessingStatus] = List.empty,
+    maxEventBatchSize:     Int = 100,
     parentFiberId:         Option[UUID] = None,
     childFiberIds:         Set[UUID] = Set.empty,
     eventLog:              List[EventReceipt] = List.empty,
     maxLogSize:            Int = 100
-  )
+  ) extends FiberRecord
 
   @derive(encoder, decoder)
   final case class OracleInvocation(
@@ -122,7 +149,7 @@ object Records {
     status:              FiberStatus,
     invocationLog:       List[OracleInvocation] = List.empty,
     maxLogSize:          Int = 100
-  )
+  ) extends FiberRecord
 
   object FiberStatus extends Enum[FiberStatus] with CirceEnum[FiberStatus] {
     val values: IndexedSeq[FiberStatus] = findValues

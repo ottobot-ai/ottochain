@@ -1,7 +1,7 @@
 package xyz.kd5ujc.shared_data
 
+import cats.effect.IO
 import cats.effect.std.UUIDGen
-import cats.effect.{IO, Resource}
 import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
@@ -11,22 +11,20 @@ import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_test.Participant._
+import xyz.kd5ujc.shared_test.TestFixture
 
 import io.circe.parser._
 import weaver.SimpleIOSuite
-import zyx.kd5ujc.shared_test.Mock.MockL0NodeContext
-import zyx.kd5ujc.shared_test.Participant._
 
 object MultipleGuardsSuite extends SimpleIOSuite {
 
-  private val securityProviderResource: Resource[IO, SecurityProvider[IO]] = SecurityProvider.forAsync[IO]
-
   test("first matching guard wins: multiple transitions same event") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         machineCid <- UUIDGen.randomUUID[IO]
 
@@ -83,7 +81,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         initialData = MapValue(Map.empty[String, JsonLogicValue])
 
         createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
-        machineProof <- registry.generateProofs(createMachine, Set(Alice))
+        machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createMachine, machineProof)
@@ -97,10 +95,10 @@ object MultipleGuardsSuite extends SimpleIOSuite {
             MapValue(Map("priority" -> IntValue(90)))
           )
         )
-        highProof      <- registry.generateProofs(highPriorityEvent, Set(Alice))
+        highProof      <- fixture.registry.generateProofs(highPriorityEvent, Set(Alice))
         stateAfterHigh <- combiner.insert(stateAfterCreate, Signed(highPriorityEvent, highProof))
 
-        highMachine = stateAfterHigh.calculated.records
+        highMachine = stateAfterHigh.calculated.stateMachines
           .get(machineCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -111,20 +109,18 @@ object MultipleGuardsSuite extends SimpleIOSuite {
           }
         }
 
-      } yield expect.all(
-        highMachine.isDefined,
-        highMachine.map(_.currentState).contains(StateMachine.StateId("high_priority")),
-        highLevel.contains("high")
-      )
+      } yield expect(highMachine.isDefined) and
+      expect(highMachine.map(_.currentState).contains(StateMachine.StateId("high_priority"))) and
+      expect(highLevel.contains("high"))
     }
   }
 
   test("guard evaluation order: earlier guards checked first") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         machineCid <- UUIDGen.randomUUID[IO]
 
@@ -184,7 +180,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         initialData = MapValue(Map.empty[String, JsonLogicValue])
 
         createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
-        machineProof <- registry.generateProofs(createMachine, Set(Alice))
+        machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createMachine, machineProof)
@@ -198,10 +194,10 @@ object MultipleGuardsSuite extends SimpleIOSuite {
             MapValue(Map("value" -> IntValue(15)))
           )
         )
-        checkProof <- registry.generateProofs(checkEvent, Set(Alice))
+        checkProof <- fixture.registry.generateProofs(checkEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterCreate, Signed(checkEvent, checkProof))
 
-        machine = finalState.calculated.records
+        machine = finalState.calculated.stateMachines
           .get(machineCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -219,21 +215,19 @@ object MultipleGuardsSuite extends SimpleIOSuite {
           }
         }
 
-      } yield expect.all(
-        machine.isDefined,
-        machine.map(_.currentState).contains(StateMachine.StateId("result_a")),
-        result.contains("a"),
-        message.contains("matched first guard (>= 10)")
-      )
+      } yield expect(machine.isDefined) and
+      expect(machine.map(_.currentState).contains(StateMachine.StateId("result_a"))) and
+      expect(result.contains("a")) and
+      expect(message.contains("matched first guard (>= 10)"))
     }
   }
 
   test("no guard matches: all transitions evaluated but none match") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         machineCid <- UUIDGen.randomUUID[IO]
 
@@ -292,7 +286,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         initialData = MapValue(Map("tier" -> IntValue(0)))
 
         createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
-        machineProof <- registry.generateProofs(createMachine, Set(Alice))
+        machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createMachine, machineProof)
@@ -306,10 +300,10 @@ object MultipleGuardsSuite extends SimpleIOSuite {
             MapValue(Map("amount" -> IntValue(50)))
           )
         )
-        upgradeProof <- registry.generateProofs(upgradeEvent, Set(Alice))
+        upgradeProof <- fixture.registry.generateProofs(upgradeEvent, Set(Alice))
         finalState   <- combiner.insert(stateAfterCreate, Signed(upgradeEvent, upgradeProof))
 
-        machine = finalState.calculated.records
+        machine = finalState.calculated.stateMachines
           .get(machineCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -320,22 +314,20 @@ object MultipleGuardsSuite extends SimpleIOSuite {
           }
         }
 
-      } yield expect.all(
-        machine.isDefined,
-        // Should remain in idle state since no guard matched
-        machine.map(_.currentState).contains(StateMachine.StateId("idle")),
-        // Tier should remain 0 (no effect applied)
-        tier.contains(BigInt(0))
-      )
+      } yield expect(machine.isDefined) and
+      // Should remain in idle state since no guard matched
+      expect(machine.map(_.currentState).contains(StateMachine.StateId("idle"))) and
+      // Tier should remain 0 (no effect applied)
+      expect(tier.contains(BigInt(0)))
     }
   }
 
   test("multiple guards with complex conditions") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         machineCid <- UUIDGen.randomUUID[IO]
 
@@ -401,7 +393,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         initialData = MapValue(Map.empty[String, JsonLogicValue])
 
         createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
-        machineProof <- registry.generateProofs(createMachine, Set(Alice))
+        machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createMachine, machineProof)
@@ -421,10 +413,10 @@ object MultipleGuardsSuite extends SimpleIOSuite {
             )
           )
         )
-        premiumProof <- registry.generateProofs(premiumEvent, Set(Alice))
+        premiumProof <- fixture.registry.generateProofs(premiumEvent, Set(Alice))
         finalState   <- combiner.insert(stateAfterCreate, Signed(premiumEvent, premiumProof))
 
-        machine = finalState.calculated.records
+        machine = finalState.calculated.stateMachines
           .get(machineCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -435,20 +427,18 @@ object MultipleGuardsSuite extends SimpleIOSuite {
           }
         }
 
-      } yield expect.all(
-        machine.isDefined,
-        machine.map(_.currentState).contains(StateMachine.StateId("premium")),
-        level.contains("premium")
-      )
+      } yield expect(machine.isDefined) and
+      expect(machine.map(_.currentState).contains(StateMachine.StateId("premium"))) and
+      expect(level.contains("premium"))
     }
   }
 
   test("guard with state and event conditions") {
-    securityProviderResource.use { implicit s =>
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO].pure[IO]
 
         machineCid <- UUIDGen.randomUUID[IO]
 
@@ -504,7 +494,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         )
 
         createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
-        machineProof <- registry.generateProofs(createMachine, Set(Alice))
+        machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createMachine, machineProof)
@@ -523,10 +513,10 @@ object MultipleGuardsSuite extends SimpleIOSuite {
             )
           )
         )
-        unlockProof <- registry.generateProofs(unlockEvent, Set(Alice))
+        unlockProof <- fixture.registry.generateProofs(unlockEvent, Set(Alice))
         finalState  <- combiner.insert(stateAfterCreate, Signed(unlockEvent, unlockProof))
 
-        machine = finalState.calculated.records
+        machine = finalState.calculated.stateMachines
           .get(machineCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
@@ -537,11 +527,9 @@ object MultipleGuardsSuite extends SimpleIOSuite {
           }
         }
 
-      } yield expect.all(
-        machine.isDefined,
-        machine.map(_.currentState).contains(StateMachine.StateId("admin_unlocked")),
-        unlockedBy.contains("admin")
-      )
+      } yield expect(machine.isDefined) and
+      expect(machine.map(_.currentState).contains(StateMachine.StateId("admin_unlocked"))) and
+      expect(unlockedBy.contains("admin"))
     }
   }
 }

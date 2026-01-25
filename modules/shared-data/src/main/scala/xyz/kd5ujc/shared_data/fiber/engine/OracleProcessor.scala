@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.lifecycle
+package xyz.kd5ujc.shared_data.fiber.engine
 
 import java.util.UUID
 
@@ -16,7 +16,8 @@ import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.hash.Hash
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
+import xyz.kd5ujc.schema._
+import xyz.kd5ujc.shared_data.fiber.domain.ReservedKeys
 
 import monocle.Monocle.toAppliedFocusOps
 
@@ -26,16 +27,16 @@ object OracleProcessor {
     evaluationResult: JsonLogicValue
   ): F[(Option[JsonLogicValue], JsonLogicValue)] =
     evaluationResult match {
-      case MapValue(m) if m.contains("_state") && m.contains("_result") =>
-        (m.get("_state"), m.getOrElse("_result", NullValue)).pure[F]
+      case MapValue(m) if m.contains(ReservedKeys.ORACLE_STATE) && m.contains(ReservedKeys.ORACLE_RESULT) =>
+        (m.get(ReservedKeys.ORACLE_STATE), m.getOrElse(ReservedKeys.ORACLE_RESULT, NullValue)).pure[F]
 
-      case MapValue(m) if m.contains("_state") =>
-        (m.get("_state"), evaluationResult).pure[F]
+      case MapValue(m) if m.contains(ReservedKeys.ORACLE_STATE) =>
+        (m.get(ReservedKeys.ORACLE_STATE), evaluationResult).pure[F]
 
-      case MapValue(m) if m.contains("_result") =>
+      case MapValue(m) if m.contains(ReservedKeys.ORACLE_RESULT) =>
         (
           Option.empty[JsonLogicValue],
-          m.getOrElse("_result", NullValue)
+          m.getOrElse(ReservedKeys.ORACLE_RESULT, NullValue)
         ).pure[F]
 
       case other =>
@@ -103,9 +104,9 @@ object OracleProcessor {
 
     inputData = MapValue(
       Map(
-        "method"  -> StrValue(update.method),
-        "args"    -> update.args,
-        "content" -> oracleRecord.stateData.getOrElse(NullValue)
+        ReservedKeys.METHOD -> StrValue(update.method),
+        ReservedKeys.ARGS   -> update.args,
+        ReservedKeys.STATE  -> oracleRecord.stateData.getOrElse(NullValue)
       )
     )
 
@@ -140,17 +141,18 @@ object OracleProcessor {
   ): F[Either[StateMachine.FailureReason, Unit]] = policy match {
     case Records.AccessControlPolicy.Public =>
       ().asRight[StateMachine.FailureReason].pure[F]
+
+    case Records.AccessControlPolicy.Whitelist(addresses) if addresses.contains(caller) =>
+      ().asRight[StateMachine.FailureReason].pure[F]
+
     case Records.AccessControlPolicy.Whitelist(addresses) =>
-      if (addresses.contains(caller))
-        ().asRight[StateMachine.FailureReason].pure[F]
-      else {
-        (StateMachine.FailureReason.AccessDenied(
-          caller = caller.show,
-          resourceId = resourceId,
-          policyType = "Whitelist",
-          details = s"Allowed addresses: ${addresses.map(_.show).mkString(", ")}".some
-        ): StateMachine.FailureReason).asLeft[Unit].pure[F]
-      }
+      (StateMachine.FailureReason.AccessDenied(
+        caller = caller.show,
+        resourceId = resourceId,
+        policyType = "Whitelist",
+        details = s"Allowed addresses: ${addresses.map(_.show).mkString(", ")}".some
+      ): StateMachine.FailureReason).asLeft[Unit].pure[F]
+
     case Records.AccessControlPolicy.FiberOwned(fiberId) =>
       (StateMachine.FailureReason.AccessDenied(
         caller = caller.show,

@@ -5,6 +5,7 @@ object Dependencies {
   object V {
     val cats = "2.13.0"
     val catsEffect = "3.6.3"
+    val catsMtl = "1.3.1"
     val enumeratum = "1.7.5"
     val decline = "2.5.0"
     val metakit = "1.7.0-rc.3"
@@ -23,6 +24,7 @@ object Dependencies {
     val cats = "org.typelevel" %% "cats-core" % V.cats
     val catsEffect = "org.typelevel" %% "cats-effect" % V.catsEffect
     val catsEffectTestkit = "org.typelevel" %% "cats-effect-testkit" % V.catsEffect
+    val catsMtl = "org.typelevel" %% "cats-mtl" % V.catsMtl
 
     val enumeratum = "com.beachape" %% "enumeratum" % V.enumeratum
     val enumeratumCirce = "com.beachape" %% "enumeratum-circe" % V.enumeratum

@@ -13,10 +13,10 @@ import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
+import xyz.kd5ujc.shared_test.Participant._
 
 import weaver.SimpleIOSuite
-import zyx.kd5ujc.shared_test.Mock.MockL0NodeContext
-import zyx.kd5ujc.shared_test.Participant._
 
 object NftMarketplaceSuite extends SimpleIOSuite {
 
@@ -46,8 +46,8 @@ object NftMarketplaceSuite extends SimpleIOSuite {
                     "+": [
                       {
                         "if": [
-                          { "var": "content.totalRoyalties" },
-                          { "var": "content.totalRoyalties" },
+                          { "var": "state.totalRoyalties" },
+                          { "var": "state.totalRoyalties" },
                           0
                         ]
                       },
@@ -62,8 +62,8 @@ object NftMarketplaceSuite extends SimpleIOSuite {
                     "+": [
                       {
                         "if": [
-                          { "var": "content.totalRoyalties" },
-                          { "var": "content.totalRoyalties" },
+                          { "var": "state.totalRoyalties" },
+                          { "var": "state.totalRoyalties" },
                           0
                         ]
                       },
@@ -73,7 +73,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
                 }
               },
               {
-                "_state": { "var": "content" },
+                "_state": { "var": "state" },
                 "_result": { "error": "Unknown method" }
               }
             ]

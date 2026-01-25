@@ -107,6 +107,18 @@ object StateMachine {
   @derive(encoder, decoder)
   case class DepthExceeded(depth: Int) extends ProcessingResult
 
+  /** Phase where gas was exhausted during execution */
+  @derive(encoder, decoder)
+  sealed trait GasExhaustionPhase
+
+  object GasExhaustionPhase {
+    case object Guard extends GasExhaustionPhase
+    case object Effect extends GasExhaustionPhase
+    case object Oracle extends GasExhaustionPhase
+    case object Trigger extends GasExhaustionPhase
+    case object Spawn extends GasExhaustionPhase
+  }
+
   @derive(encoder, decoder)
   sealed trait FailureReason {
 
@@ -125,6 +137,10 @@ object StateMachine {
         s"Validation failed at ordinal ${ordinal.value.value}: $msg"
       case FailureReason.AccessDenied(caller, resourceId, policyType, details) =>
         s"Access denied: caller $caller not authorized for resource $resourceId (policy: $policyType)${details.fold("")(d => s" - $d")}"
+      case FailureReason.TriggerTargetNotFound(targetId, sourceId) =>
+        s"Trigger target fiber $targetId not found${sourceId.fold("")(s => s" (source: $s)")}"
+      case FailureReason.GasExhaustedFailure(gasUsed, gasLimit, phase) =>
+        s"Gas exhausted during ${phase.toString.toLowerCase}: $gasUsed of $gasLimit units consumed"
       case FailureReason.Other(msg) =>
         msg
     }
@@ -137,9 +153,14 @@ object StateMachine {
     case class EffectEvaluationError(message: String) extends FailureReason
     case class CycleDetected(fiberId: UUID, eventType: EventType) extends FailureReason
     case class ValidationFailed(message: String, attemptedAt: SnapshotOrdinal) extends FailureReason
+    case class TriggerTargetNotFound(targetFiberId: UUID, sourceFiberId: Option[UUID]) extends FailureReason
 
     case class AccessDenied(caller: String, resourceId: UUID, policyType: String, details: Option[String])
         extends FailureReason
+
+    /** Structured gas exhaustion failure with phase information */
+    case class GasExhaustedFailure(gasUsed: Long, gasLimit: Long, phase: GasExhaustionPhase) extends FailureReason
+
     case class Other(message: String) extends FailureReason
   }
 

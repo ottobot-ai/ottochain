@@ -7,14 +7,23 @@ import io.constellationnetwork.currency.dataApplication.DataCalculatedState
 import derevo.circe.magnolia.{decoder, encoder}
 import derevo.derive
 
-sealed trait FiberRecord
-
 @derive(encoder, decoder)
 case class CalculatedState(
   stateMachines: Map[UUID, Records.StateMachineFiberRecord],
   scriptOracles: Map[UUID, Records.ScriptOracleFiberRecord]
 ) extends DataCalculatedState {
-  def records: Map[UUID, Records.StateMachineFiberRecord] = stateMachines
+
+  /** Lookup any fiber by ID */
+  def getFiber(id: UUID): Option[Records.FiberRecord] =
+    stateMachines.get(id).orElse(scriptOracles.get(id))
+
+  /** Update a fiber (dispatches to correct map) */
+  def updateFiber(fiber: Records.FiberRecord): CalculatedState = fiber match {
+    case sm: Records.StateMachineFiberRecord =>
+      copy(stateMachines = stateMachines.updated(sm.cid, sm))
+    case oracle: Records.ScriptOracleFiberRecord =>
+      copy(scriptOracles = scriptOracles.updated(oracle.cid, oracle))
+  }
 }
 
 object CalculatedState {
