@@ -1,12 +1,9 @@
 package xyz.kd5ujc.metagraph_l0.app
 
-import xyz.kd5ujc.shared_data.app.ApplicationConfig
+import xyz.kd5ujc.shared_data.app.SharedAppConfig
 
 case class ML0AppConfig(
-  node: ApplicationConfig.NodeConfig,
-  aws:  ApplicationConfig.AmazonWebServicesConfig
-) extends ApplicationConfig {
-  override def nodeOpt: Option[ApplicationConfig.NodeConfig] = Some(node)
-}
+  node: SharedAppConfig.NodeConfig
+) extends SharedAppConfig
 
 object ML0AppConfig {}

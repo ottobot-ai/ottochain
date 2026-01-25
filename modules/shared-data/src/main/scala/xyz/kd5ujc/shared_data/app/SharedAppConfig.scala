@@ -6,17 +6,15 @@ import ciris.Secret
 import com.comcast.ip4s.Port
 import fs2.io.file.Path
 
-abstract class ApplicationConfig {
-  def nodeOpt: Option[ApplicationConfig.NodeConfig]
-  def aws: ApplicationConfig.AmazonWebServicesConfig
+abstract class SharedAppConfig {
+  def node: SharedAppConfig.NodeConfig
 }
 
-case class BaseApplicationConfig(
-  nodeOpt: Option[ApplicationConfig.NodeConfig],
-  aws:     ApplicationConfig.AmazonWebServicesConfig
-) extends ApplicationConfig
+object SharedAppConfig {
 
-object ApplicationConfig {
+  case class BaseApplicationConfig(
+    node: SharedAppConfig.NodeConfig
+  ) extends SharedAppConfig
 
   case class NodeConfig(
     key:               NodeConfig.Key,

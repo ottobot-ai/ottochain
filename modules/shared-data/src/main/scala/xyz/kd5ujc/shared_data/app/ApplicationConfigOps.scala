@@ -10,8 +10,8 @@ import io.constellationnetwork.schema.address.{Address, DAGAddressRefined}
 import io.constellationnetwork.schema.peer.{P2PContext, PeerId}
 import io.constellationnetwork.security.hex.Hex
 
-import xyz.kd5ujc.shared_data.app.ApplicationConfig.AmazonWebServicesConfig
-import xyz.kd5ujc.shared_data.app.ApplicationConfig.NodeConfig.TessellationPorts
+import xyz.kd5ujc.shared_data.app.SharedAppConfig.AmazonWebServicesConfig
+import xyz.kd5ujc.shared_data.app.SharedAppConfig.NodeConfig.TessellationPorts
 
 import ciris.Secret
 import com.comcast.ip4s.{Host, Port}
@@ -66,26 +66,26 @@ object ApplicationConfigOps {
 
   implicit val serverConfigReader: ConfigReader[HttpServerConfig] = deriveReader
 
-  implicit val nodeConfigKeyReader: ConfigReader[ApplicationConfig.NodeConfig.Key] = deriveReader
+  implicit val nodeConfigKeyReader: ConfigReader[SharedAppConfig.NodeConfig.Key] = deriveReader
 
-  implicit val nodeConfigPortReader: ConfigReader[ApplicationConfig.NodeConfig.TessellationPorts] = deriveReader
+  implicit val nodeConfigPortReader: ConfigReader[SharedAppConfig.NodeConfig.TessellationPorts] = deriveReader
 
-  implicit val nodeConfigNetworkReader: ConfigReader[ApplicationConfig.NodeConfig.Network] = deriveReader
+  implicit val nodeConfigNetworkReader: ConfigReader[SharedAppConfig.NodeConfig.Network] = deriveReader
 
-  implicit val nodeConfigReader: ConfigReader[ApplicationConfig.NodeConfig] = deriveReader
+  implicit val nodeConfigReader: ConfigReader[SharedAppConfig.NodeConfig] = deriveReader
 
-  implicit val amazonS3Reader: ConfigReader[ApplicationConfig.AmazonWebServicesConfig.S3] = deriveReader
+  implicit val amazonS3Reader: ConfigReader[SharedAppConfig.AmazonWebServicesConfig.S3] = deriveReader
 
-  implicit val amazonAthenaReader: ConfigReader[ApplicationConfig.AmazonWebServicesConfig.Athena] = deriveReader
+  implicit val amazonAthenaReader: ConfigReader[SharedAppConfig.AmazonWebServicesConfig.Athena] = deriveReader
 
-  implicit val amazonCredentialsReader: ConfigReader[ApplicationConfig.AmazonWebServicesConfig.Credentials] =
+  implicit val amazonCredentialsReader: ConfigReader[SharedAppConfig.AmazonWebServicesConfig.Credentials] =
     deriveReader
 
-  implicit val amazonConfigReader: ConfigReader[ApplicationConfig.AmazonWebServicesConfig] = deriveReader
+  implicit val amazonConfigReader: ConfigReader[SharedAppConfig.AmazonWebServicesConfig] = deriveReader
 
-  implicit val baseApplicationConfigReader: ConfigReader[BaseApplicationConfig] = deriveReader
+  implicit val baseApplicationConfigReader: ConfigReader[SharedAppConfig.BaseApplicationConfig] = deriveReader
 
-  implicit val applicationConfigReader: ConfigReader[ApplicationConfig] = baseApplicationConfigReader.map(identity)
+  implicit val applicationConfigReader: ConfigReader[SharedAppConfig] = baseApplicationConfigReader.map(identity)
 
   implicit val productHint: ProductHint[TessellationPorts] =
     ProductHint[TessellationPorts](ConfigFieldMapping(CamelCase, CamelCase))

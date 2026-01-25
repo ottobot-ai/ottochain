@@ -3,15 +3,12 @@ package xyz.kd5ujc.data_l1.app
 import io.constellationnetwork.schema.address.Address
 import io.constellationnetwork.schema.peer.P2PContext
 
-import xyz.kd5ujc.shared_data.app.ApplicationConfig
+import xyz.kd5ujc.shared_data.app.SharedAppConfig
 
 case class DataL1AppConfig(
-  node:        ApplicationConfig.NodeConfig,
-  aws:         ApplicationConfig.AmazonWebServicesConfig,
+  node:        SharedAppConfig.NodeConfig,
   ml0Peers:    Set[P2PContext],
   metagraphId: Address
-) extends ApplicationConfig {
-  override def nodeOpt: Option[ApplicationConfig.NodeConfig] = Some(node)
-}
+) extends SharedAppConfig
 
 object DataL1AppConfig {}
