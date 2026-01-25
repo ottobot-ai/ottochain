@@ -99,6 +99,58 @@ node terminal.js or invoke --address <CID> --method multiply --args examples/cal
 node terminal.js or invoke --address <CID> --method divide --args examples/calculator-oracle/args-divide.json
 ```
 
+### Combined Examples (Oracle + State Machine)
+
+#### tictactoe
+A complete tic-tac-toe implementation demonstrating the **oracle-centric architecture** where:
+- **Oracle** = Game engine (holds board state, enforces rules, detects wins)
+- **State Machine** = Lifecycle orchestrator (setup → playing → finished)
+
+**Files:**
+- `oracle-definition.json` - Game engine oracle with methods: initialize, makeMove, checkWinner, getBoard, resetGame, cancelGame
+- `sm-definition.json` - Lifecycle state machine with states: setup, playing, finished, cancelled
+- `sm-initial-data.json` - Initial data template (oracleCid injected at runtime)
+- `event-start-game.json` - Start game event template
+- `event-move.json` - Make move event template
+- `event-reset.json` - Reset board event
+
+**Usage:**
+```bash
+# Run autonomous simulation (creates oracle + state machine automatically)
+node terminal.js simulate tictactoe --games 1
+
+# Or run the predefined test flow
+node terminal.js run --example tictactoe
+
+# Query the results
+node terminal.js query oracles --oracleId <ORACLE_CID>
+node terminal.js query state-machines --fiberId <FIBER_ID>
+```
+
+## Running Test Flows
+
+The `run` command executes predefined test flows from examples:
+
+```bash
+# List available flows for an example
+node terminal.js run --example simple-order --list
+
+# Run the first test flow
+node terminal.js run --example simple-order
+
+# Run a specific flow by name
+node terminal.js run --example simple-order --flow "Cancellation"
+
+# Run with custom environment
+node terminal.js run --example simple-order --target remote
+```
+
+Test flows automate multi-step operations like:
+1. Creating oracles and state machines
+2. Processing events in sequence
+3. Validating state after each step
+4. Tracking CIDs between steps automatically
+
 ## Interactive Mode
 
 Use interactive mode for guided selection of examples:

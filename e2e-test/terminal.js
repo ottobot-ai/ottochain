@@ -19,6 +19,52 @@ const program = new Command()
   .option('--maxRetries <N>', 'Max validation retry attempts. Default: 5', '5')
   .option('--wallets <wallets>', 'Comma-separated list of signers [alice, bob, charlie, diane, james]. Default: alice', 'alice');
 
+/**
+ * Load a file that can be either JSON or JS module.
+ * JS files should export a function that receives a context object.
+ * JSON files are parsed and returned as-is.
+ *
+ * @param {string} filePath - Path to file (with or without extension)
+ * @param {object} context - Context object passed to JS modules { wallets, session, eventData }
+ * @returns {object} The loaded/generated data
+ */
+function loadFileOrModule(filePath, context = {}) {
+  const fs = require('fs');
+
+  // Determine paths based on extension
+  const hasJsExt = filePath.endsWith('.js');
+  const hasJsonExt = filePath.endsWith('.json');
+  const hasNoExt = !hasJsExt && !hasJsonExt;
+
+  let jsPath, jsonPath;
+  if (hasNoExt) {
+    jsPath = filePath + '.js';
+    jsonPath = filePath + '.json';
+  } else if (hasJsExt) {
+    jsPath = filePath;
+    jsonPath = filePath.replace(/\.js$/, '.json');
+  } else {
+    jsPath = filePath.replace(/\.json$/, '.js');
+    jsonPath = filePath;
+  }
+
+  // Prefer .js if it exists
+  if (fs.existsSync(jsPath)) {
+    // Clear require cache to ensure fresh load
+    delete require.cache[require.resolve(jsPath)];
+    const moduleExport = require(jsPath);
+    // If it's a function, call it with context; otherwise return as-is
+    return typeof moduleExport === 'function' ? moduleExport(context) : moduleExport;
+  }
+
+  // Fall back to JSON
+  if (fs.existsSync(jsonPath)) {
+    return JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+  }
+
+  throw new Error(`File not found: ${filePath} (tried ${jsPath} and ${jsonPath})`);
+}
+
 const exitOnError = (contextMessage, err) => {
   console.error(contextMessage, err);
   process.exit(1);
@@ -350,6 +396,7 @@ program
 
     const stateMachines = examples.filter(e => e.type === 'state-machine');
     const oracles = examples.filter(e => e.type === 'oracle');
+    const combined = examples.filter(e => e.type === 'combined');
 
     if (cmdOptions.type === 'all' || cmdOptions.type === 'state-machines') {
       console.log('\x1b[33mState Machine Examples:\x1b[0m');
@@ -369,7 +416,17 @@ program
       console.log('');
     }
 
-    console.log('Use \x1b[36m--example <name>\x1b[0m to see detailed information about an example\n');
+    if (cmdOptions.type === 'all' && combined.length > 0) {
+      console.log('\x1b[33mCombined Examples (Oracle + State Machine):\x1b[0m');
+      combined.forEach(e => {
+        console.log(`  \x1b[36m${e.dir}\x1b[0m - ${e.name}`);
+        console.log(`    ${e.description}`);
+      });
+      console.log('');
+    }
+
+    console.log('Use \x1b[36m--example <name>\x1b[0m to see detailed information about an example');
+    console.log('Use \x1b[36mrun --example <name> --list\x1b[0m to see available test flows\n');
   });
 
 async function executeCommand(category, operation, cmdOptions) {
@@ -671,177 +728,277 @@ program
     }
   });
 
-const simulateCmd = program
-  .command('simulate')
-  .description('Run autonomous simulations');
+// Run Command - Execute predefined test flows
+const runCmd = new Command('run')
+  .description('Execute predefined test flows from examples')
+  .option('-e, --example <name>', 'Example to run (e.g., simple-order, counter-oracle, tictactoe)')
+  .option('-f, --flow <number|name>', 'Test flow by number (1, 2, ...) or name')
+  .option('-l, --list', 'List available test flows')
+  .addHelpText('after', `
+Examples:
+  $ node terminal.js run -l                    # List all examples and their test flows
+  $ node terminal.js run -e simple-order       # Run the default flow for simple-order
+  $ node terminal.js run -e simple-order -l    # List flows for simple-order only
+  $ node terminal.js run -e simple-order -f 2  # Run flow #2
+  $ node terminal.js run -e simple-order -f cancel   # Match flow by name
+`)
+  .action(async (cmdOptions) => {
+    const fs = require('fs');
+    const path = require('path');
 
-simulateCmd
-  .command('tictactoe')
-  .description('Run autonomous tic-tac-toe game simulation')
-  .requiredOption('--oracle-cid <cid>', 'Oracle CID')
-  .requiredOption('--fiber-id <id>', 'State machine fiber ID')
-  .option('--delay <ms>', 'Delay between moves in milliseconds', '2000')
-  .option('--games <n>', 'Number of games to play', '1')
-  .action(async (options) => {
-    try {
-      const fs = require('fs');
-      const path = require('path');
+    const globalOpts = program.opts();
+    const examplesDir = path.join(__dirname, 'examples');
 
-      console.log('\n\x1b[36m=== Tic-Tac-Toe Autonomous Simulation ===\x1b[0m\n');
-      console.log(`Oracle CID: ${options.oracleCid}`);
-      console.log(`Fiber ID: ${options.fiberId}`);
-      console.log(`Games to play: ${options.games}`);
-      console.log(`Move delay: ${options.delay}ms\n`);
-
-      const env = getMetagraphEnv(program.opts().target);
-      const walletsToUse = {};
-
-      const walletNames = program.opts().wallets.split(',');
-      walletNames.forEach(name => {
-        walletsToUse[name] = generateWallet(name.trim());
-      });
-
-      const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-      // Simple AI strategy: prioritize center, then corners, then edges
-      const getBestMove = (board) => {
-        const availableCells = board.map((cell, idx) => cell === null ? idx : null).filter(idx => idx !== null);
-
-        if (availableCells.length === 0) return null;
-
-        // Priority order: center (4), corners (0,2,6,8), edges (1,3,5,7)
-        const center = 4;
-        const corners = [0, 2, 6, 8];
-        const edges = [1, 3, 5, 7];
-
-        if (availableCells.includes(center)) return center;
-
-        const availableCorners = corners.filter(c => availableCells.includes(c));
-        if (availableCorners.length > 0) {
-          return availableCorners[Math.floor(Math.random() * availableCorners.length)];
-        }
-
-        return availableCells[Math.floor(Math.random() * availableCells.length)];
-      };
-
-      for (let gameNum = 1; gameNum <= parseInt(options.games); gameNum++) {
-        console.log(`\n\x1b[33m=== Game ${gameNum} ===\x1b[0m\n`);
-
-        // Start game
-        console.log('\x1b[36m[Step 1]\x1b[0m Starting game...');
-        const gameId = crypto.randomUUID();
-        const startEvent = {
-          ProcessFiberEvent: {
-            fiberId: options.fiberId,
-            event: {
-              eventType: { value: "start_game" },
-              payload: {
-                playerX: "DAG88MPZSPzWqEcCTkrs6hPjcdePPMyKhxUnPQU5",
-                playerO: "DAG7Fqp72nH6FoVPCdFxm2QuBnVpFAv38kc9HPUr",
-                gameId: gameId,
-                timestamp: new Date().toISOString()
-              },
-              idempotencyKey: null
+    // Helper to load all examples (supports both .json and .js)
+    const loadExamples = () => {
+      return fs.readdirSync(examplesDir)
+        .filter(f => fs.statSync(path.join(examplesDir, f)).isDirectory())
+        .map(dir => {
+          const jsPath = path.join(examplesDir, dir, 'example.js');
+          const jsonPath = path.join(examplesDir, dir, 'example.json');
+          try {
+            if (fs.existsSync(jsPath)) {
+              delete require.cache[require.resolve(jsPath)];
+              const mod = require(jsPath);
+              const example = typeof mod === 'function' ? mod({}) : mod;
+              return { dir, ...example };
+            } else if (fs.existsSync(jsonPath)) {
+              return { dir, ...JSON.parse(fs.readFileSync(jsonPath, 'utf8')) };
             }
-          }
-        };
+            return null;
+          } catch { return null; }
+        })
+        .filter(e => e !== null && e.testFlows && e.testFlows.length > 0);
+    };
 
-        await sendDataTransaction(startEvent, walletsToUse, env);
-        await delay(parseInt(options.delay));
+    // If no example specified, show all examples with their flows
+    if (!cmdOptions.example) {
+      const examples = loadExamples();
 
-        // Play game
-        let currentPlayer = 'X';
-        let moveCount = 0;
-        let gameOver = false;
-        let board = Array(9).fill(null);
-
-        while (!gameOver && moveCount < 9) {
-          console.log(`\n\x1b[36m[Move ${moveCount + 1}]\x1b[0m Player ${currentPlayer}'s turn`);
-
-          const cell = getBestMove(board);
-          if (cell === null) break;
-
-          board[cell] = currentPlayer;
-
-          const moveEvent = {
-            ProcessFiberEvent: {
-              fiberId: options.fiberId,
-              event: {
-                eventType: { value: "make_move" },
-                payload: {
-                  player: currentPlayer,
-                  cell: cell,
-                  timestamp: new Date().toISOString()
-                },
-                idempotencyKey: null
-              }
-            }
-          };
-
-          await sendDataTransaction(moveEvent, walletsToUse, env);
-          await delay(parseInt(options.delay));
-
-          // Display board
-          console.log('\nCurrent board:');
-          for (let i = 0; i < 9; i += 3) {
-            console.log(` ${board[i] || '-'} | ${board[i+1] || '-'} | ${board[i+2] || '-'} `);
-            if (i < 6) console.log('---|---|---');
-          }
-
-          // Check for win (simple check, oracle does the real validation)
-          const checkWin = (b, p) => {
-            const wins = [
-              [0,1,2], [3,4,5], [6,7,8], // rows
-              [0,3,6], [1,4,7], [2,5,8], // cols
-              [0,4,8], [2,4,6]            // diagonals
-            ];
-            return wins.some(w => w.every(i => b[i] === p));
-          };
-
-          if (checkWin(board, currentPlayer)) {
-            console.log(`\n\x1b[32m🎉 Player ${currentPlayer} wins!\x1b[0m`);
-            gameOver = true;
-          } else if (moveCount === 8) {
-            console.log('\n\x1b[33m🤝 Game ended in a draw!\x1b[0m');
-            gameOver = true;
-          }
-
-          currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
-          moveCount++;
-        }
-
-        if (gameNum < parseInt(options.games)) {
-          console.log('\n\x1b[36m[Reset]\x1b[0m Resetting board for next game...');
-          const resetEvent = {
-            ProcessFiberEvent: {
-              fiberId: options.fiberId,
-              event: {
-                eventType: { value: "reset_board" },
-                payload: {
-                  timestamp: new Date().toISOString()
-                },
-                idempotencyKey: null
-              }
-            }
-          };
-
-          await sendDataTransaction(resetEvent, walletsToUse, env);
-          await delay(parseInt(options.delay) * 2);
-          board = Array(9).fill(null);
-        }
+      if (examples.length === 0) {
+        console.error('\x1b[31mNo examples with test flows found\x1b[0m');
+        process.exit(1);
       }
 
-      console.log('\n\x1b[32m✅ Simulation complete!\x1b[0m\n');
+      console.log('\x1b[36m\nAvailable Test Flows:\x1b[0m\n');
+      examples.forEach(example => {
+        console.log(`\x1b[33m${example.dir}\x1b[0m - ${example.name}`);
+        console.log(`  ${example.description}`);
+        example.testFlows.forEach((flow, i) => {
+          console.log(`    ${i + 1}) ${flow.name} (${flow.steps.length} steps)`);
+        });
+        console.log('');
+      });
+
+      console.log('Run a flow with: \x1b[36mnode terminal.js run --example <name>\x1b[0m\n');
+      process.exit(0);
+    }
+
+    const exampleJsPath = path.join(examplesDir, cmdOptions.example, 'example.js');
+    const exampleJsonPath = path.join(examplesDir, cmdOptions.example, 'example.json');
+
+    if (!fs.existsSync(exampleJsPath) && !fs.existsSync(exampleJsonPath)) {
+      console.error(`\x1b[31mExample "${cmdOptions.example}" not found\x1b[0m`);
+      console.log(`\nAvailable examples:`);
+      fs.readdirSync(examplesDir)
+        .filter(f => fs.statSync(path.join(examplesDir, f)).isDirectory())
+        .forEach(dir => console.log(`  - ${dir}`));
+      process.exit(1);
+    }
+
+    // Load example (prefer .js over .json)
+    let example;
+    if (fs.existsSync(exampleJsPath)) {
+      delete require.cache[require.resolve(exampleJsPath)];
+      const mod = require(exampleJsPath);
+      example = typeof mod === 'function' ? mod({}) : mod;
+    } else {
+      example = JSON.parse(fs.readFileSync(exampleJsonPath, 'utf8'));
+    }
+
+    if (!example.testFlows || example.testFlows.length === 0) {
+      console.error(`\x1b[31mNo test flows defined for "${cmdOptions.example}"\x1b[0m`);
+      process.exit(1);
+    }
+
+    if (cmdOptions.list) {
+      console.log(`\x1b[36m\nTest flows for ${example.name}:\x1b[0m\n`);
+      example.testFlows.forEach((flow, i) => {
+        console.log(`  ${i + 1}) \x1b[33m${flow.name}\x1b[0m`);
+        console.log(`     ${flow.description}`);
+        console.log(`     Steps: ${flow.steps.length}`);
+      });
+      console.log('');
+      process.exit(0);
+    }
+
+    // Find the flow to run
+    let flow;
+    if (cmdOptions.flow) {
+      // Try to match by number first (1-indexed)
+      const flowNum = parseInt(cmdOptions.flow);
+      if (!isNaN(flowNum) && flowNum >= 1 && flowNum <= example.testFlows.length) {
+        flow = example.testFlows[flowNum - 1];
+      } else {
+        // Try to match by name (partial, case-insensitive)
+        flow = example.testFlows.find(f =>
+          f.name.toLowerCase().includes(cmdOptions.flow.toLowerCase())
+        );
+      }
+      if (!flow) {
+        console.error(`\x1b[31mFlow "${cmdOptions.flow}" not found\x1b[0m`);
+        console.log(`\nAvailable flows:`);
+        example.testFlows.forEach((f, i) => console.log(`  ${i + 1}) ${f.name}`));
+        process.exit(1);
+      }
+    } else {
+      flow = example.testFlows[0];
+    }
+
+    console.log(`\x1b[36m\n=== Running: ${flow.name} ===\x1b[0m`);
+    console.log(`${flow.description}\n`);
+
+    try {
+      const { globalL0Url, node1ML0, node2ML0, node3ML0, node1DataL1, node2DataL1, node3DataL1 } = getMetagraphEnv(globalOpts.target);
+
+      const wallets = [...new Set(globalOpts.wallets.split(','))].reduce((acc, user) => {
+        acc[user] = generateWallet(globalL0Url, user);
+        return acc;
+      }, {});
+
+      const maxRetries = parseInt(globalOpts.maxRetries);
+      const retryDelayMs = parseInt(globalOpts.retryDelay) * 1000;
+      const waitTimeMs = parseInt(globalOpts.waitTime) * 1000;
+      const ml0Env = [node1ML0, node2ML0, node3ML0].map(a => a + `/data-application/checkpoint`);
+      const dataEnv = { node1DataL1, node2DataL1, node3DataL1 };
+
+      // Session state to track CIDs between steps
+      const session = {
+        cid: globalOpts.address || crypto.randomUUID(),
+        oracleCid: null
+      };
+
+      for (let i = 0; i < flow.steps.length; i++) {
+        const step = flow.steps[i];
+        console.log(`\x1b[33m[Step ${i + 1}/${flow.steps.length}]\x1b[0m ${step.action}...`);
+
+        let generator, validator, message, stepOptions;
+
+        // Context for JS module loading
+        const loadContext = { wallets, session, eventData: step.eventData };
+
+        switch (step.action) {
+          case 'create':
+          case 'createStateMachine': {
+            const definition = loadFileOrModule(path.join(examplesDir, cmdOptions.example, step.definition), loadContext);
+            const initialData = loadFileOrModule(path.join(examplesDir, cmdOptions.example, step.initialData), loadContext);
+
+            stepOptions = { definition, initialData };
+
+            const libModule = require('./lib/state-machine/createFiber.js');
+            generator = libModule.generator;
+            validator = libModule.validator;
+            message = generator({
+              cid: session.cid,
+              wallets,
+              options: stepOptions
+            });
+            break;
+          }
+
+          case 'createOracle': {
+            // For oracle, use well-known UUID from example config or generate random
+            session.oracleCid = example.oracleCid || crypto.randomUUID();
+            const definition = loadFileOrModule(path.join(examplesDir, cmdOptions.example, step.definition), loadContext);
+
+            stepOptions = { oracleDefinition: definition };
+
+            const libModule = require('./lib/oracle/createOracle.js');
+            generator = libModule.generator;
+            validator = libModule.validator;
+            message = generator({
+              cid: session.oracleCid,
+              wallets,
+              options: stepOptions
+            });
+            console.log(`   Oracle CID: ${session.oracleCid}`);
+            break;
+          }
+
+          case 'processEvent': {
+            // Load event data (JS modules handle injection automatically)
+            let eventData = loadFileOrModule(path.join(examplesDir, cmdOptions.example, step.event), loadContext);
+
+            // Override event data if provided in step (for JSON files or additional overrides)
+            if (step.eventData) {
+              eventData.payload = { ...eventData.payload, ...step.eventData };
+            }
+
+            stepOptions = { eventData, expectedState: step.expectedState };
+
+            const libModule = require('./lib/state-machine/processEvent.js');
+            generator = libModule.generator;
+            validator = libModule.validator;
+            message = generator({
+              cid: session.cid,
+              wallets,
+              options: stepOptions
+            });
+            break;
+          }
+
+          case 'invoke': {
+            let args = null;
+            if (step.args) {
+              args = loadFileOrModule(path.join(examplesDir, cmdOptions.example, step.args), loadContext);
+            }
+
+            stepOptions = { method: step.method, args, expectedResult: step.expectedResult };
+
+            const libModule = require('./lib/oracle/invokeOracle.js');
+            generator = libModule.generator;
+            validator = libModule.validator;
+            message = generator({
+              cid: session.oracleCid,
+              wallets,
+              options: stepOptions
+            });
+            break;
+          }
+
+          default:
+            console.error(`\x1b[31mUnknown action: ${step.action}\x1b[0m`);
+            process.exit(1);
+        }
+
+        // Send and validate - pass the complete stepOptions to validator
+        const initialStates = await getInitialStates(ml0Env);
+        await sendDataTransaction(message, wallets, dataEnv);
+        await new Promise(resolve => setTimeout(resolve, waitTimeMs));
+        const validationOptions = { ...stepOptions, expectedState: step.expectedState };
+        const useOracleCid = step.action.includes('Oracle') || step.action === 'invoke';
+        await validate(validator, useOracleCid ? session.oracleCid : session.cid, initialStates, validationOptions, wallets, maxRetries, retryDelayMs);
+
+        console.log(`\x1b[32m   ✓ Step completed\x1b[0m`);
+      }
+
+      console.log(`\x1b[32m\n✓ Flow completed successfully!\x1b[0m`);
+      console.log(`  State Machine CID: ${session.cid}`);
+      if (session.oracleCid) {
+        console.log(`  Oracle CID: ${session.oracleCid}`);
+      }
+      console.log('');
+      process.exit(0);
 
     } catch (error) {
-      exitOnError('\x1b[31m[simulate/tictactoe]\x1b[0m Error:', error);
+      exitOnError(`\x1b[31m[run]\x1b[0m Flow execution failed:`, error);
     }
   });
 
 program.addCommand(stateMachineCmd);
 program.addCommand(oracleCmd);
 program.addCommand(queryCmd);
-program.addCommand(simulateCmd);
+program.addCommand(runCmd);
 
 program.parse(process.argv);
 

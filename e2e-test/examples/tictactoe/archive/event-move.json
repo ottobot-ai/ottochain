@@ -1,0 +1,8 @@
+{
+  "eventType": { "value": "make_move" },
+  "payload": {
+    "player": "X",
+    "cell": 0
+  },
+  "idempotencyKey": null
+}

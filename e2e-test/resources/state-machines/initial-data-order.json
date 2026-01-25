@@ -1,8 +1,0 @@
-{
-  "orderId": "ORD-001",
-  "customer": "alice@example.com",
-  "items": [
-    { "sku": "WIDGET-1", "quantity": 2, "price": 19.99 }
-  ],
-  "total": 39.98
-}

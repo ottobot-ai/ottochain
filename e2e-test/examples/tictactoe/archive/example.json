@@ -1,0 +1,83 @@
+{
+  "name": "Tic-Tac-Toe Game",
+  "description": "Complete tic-tac-toe implementation demonstrating the oracle-centric architecture pattern where the oracle holds game state and the state machine orchestrates the lifecycle",
+  "type": "combined",
+  "oracle": {
+    "definition": "oracle-definition.json",
+    "methods": [
+      {
+        "name": "initialize",
+        "description": "Initialize game with two players",
+        "args": { "playerX": "DAG...", "playerO": "DAG...", "gameId": "uuid" }
+      },
+      {
+        "name": "makeMove",
+        "description": "Make a move on the board (validates turn, bounds, occupancy)",
+        "args": { "player": "X or O", "cell": "0-8" }
+      },
+      {
+        "name": "checkWinner",
+        "description": "Check current game status and winner (read-only)",
+        "args": null
+      },
+      {
+        "name": "getBoard",
+        "description": "Get current board state (read-only)",
+        "args": null
+      },
+      {
+        "name": "resetGame",
+        "description": "Reset board for a new round (keeps players)",
+        "args": null
+      },
+      {
+        "name": "cancelGame",
+        "description": "Cancel the game",
+        "args": { "requestedBy": "DAG...", "reason": "string" }
+      }
+    ]
+  },
+  "stateMachine": {
+    "definition": "sm-definition.json",
+    "initialData": "sm-initial-data.json",
+    "events": [
+      {
+        "name": "start_game",
+        "description": "Start the game with two players",
+        "file": "event-start-game.json",
+        "from": "setup",
+        "to": "playing"
+      },
+      {
+        "name": "make_move",
+        "description": "Make a move (stays in playing or goes to finished)",
+        "file": "event-move.json",
+        "from": "playing",
+        "to": "playing/finished"
+      },
+      {
+        "name": "reset_board",
+        "description": "Reset the board for another round",
+        "file": "event-reset.json",
+        "from": "playing",
+        "to": "playing"
+      }
+    ]
+  },
+  "testFlows": [
+    {
+      "name": "X wins with top row",
+      "description": "Play a game where X wins by completing the top row (cells 0, 1, 2)",
+      "steps": [
+        { "action": "createOracle", "definition": "oracle-definition.json" },
+        { "action": "createStateMachine", "definition": "sm-definition.json", "initialData": "sm-initial-data.json" },
+        { "action": "processEvent", "event": "event-start-game.json" },
+        { "action": "processEvent", "event": "event-move.json", "eventData": { "player": "X", "cell": 0 } },
+        { "action": "processEvent", "event": "event-move.json", "eventData": { "player": "O", "cell": 3 } },
+        { "action": "processEvent", "event": "event-move.json", "eventData": { "player": "X", "cell": 1 } },
+        { "action": "processEvent", "event": "event-move.json", "eventData": { "player": "O", "cell": 4 } },
+        { "action": "processEvent", "event": "event-move.json", "eventData": { "player": "X", "cell": 2 } }
+      ]
+    }
+  ]
+}

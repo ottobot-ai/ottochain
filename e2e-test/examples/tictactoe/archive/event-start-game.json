@@ -1,0 +1,9 @@
+{
+  "eventType": { "value": "start_game" },
+  "payload": {
+    "playerX": "PLACEHOLDER",
+    "playerO": "PLACEHOLDER",
+    "gameId": "PLACEHOLDER"
+  },
+  "idempotencyKey": null
+}
