@@ -111,14 +111,14 @@ object Combiner {
       initialContext = StateMachine.ExecutionContext(
         depth = 0,
         maxDepth = 10,
-        gasUsed = 0,
-        maxGas = 1000,
+        gasUsed = 0L,
+        maxGas = 10_000_000L,
         processedEvents = Set.empty
       )
 
       // Process the event
       proofsList = update.proofs.toList
-      gasLimit = 1000L
+      gasLimit = 10_000_000L
       result <- DeterministicEventProcessor.processEvent(
         fiberRecord,
         update.event,
@@ -340,7 +340,7 @@ object Combiner {
               reason = s"Max depth exceeded: $depth",
               attemptedAt = currentOrdinal,
               attemptedEventType = update.event.eventType,
-              gasUsed = initialContext.gasUsed.toInt,
+              gasUsed = initialContext.gasUsed,
               depth = depth
             )
 

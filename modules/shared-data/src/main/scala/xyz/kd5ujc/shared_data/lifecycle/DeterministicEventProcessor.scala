@@ -7,6 +7,12 @@ import cats.effect.Async
 import cats.syntax.all._
 
 import io.constellationnetwork.metagraph_sdk.json_logic._
+import io.constellationnetwork.metagraph_sdk.json_logic.gas.{
+  EvaluationResult,
+  GasConfig,
+  GasExhaustedException,
+  GasLimit
+}
 import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluator
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.schema.SnapshotOrdinal
@@ -103,7 +109,8 @@ object DeterministicEventProcessor {
     ordinal:          SnapshotOrdinal,
     calculatedState:  CalculatedState,
     executionContext: StateMachine.ExecutionContext,
-    gasLimit:         Long
+    gasLimit:         Long,
+    gasConfig:        GasConfig = GasConfig.Mainnet
   ): F[StateMachine.ProcessingResult] = {
     val validationResult = InputValidation.validateTransaction(fiber.cid, event, gasLimit)
     val eventKey = (fiber.cid, event.eventType)
@@ -118,7 +125,7 @@ object DeterministicEventProcessor {
             ifFalse = (executionContext.gasUsed >= gasLimit)
               .pure[F]
               .ifM(
-                ifTrue = StateMachine.GasExhausted(executionContext.gasUsed.toInt).pure[F].widen,
+                ifTrue = StateMachine.GasExhausted(executionContext.gasUsed).pure[F].widen,
                 ifFalse = executionContext.processedEvents
                   .contains(eventKey)
                   .pure[F]
@@ -129,8 +136,16 @@ object DeterministicEventProcessor {
                       )
                       .pure[F]
                       .widen,
-                    ifFalse =
-                      processTransition(fiber, event, proofs, ordinal, calculatedState, executionContext, gasLimit)
+                    ifFalse = processTransition(
+                      fiber,
+                      event,
+                      proofs,
+                      ordinal,
+                      calculatedState,
+                      executionContext,
+                      gasLimit,
+                      gasConfig
+                    )
                   )
               )
           ),
@@ -153,7 +168,8 @@ object DeterministicEventProcessor {
     ordinal:          SnapshotOrdinal,
     calculatedState:  CalculatedState,
     executionContext: StateMachine.ExecutionContext,
-    gasLimit:         Long
+    gasLimit:         Long,
+    gasConfig:        GasConfig
   ): F[StateMachine.ProcessingResult] = {
     val updatedContext = executionContext.copy(
       processedEvents = executionContext.processedEvents + ((fiber.cid, event.eventType))
@@ -166,7 +182,7 @@ object DeterministicEventProcessor {
           StateMachine.FailureReason.NoTransitionFound(fiber.currentState, event.eventType)
         ): StateMachine.ProcessingResult).pure[F]
       )(transitions =>
-        tryTransitions(fiber, event, proofs, ordinal, calculatedState, updatedContext, transitions, gasLimit)
+        tryTransitions(fiber, event, proofs, ordinal, calculatedState, updatedContext, transitions, gasLimit, gasConfig)
       )
   }
 
@@ -179,6 +195,7 @@ object DeterministicEventProcessor {
     executionContext: StateMachine.ExecutionContext,
     transitions:      List[StateMachine.Transition],
     gasLimit:         Long,
+    gasConfig:        GasConfig,
     attemptedGuards:  Int = 0
   ): F[StateMachine.ProcessingResult] =
     transitions match {
@@ -203,30 +220,26 @@ object DeterministicEventProcessor {
               .widen
 
           case _ =>
-            val gasForGuard = 10
-            val newGasUsed = executionContext.gasUsed + gasForGuard
+            val remainingGas = gasLimit - executionContext.gasUsed
 
-            (newGasUsed > gasLimit)
-              .pure[F]
-              .ifM(
-                ifTrue = StateMachine.GasExhausted(newGasUsed.toInt).pure[F].widen,
-                ifFalse = for {
-                  contextData <- buildContextData(fiber, event, proofs, calculatedState, transition.dependencies)
-                  result <- evaluateGuardAndApply(
-                    fiber,
-                    transition,
-                    event,
-                    contextData,
-                    executionContext.copy(gasUsed = newGasUsed),
-                    gasLimit,
-                    ordinal,
-                    proofs,
-                    calculatedState,
-                    rest,
-                    attemptedGuards
-                  )
-                } yield result
+            for {
+              contextData <- buildContextData(fiber, event, proofs, calculatedState, transition.dependencies)
+              result <- evaluateGuardAndApply(
+                fiber,
+                transition,
+                event,
+                contextData,
+                executionContext,
+                gasLimit,
+                gasConfig,
+                remainingGas,
+                ordinal,
+                proofs,
+                calculatedState,
+                rest,
+                attemptedGuards
               )
+            } yield result
         }
     }
 
@@ -237,6 +250,8 @@ object DeterministicEventProcessor {
     contextData:      JsonLogicValue,
     executionContext: StateMachine.ExecutionContext,
     gasLimit:         Long,
+    gasConfig:        GasConfig,
+    remainingGas:     Long,
     ordinal:          SnapshotOrdinal,
     proofs:           List[SignatureProof],
     calculatedState:  CalculatedState,
@@ -245,34 +260,50 @@ object DeterministicEventProcessor {
   ): F[StateMachine.ProcessingResult] =
     JsonLogicEvaluator
       .tailRecursive[F]
-      .evaluate(transition.guard, contextData, None)
+      .evaluateWithGas(transition.guard, contextData, None, GasLimit(remainingGas), gasConfig)
       .flatMap[StateMachine.ProcessingResult] {
-        case Right(BoolValue(true)) =>
-          applyTransition(fiber, transition, ordinal, event, contextData, executionContext, gasLimit)
+        case Right(EvaluationResult(BoolValue(true), guardGasUsed, _, _)) =>
+          val newGasUsed = executionContext.gasUsed + guardGasUsed.amount
+          applyTransition(
+            fiber,
+            transition,
+            ordinal,
+            event,
+            contextData,
+            executionContext.copy(gasUsed = newGasUsed),
+            gasLimit,
+            gasConfig
+          )
 
-        case Right(BoolValue(false)) =>
+        case Right(EvaluationResult(BoolValue(false), guardGasUsed, _, _)) =>
+          val newGasUsed = executionContext.gasUsed + guardGasUsed.amount
           tryTransitions(
             fiber,
             event,
             proofs,
             ordinal,
             calculatedState,
-            executionContext,
+            executionContext.copy(gasUsed = newGasUsed),
             rest,
             gasLimit,
+            gasConfig,
             attemptedGuards + 1
           )
 
-        case Right(other) =>
+        case Right(EvaluationResult(other, _, _, _)) =>
           (StateMachine.Failure(
             StateMachine.FailureReason.GuardEvaluationError(
               s"Guard returned non-boolean value: ${other.getClass.getSimpleName}"
             )
           ): StateMachine.ProcessingResult).pure[F]
 
+        case Left(err: GasExhaustedException) =>
+          val totalGasUsed = executionContext.gasUsed + (remainingGas - err.available.amount)
+          (StateMachine.GasExhausted(totalGasUsed): StateMachine.ProcessingResult).pure[F]
+
         case Left(err) =>
           (StateMachine.Failure(
-            StateMachine.FailureReason.EffectEvaluationError(err.getMessage)
+            StateMachine.FailureReason.GuardEvaluationError(err.getMessage)
           ): StateMachine.ProcessingResult).pure[F]
       }
 
@@ -283,7 +314,8 @@ object DeterministicEventProcessor {
     event:            StateMachine.Event,
     contextData:      JsonLogicValue,
     executionContext: StateMachine.ExecutionContext,
-    gasLimit:         Long
+    gasLimit:         Long,
+    gasConfig:        GasConfig
   ): F[StateMachine.ProcessingResult] =
     InputValidation.validateExpression(transition.effect) match {
       case ValidationResult(false, errors) =>
@@ -297,15 +329,7 @@ object DeterministicEventProcessor {
           .widen
 
       case _ =>
-        val gasForEffect = 20L
-        val newGasUsed = executionContext.gasUsed + gasForEffect
-
-        (newGasUsed > gasLimit)
-          .pure[F]
-          .ifM(
-            ifTrue = StateMachine.GasExhausted(newGasUsed.toInt).pure[F].widen,
-            ifFalse = executeEffect(fiber, transition, ordinal, event, contextData, newGasUsed, gasLimit)
-          )
+        executeEffect(fiber, transition, ordinal, event, contextData, executionContext.gasUsed, gasLimit, gasConfig)
     }
 
   private def executeEffect[F[_]: Async: SecurityProvider: JsonLogicEvaluator](
@@ -315,86 +339,86 @@ object DeterministicEventProcessor {
     event:       StateMachine.Event,
     contextData: JsonLogicValue,
     gasUsed:     Long,
-    gasLimit:    Long
-  ): F[StateMachine.ProcessingResult] =
-    (for {
-      currentMap <- EitherT.fromEither[F](
-        fiber.stateData match {
-          case m: MapValue => m.asRight[StateMachine.FailureReason]
-          case _           => StateMachine.FailureReason.EffectEvaluationError("State data must be MapValue").asLeft
-        }
-      )
+    gasLimit:    Long,
+    gasConfig:   GasConfig
+  ): F[StateMachine.ProcessingResult] = {
+    val remainingGas = gasLimit - gasUsed
 
-      effectResult <- EitherT[F, StateMachine.FailureReason, JsonLogicValue](
+    fiber.stateData match {
+      case currentMap: MapValue =>
         JsonLogicEvaluator
           .tailRecursive[F]
-          .evaluate(transition.effect, contextData, None)
-          .map(_.leftMap(err => StateMachine.FailureReason.EffectEvaluationError(err.getMessage)))
-      )
+          .evaluateWithGas(transition.effect, contextData, None, GasLimit(remainingGas), gasConfig)
+          .flatMap {
+            case Right(EvaluationResult(effectResult, effectGasUsed, _, _)) =>
+              val gasAfterEffect = gasUsed + effectGasUsed.amount
 
-      _ <- EitherT.fromEither[F](
-        InputValidation.validateStateSize(effectResult) match {
-          case ValidationResult(false, errors) =>
-            StateMachine.FailureReason
-              .EffectEvaluationError(s"Effect result too large: ${errors.mkString(", ")}")
-              .asLeft
-          case _ => ().asRight
-        }
-      )
+              InputValidation.validateStateSize(effectResult) match {
+                case ValidationResult(false, errors) =>
+                  (StateMachine.Failure(
+                    StateMachine.FailureReason
+                      .EffectEvaluationError(s"Effect result too large: ${errors.mkString(", ")}")
+                  ): StateMachine.ProcessingResult).pure[F]
 
-      outputs = extractOutputs(effectResult)
-      spawnMachines = extractSpawnDirectivesFromExpression(transition.effect)
-
-      triggerEvents <- EitherT.liftF[F, StateMachine.FailureReason, List[StateMachine.TriggerEvent]](
-        extractTriggerEvents(effectResult, contextData)
-      )
-
-      oracleCallTrigger <- EitherT.liftF[F, StateMachine.FailureReason, Option[StateMachine.TriggerEvent]](
-        extractOracleCall(effectResult, contextData)
-      )
-
-      allTriggers = triggerEvents ++ oracleCallTrigger.toList
-
-      gasForTriggers = allTriggers.size * 5L
-      gasForSpawns = spawnMachines.size * 50L
-      finalGasUsed = gasUsed + gasForTriggers + gasForSpawns
-
-      result <- EitherT(
-        (finalGasUsed > gasLimit)
-          .pure[F]
-          .ifM(
-            ifTrue = (StateMachine.GasExhausted(finalGasUsed.toInt): StateMachine.ProcessingResult)
-              .asRight[StateMachine.FailureReason]
-              .pure[F],
-            ifFalse = mergeEffectIntoState(currentMap, effectResult).map { mergeResult =>
-              mergeResult.map { newStateData =>
-                val receipt = Records.EventReceipt(
-                  sequenceNumber = fiber.sequenceNumber + 1,
-                  eventType = event.eventType,
-                  ordinal = ordinal,
-                  fromState = fiber.currentState,
-                  toState = transition.to,
-                  success = true,
-                  gasUsed = finalGasUsed,
-                  triggersFired = allTriggers.size,
-                  outputs = outputs,
-                  errorMessage = None
-                )
-                StateMachine.StateMachineSuccess(
-                  newState = transition.to,
-                  newStateData = newStateData,
-                  triggerEvents = allTriggers,
-                  spawnMachines = spawnMachines,
-                  receipt = receipt.some,
-                  outputs = outputs
-                ): StateMachine.ProcessingResult
+                case _ =>
+                  for {
+                    outputs <- extractOutputs(effectResult).pure[F]
+                    spawnMachines = extractSpawnDirectivesFromExpression(transition.effect)
+                    triggerEvents     <- extractTriggerEvents(effectResult, contextData)
+                    oracleCallTrigger <- extractOracleCall(effectResult, contextData)
+                    allTriggers = triggerEvents ++ oracleCallTrigger.toList
+                    gasForTriggers = allTriggers.size * 5L
+                    gasForSpawns = spawnMachines.size * 50L
+                    finalGasUsed = gasAfterEffect + gasForTriggers + gasForSpawns
+                    result <-
+                      if (finalGasUsed > gasLimit) {
+                        (StateMachine.GasExhausted(finalGasUsed): StateMachine.ProcessingResult).pure[F]
+                      } else {
+                        mergeEffectIntoState(currentMap, effectResult).map {
+                          case Right(newStateData) =>
+                            val receipt = Records.EventReceipt(
+                              sequenceNumber = fiber.sequenceNumber + 1,
+                              eventType = event.eventType,
+                              ordinal = ordinal,
+                              fromState = fiber.currentState,
+                              toState = transition.to,
+                              success = true,
+                              gasUsed = finalGasUsed,
+                              triggersFired = allTriggers.size,
+                              outputs = outputs,
+                              errorMessage = None
+                            )
+                            StateMachine.StateMachineSuccess(
+                              newState = transition.to,
+                              newStateData = newStateData,
+                              triggerEvents = allTriggers,
+                              spawnMachines = spawnMachines,
+                              receipt = receipt.some,
+                              outputs = outputs
+                            ): StateMachine.ProcessingResult
+                          case Left(reason) =>
+                            StateMachine.Failure(reason): StateMachine.ProcessingResult
+                        }
+                      }
+                  } yield result
               }
-            }
-          )
-      )
-    } yield result).valueOr { reason =>
-      StateMachine.Failure(reason): StateMachine.ProcessingResult
+
+            case Left(err: GasExhaustedException) =>
+              val totalGasUsed = gasUsed + (remainingGas - err.available.amount)
+              (StateMachine.GasExhausted(totalGasUsed): StateMachine.ProcessingResult).pure[F]
+
+            case Left(err) =>
+              (StateMachine.Failure(
+                StateMachine.FailureReason.EffectEvaluationError(err.getMessage)
+              ): StateMachine.ProcessingResult).pure[F]
+          }
+
+      case _ =>
+        (StateMachine.Failure(
+          StateMachine.FailureReason.EffectEvaluationError("State data must be MapValue")
+        ): StateMachine.ProcessingResult).pure[F]
     }
+  }
 
   private def buildContextData[F[_]: Async: SecurityProvider](
     fiber:           Records.StateMachineFiberRecord,
@@ -1034,7 +1058,8 @@ object DeterministicEventProcessor {
     baseState:        CalculatedState,
     executionContext: StateMachine.ExecutionContext,
     contextData:      JsonLogicValue,
-    gasLimit:         Long
+    gasLimit:         Long,
+    gasConfig:        GasConfig = GasConfig.Mainnet
   ): F[StateMachine.TransactionResult] = {
 
     def processWithTransaction(
@@ -1077,13 +1102,14 @@ object DeterministicEventProcessor {
                     .pure[F]
 
                 case trigger :: _ =>
-                  processSingleTrigger(trigger, txnState, txnContext, contextData, gasLimit, ordinal).flatMap {
-                    case Right((nextState, nextCtx)) =>
-                      processWithTransaction(remainingTriggers.tail, nextState, nextCtx)
-                    case Left(reason) =>
-                      (StateMachine.TransactionResult.Aborted(reason, txnContext): StateMachine.TransactionResult)
-                        .pure[F]
-                  }
+                  processSingleTrigger(trigger, txnState, txnContext, contextData, gasLimit, gasConfig, ordinal)
+                    .flatMap {
+                      case Right((nextState, nextCtx)) =>
+                        processWithTransaction(remainingTriggers.tail, nextState, nextCtx)
+                      case Left(reason) =>
+                        (StateMachine.TransactionResult.Aborted(reason, txnContext): StateMachine.TransactionResult)
+                          .pure[F]
+                    }
               }
             )
         )
@@ -1097,6 +1123,7 @@ object DeterministicEventProcessor {
     ctx:         StateMachine.ExecutionContext,
     contextData: JsonLogicValue,
     gasLimit:    Long,
+    gasConfig:   GasConfig,
     ordinal:     SnapshotOrdinal
   ): F[Either[StateMachine.FailureReason, (CalculatedState, StateMachine.ExecutionContext)]] = {
     val isStateMachine = state.stateMachines.contains(trigger.targetMachineId)
@@ -1114,10 +1141,10 @@ object DeterministicEventProcessor {
 
     (isStateMachine, isOracle) match {
       case (true, false) =>
-        processStateMachineTrigger(trigger, state, ctx, contextData, gasLimit, ordinal)
+        processStateMachineTrigger(trigger, state, ctx, contextData, gasLimit, gasConfig, ordinal)
 
       case (false, true) =>
-        processOracleTrigger(trigger, state, ctx, contextData, ordinal, sourceFiberId)
+        processOracleTrigger(trigger, state, ctx, contextData, gasLimit, gasConfig, ordinal, sourceFiberId)
 
       case (false, false) =>
         (state, ctx).asRight[StateMachine.FailureReason].pure[F]
@@ -1135,6 +1162,7 @@ object DeterministicEventProcessor {
     ctx:         StateMachine.ExecutionContext,
     contextData: JsonLogicValue,
     gasLimit:    Long,
+    gasConfig:   GasConfig,
     ordinal:     SnapshotOrdinal
   ): F[Either[StateMachine.FailureReason, (CalculatedState, StateMachine.ExecutionContext)]] =
     state.records.get(trigger.targetMachineId).collect { case r: Records.StateMachineFiberRecord => r } match {
@@ -1142,13 +1170,23 @@ object DeterministicEventProcessor {
         (state, ctx).asRight[StateMachine.FailureReason].pure[F]
 
       case Some(targetFiber) =>
+        val remainingGas = gasLimit - ctx.gasUsed
+
         (for {
-          payloadValue <- EitherT[F, StateMachine.FailureReason, JsonLogicValue](
+          payloadResult <- EitherT[F, StateMachine.FailureReason, EvaluationResult[JsonLogicValue]](
             JsonLogicEvaluator
               .tailRecursive[F]
-              .evaluate(trigger.payloadExpr, contextData, None)
-              .map(_.leftMap(err => StateMachine.FailureReason.EffectEvaluationError(err.getMessage)))
+              .evaluateWithGas(trigger.payloadExpr, contextData, None, GasLimit(remainingGas), gasConfig)
+              .map {
+                case Right(result) => result.asRight
+                case Left(err: GasExhaustedException) =>
+                  StateMachine.FailureReason.Other(s"Gas exhausted during payload evaluation").asLeft
+                case Left(err) => StateMachine.FailureReason.EffectEvaluationError(err.getMessage).asLeft
+              }
           )
+
+          payloadGasUsed = payloadResult.gasUsed.amount
+          payloadValue = payloadResult.value
 
           _ <- EitherT.fromEither[F] {
             val validationResult = InputValidation.validateEventPayload(payloadValue)
@@ -1160,10 +1198,11 @@ object DeterministicEventProcessor {
           }
 
           newEvent = StateMachine.Event(eventType = trigger.eventType, payload = payloadValue)
-          newCtx = ctx.copy(depth = ctx.depth + 1, gasUsed = ctx.gasUsed + 5)
+          // Add trigger overhead (5 gas) + payload evaluation gas
+          newCtx = ctx.copy(depth = ctx.depth + 1, gasUsed = ctx.gasUsed + 5L + payloadGasUsed)
 
           processingResult <- EitherT.liftF[F, StateMachine.FailureReason, StateMachine.ProcessingResult](
-            processEvent(targetFiber, newEvent, List.empty, ordinal, state, newCtx, gasLimit)
+            processEvent(targetFiber, newEvent, List.empty, ordinal, state, newCtx, gasLimit, gasConfig)
           )
 
           successData <- EitherT.fromEither[F](processingResult match {
@@ -1210,17 +1249,24 @@ object DeterministicEventProcessor {
             moreTriggers.nonEmpty
               .pure[F]
               .ifM(
-                ifTrue =
-                  processTriggerEventsAtomic(moreTriggers, ordinal, updatedState, newCtx, contextData, gasLimit).map {
-                    case StateMachine.TransactionResult.Committed(fibers, oracles, finalCtx, _) =>
-                      val stateWithFibers = fibers.foldLeft(updatedState) { case (s, (fid, fiber)) =>
-                        calculatedStateRecordsLens.modify(_.updated(fid, fiber))(s)
-                      }
-                      val finalState = stateWithFibers.copy(scriptOracles = stateWithFibers.scriptOracles ++ oracles)
-                      (finalState, finalCtx).asRight[StateMachine.FailureReason]
-                    case StateMachine.TransactionResult.Aborted(reason, _) =>
-                      reason.asLeft[(CalculatedState, StateMachine.ExecutionContext)]
-                  },
+                ifTrue = processTriggerEventsAtomic(
+                  moreTriggers,
+                  ordinal,
+                  updatedState,
+                  newCtx,
+                  contextData,
+                  gasLimit,
+                  gasConfig
+                ).map {
+                  case StateMachine.TransactionResult.Committed(fibers, oracles, finalCtx, _) =>
+                    val stateWithFibers = fibers.foldLeft(updatedState) { case (s, (fid, fiber)) =>
+                      calculatedStateRecordsLens.modify(_.updated(fid, fiber))(s)
+                    }
+                    val finalState = stateWithFibers.copy(scriptOracles = stateWithFibers.scriptOracles ++ oracles)
+                    (finalState, finalCtx).asRight[StateMachine.FailureReason]
+                  case StateMachine.TransactionResult.Aborted(reason, _) =>
+                    reason.asLeft[(CalculatedState, StateMachine.ExecutionContext)]
+                },
                 ifFalse = (updatedState, newCtx).asRight[StateMachine.FailureReason].pure[F]
               )
           )
@@ -1232,6 +1278,8 @@ object DeterministicEventProcessor {
     state:         CalculatedState,
     ctx:           StateMachine.ExecutionContext,
     contextData:   JsonLogicValue,
+    gasLimit:      Long,
+    gasConfig:     GasConfig,
     ordinal:       SnapshotOrdinal,
     sourceFiberId: Option[UUID]
   ): F[Either[StateMachine.FailureReason, (CalculatedState, StateMachine.ExecutionContext)]] =
@@ -1240,6 +1288,8 @@ object DeterministicEventProcessor {
         (state, ctx).asRight[StateMachine.FailureReason].pure[F]
 
       case Some(oracle) =>
+        val remainingGas = gasLimit - ctx.gasUsed
+
         (for {
           callerAddress <- EitherT.fromOption[F](
             sourceFiberId.flatMap { fiberId =>
@@ -1257,12 +1307,21 @@ object DeterministicEventProcessor {
             OracleProcessor.validateAccess(oracle.accessControl, callerAddress, trigger.targetMachineId)
           )
 
-          payloadValue <- EitherT[F, StateMachine.FailureReason, JsonLogicValue](
+          payloadResult <- EitherT[F, StateMachine.FailureReason, EvaluationResult[JsonLogicValue]](
             JsonLogicEvaluator
               .tailRecursive[F]
-              .evaluate(trigger.payloadExpr, contextData, None)
-              .map(_.leftMap(err => StateMachine.FailureReason.EffectEvaluationError(err.getMessage)))
+              .evaluateWithGas(trigger.payloadExpr, contextData, None, GasLimit(remainingGas), gasConfig)
+              .map {
+                case Right(result) => result.asRight
+                case Left(_: GasExhaustedException) =>
+                  StateMachine.FailureReason.Other("Gas exhausted during oracle payload evaluation").asLeft
+                case Left(err) => StateMachine.FailureReason.EffectEvaluationError(err.getMessage).asLeft
+              }
           )
+
+          payloadGasUsed = payloadResult.gasUsed.amount
+          payloadValue = payloadResult.value
+          gasAfterPayload = remainingGas - payloadGasUsed
 
           method = trigger.eventType.value
 
@@ -1274,12 +1333,21 @@ object DeterministicEventProcessor {
             )
           )
 
-          evaluationResult <- EitherT[F, StateMachine.FailureReason, JsonLogicValue](
+          scriptResult <- EitherT[F, StateMachine.FailureReason, EvaluationResult[JsonLogicValue]](
             JsonLogicEvaluator
               .tailRecursive[F]
-              .evaluate(oracle.scriptProgram, inputData, None)
-              .map(_.leftMap(err => StateMachine.FailureReason.EffectEvaluationError(err.getMessage)))
+              .evaluateWithGas(oracle.scriptProgram, inputData, None, GasLimit(gasAfterPayload), gasConfig)
+              .map {
+                case Right(result) => result.asRight
+                case Left(_: GasExhaustedException) =>
+                  StateMachine.FailureReason.Other("Gas exhausted during oracle script evaluation").asLeft
+                case Left(err) => StateMachine.FailureReason.EffectEvaluationError(err.getMessage).asLeft
+              }
           )
+
+          scriptGasUsed = scriptResult.gasUsed.amount
+          evaluationResult = scriptResult.value
+          totalOracleGas = payloadGasUsed + scriptGasUsed
 
           (newStateData, returnValue) <- EitherT.liftF(
             OracleProcessor.extractStateAndResult(evaluationResult)
@@ -1304,7 +1372,7 @@ object DeterministicEventProcessor {
             method = method,
             args = payloadValue,
             result = returnValue,
-            gasUsed = 10L,
+            gasUsed = totalOracleGas,
             invokedAt = ordinal,
             invokedBy = callerAddress
           )
@@ -1323,7 +1391,7 @@ object DeterministicEventProcessor {
             scriptOracles = state.scriptOracles.updated(trigger.targetMachineId, updatedOracle)
           )
 
-          newCtx = ctx.copy(gasUsed = ctx.gasUsed + 10)
+          newCtx = ctx.copy(gasUsed = ctx.gasUsed + totalOracleGas)
 
         } yield (updatedState, newCtx)).value
     }

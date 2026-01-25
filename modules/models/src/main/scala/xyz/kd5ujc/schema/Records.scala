@@ -51,7 +51,7 @@ object Records {
       reason:             String,
       attemptedAt:        SnapshotOrdinal,
       attemptedEventType: StateMachine.EventType,
-      gasUsed:            Int,
+      gasUsed:            Long,
       depth:              Int
     ) extends EventProcessingStatus
 

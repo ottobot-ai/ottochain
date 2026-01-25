@@ -3,8 +3,7 @@ package xyz.kd5ujc.shared_data
 import cats.effect.std.UUIDGen
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
-import xyz.kd5ujc.schema.{CalculatedState, Records, StateMachine}
-import xyz.kd5ujc.shared_data.lifecycle.{DeterministicEventProcessor, InputValidation}
+
 import io.constellationnetwork.currency.dataApplication.L0NodeContext
 import io.constellationnetwork.ext.cats.syntax.next.catsSyntaxNext
 import io.constellationnetwork.metagraph_sdk.json_logic.JsonLogicOp._
@@ -12,6 +11,10 @@ import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluator
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
+
+import xyz.kd5ujc.schema.{CalculatedState, Records, StateMachine}
+import xyz.kd5ujc.shared_data.lifecycle.{DeterministicEventProcessor, InputValidation}
+
 import weaver.SimpleIOSuite
 import weaver.scalacheck.Checkers
 import zyx.kd5ujc.shared_test.Mock.MockL0NodeContext
@@ -169,16 +172,17 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           MapValue(Map.empty)
         )
 
-        // Start with high gas usage
+        // Start with gas nearly exhausted - only 1 gas remaining
+        // JLVM metering uses actual operation costs, so even a simple guard costs a few gas
         executionContext = StateMachine.ExecutionContext(
           depth = 0,
           maxDepth = 10,
-          gasUsed = 25, // Already near limit
-          maxGas = 50,
+          gasUsed = 99L,
+          maxGas = 100L,
           processedEvents = Set.empty
         )
 
-        // Execute with low gas limit
+        // Execute with tiny gas limit - guard evaluation alone will exceed this
         result <- DeterministicEventProcessor.processEvent(
           fiber,
           event,
@@ -186,7 +190,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           ordinal,
           calculatedState,
           executionContext,
-          30L
+          100L  // Only 1 gas remaining, guard needs at least a few
         )
 
       } yield expect(

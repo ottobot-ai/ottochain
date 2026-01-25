@@ -73,8 +73,8 @@ object StateMachine {
   case class ExecutionContext(
     depth:           Int = 0,
     maxDepth:        Int = 10,
-    gasUsed:         Int = 0,
-    maxGas:          Int = 1000,
+    gasUsed:         Long = 0L,
+    maxGas:          Long = 10_000_000L,
     processedEvents: Set[(UUID, EventType)] = Set.empty
   )
 
@@ -102,7 +102,7 @@ object StateMachine {
   case class Failure(reason: FailureReason) extends ProcessingResult
 
   @derive(encoder, decoder)
-  case class GasExhausted(gasUsed: Int) extends ProcessingResult
+  case class GasExhausted(gasUsed: Long) extends ProcessingResult
 
   @derive(encoder, decoder)
   case class DepthExceeded(depth: Int) extends ProcessingResult
