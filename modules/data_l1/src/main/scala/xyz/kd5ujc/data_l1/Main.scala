@@ -17,7 +17,7 @@ import io.constellationnetwork.security.SecurityProvider
 import xyz.kd5ujc.buildinfo.BuildInfo
 import xyz.kd5ujc.data_l1.app.DataL1AppConfig
 import xyz.kd5ujc.data_l1.app.DataL1AppConfigOps._
-import xyz.kd5ujc.shared_data.app.{ApplicationConfigOps, loadKeyPair}
+import xyz.kd5ujc.shared_data.app._
 
 import com.monovore.decline.Opts
 import org.typelevel.log4cats.SelfAwareStructuredLogger

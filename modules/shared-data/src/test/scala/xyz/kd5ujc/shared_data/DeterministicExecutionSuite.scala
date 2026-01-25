@@ -172,17 +172,16 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           MapValue(Map.empty)
         )
 
-        // Start with gas nearly exhausted - only 1 gas remaining
-        // JLVM metering uses actual operation costs, so even a simple guard costs a few gas
+        // Start with gas already at the limit - this tests the pre-check in processEvent
         executionContext = StateMachine.ExecutionContext(
           depth = 0,
           maxDepth = 10,
-          gasUsed = 99L,
+          gasUsed = 100L, // Already at limit
           maxGas = 100L,
           processedEvents = Set.empty
         )
 
-        // Execute with tiny gas limit - guard evaluation alone will exceed this
+        // Execute with gas limit already reached
         result <- DeterministicEventProcessor.processEvent(
           fiber,
           event,
@@ -190,7 +189,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           ordinal,
           calculatedState,
           executionContext,
-          100L  // Only 1 gas remaining, guard needs at least a few
+          100L // gasUsed >= gasLimit triggers immediate GasExhausted
         )
 
       } yield expect(

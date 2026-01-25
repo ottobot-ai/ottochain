@@ -9,9 +9,9 @@ import scala.collection.immutable.{SortedMap, SortedSet}
 import io.constellationnetwork.currency.dataApplication.L0NodeContext
 import io.constellationnetwork.currency.schema.currency
 import io.constellationnetwork.domain.seedlist.SeedlistEntry
+import io.constellationnetwork.schema._
 import io.constellationnetwork.schema.address.Address
 import io.constellationnetwork.schema.swap.CurrencyId
-import io.constellationnetwork.schema.{GlobalIncrementalSnapshot, GlobalSnapshotInfo, SnapshotOrdinal, swap, tokenLock}
 import io.constellationnetwork.security.signature.Signed
 import io.constellationnetwork.security.{Hashed, SecurityProvider}
 

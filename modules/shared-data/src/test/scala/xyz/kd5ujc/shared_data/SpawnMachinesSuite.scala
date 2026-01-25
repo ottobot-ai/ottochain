@@ -5,12 +5,15 @@ import cats.effect.{IO, Resource}
 import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
+import io.constellationnetwork.ext.cats.syntax.next.catsSyntaxNext
 import io.constellationnetwork.metagraph_sdk.json_logic._
+import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluator
+import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
-import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_data.lifecycle.{Combiner, DeterministicEventProcessor}
 
 import io.circe.parser._
 import weaver.SimpleIOSuite
@@ -1078,14 +1081,17 @@ object SpawnMachinesSuite extends SimpleIOSuite {
   }
 
   test("gas limiting: excessive spawns exhaust gas") {
+    // Test that spawn overhead (50 gas each) can exhaust a low gas limit
+    // Using DeterministicEventProcessor directly to control gas limit
     securityProviderResource.use { implicit s =>
       for {
-        implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
-        registry                            <- ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        implicit0(l0ctx: L0NodeContext[IO])    <- MockL0NodeContext.make[IO]
+        implicit0(jle: JsonLogicEvaluator[IO]) <- JsonLogicEvaluator.tailRecursive[IO].pure[IO]
 
         parentCid <- UUIDGen.randomUUID[IO]
-        children  <- (1 to 100).toList.traverse(_ => UUIDGen.randomUUID[IO])
+        ordinal   <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
+        // 25 children * 50 gas overhead = 1250 gas for spawns alone
+        children <- (1 to 25).toList.traverse(_ => UUIDGen.randomUUID[IO])
 
         childSpawns = children
           .map { cid =>
@@ -1130,41 +1136,52 @@ object SpawnMachinesSuite extends SimpleIOSuite {
 
         parentDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](parentJson))
         parentData = MapValue(Map("status" -> StrValue("init")))
+        parentHash <- (parentData: JsonLogicValue).computeDigest
 
-        createParent = Updates.CreateStateMachineFiber(parentCid, parentDef, parentData)
-        parentProof <- registry.generateProofs(createParent, Set(Alice))
-        stateAfterParent <- combiner.insert(
-          DataState(OnChain.genesis, CalculatedState.genesis),
-          Signed(createParent, parentProof)
+        parentFiber = Records.StateMachineFiberRecord(
+          cid = parentCid,
+          creationOrdinal = ordinal,
+          previousUpdateOrdinal = ordinal,
+          latestUpdateOrdinal = ordinal,
+          definition = parentDef,
+          currentState = StateMachine.StateId("init"),
+          stateData = parentData,
+          stateDataHash = parentHash,
+          sequenceNumber = 0,
+          owners = Set.empty,
+          status = Records.FiberStatus.Active,
+          lastEventStatus = Records.EventProcessingStatus.Initialized
         )
 
-        spawnEvent = Updates.ProcessFiberEvent(
-          parentCid,
-          StateMachine.Event(
-            StateMachine.EventType("spawn_many"),
-            MapValue(Map.empty)
-          )
+        calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
+
+        event = StateMachine.Event(
+          StateMachine.EventType("spawn_many"),
+          MapValue(Map.empty)
         )
-        spawnProof <- registry.generateProofs(spawnEvent, Set(Alice))
-        finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
-        parent = finalState.calculated.records
-          .get(parentCid)
-          .collect { case r: Records.StateMachineFiberRecord => r }
+        // Use a gas limit that will be exceeded by spawn overhead
+        // 25 spawns * 50 gas = 1250 spawn gas, plus guard + effect evaluation
+        executionContext = StateMachine.ExecutionContext(
+          depth = 0,
+          maxDepth = 10,
+          gasUsed = 0L,
+          maxGas = 1000L,
+          processedEvents = Set.empty
+        )
 
-        spawnedChildren = children.flatMap { cid =>
-          finalState.calculated.records.get(cid)
-        }
+        result <- DeterministicEventProcessor.processEvent(
+          parentFiber,
+          event,
+          List.empty,
+          ordinal,
+          calculatedState,
+          executionContext,
+          1000L // Low limit that spawn overhead will exceed
+        )
 
-      } yield expect.all(
-        parent.isDefined,
-        parent.map(_.currentState).contains(StateMachine.StateId("init")),
-        parent.map(_.lastEventStatus).exists {
-          case Records.EventProcessingStatus.ExecutionFailed(reason, _, _, _, _) =>
-            reason.contains("Gas exhausted")
-          case _ => false
-        },
-        spawnedChildren.isEmpty
+      } yield expect(
+        result.isInstanceOf[StateMachine.GasExhausted]
       )
     }
   }

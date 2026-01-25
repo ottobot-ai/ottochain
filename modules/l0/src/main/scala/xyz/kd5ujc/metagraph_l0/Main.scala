@@ -16,7 +16,7 @@ import io.constellationnetwork.security.SecurityProvider
 import xyz.kd5ujc.buildinfo.BuildInfo
 import xyz.kd5ujc.metagraph_l0.app.ML0AppConfig
 import xyz.kd5ujc.metagraph_l0.app.ML0AppConfigOps._
-import xyz.kd5ujc.shared_data.app.{ApplicationConfigOps, loadKeyPair}
+import xyz.kd5ujc.shared_data.app._
 
 import org.typelevel.log4cats.SelfAwareStructuredLogger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
