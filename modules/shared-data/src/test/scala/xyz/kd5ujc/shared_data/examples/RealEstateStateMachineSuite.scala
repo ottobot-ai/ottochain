@@ -11,7 +11,8 @@ import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
 import xyz.kd5ujc.shared_test.Participant._
@@ -1188,49 +1189,49 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         }"""
 
         propertyDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](propertyJson).left.map(err =>
+          decode[StateMachineDefinition](propertyJson).left.map(err =>
             new RuntimeException(s"Failed to decode property JSON: $err")
           )
         )
 
         contractDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](contractJson).left.map(err =>
+          decode[StateMachineDefinition](contractJson).left.map(err =>
             new RuntimeException(s"Failed to decode contract JSON: $err")
           )
         )
 
         escrowDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](escrowJson).left.map(err =>
+          decode[StateMachineDefinition](escrowJson).left.map(err =>
             new RuntimeException(s"Failed to decode escrow JSON: $err")
           )
         )
 
         inspectionDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](inspectionJson).left.map(err =>
+          decode[StateMachineDefinition](inspectionJson).left.map(err =>
             new RuntimeException(s"Failed to decode inspection JSON: $err")
           )
         )
 
         appraisalDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](appraisalJson).left.map(err =>
+          decode[StateMachineDefinition](appraisalJson).left.map(err =>
             new RuntimeException(s"Failed to decode appraisal JSON: $err")
           )
         )
 
         mortgageDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](mortgageJson).left.map(err =>
+          decode[StateMachineDefinition](mortgageJson).left.map(err =>
             new RuntimeException(s"Failed to decode mortgage JSON: $err")
           )
         )
 
         titleDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](titleJson).left.map(err =>
+          decode[StateMachineDefinition](titleJson).left.map(err =>
             new RuntimeException(s"Failed to decode title JSON: $err")
           )
         )
 
         propertyManagementDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](propertyManagementJson).left.map(err =>
+          decode[StateMachineDefinition](propertyManagementJson).left.map(err =>
             new RuntimeException(s"Failed to decode property management JSON: $err")
           )
         )
@@ -1310,13 +1311,13 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = propertyDef,
-          currentState = StateMachine.StateId("for_sale"),
+          currentState = StateId("for_sale"),
           stateData = propertyData,
           stateDataHash = propertyHash,
           sequenceNumber = 0,
           owners = Set(Alice).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         contractFiber = Records.StateMachineFiberRecord(
@@ -1325,13 +1326,13 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = contractDef,
-          currentState = StateMachine.StateId("draft"),
+          currentState = StateId("draft"),
           stateData = contractData,
           stateDataHash = contractHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         escrowFiber = Records.StateMachineFiberRecord(
@@ -1340,13 +1341,13 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = escrowDef,
-          currentState = StateMachine.StateId("empty"),
+          currentState = StateId("empty"),
           stateData = escrowData,
           stateDataHash = escrowHash,
           sequenceNumber = 0,
           owners = Set(Charlie).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         inspectionFiber = Records.StateMachineFiberRecord(
@@ -1355,13 +1356,13 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = inspectionDef,
-          currentState = StateMachine.StateId("pending"),
+          currentState = StateId("pending"),
           stateData = inspectionData,
           stateDataHash = inspectionHash,
           sequenceNumber = 0,
           owners = Set(Dave).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         appraisalFiber = Records.StateMachineFiberRecord(
@@ -1370,13 +1371,13 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = appraisalDef,
-          currentState = StateMachine.StateId("pending"),
+          currentState = StateId("pending"),
           stateData = appraisalData,
           stateDataHash = appraisalHash,
           sequenceNumber = 0,
           owners = Set(Eve).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         mortgageFiber = Records.StateMachineFiberRecord(
@@ -1385,13 +1386,13 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = mortgageDef,
-          currentState = StateMachine.StateId("application"),
+          currentState = StateId("application"),
           stateData = mortgageData,
           stateDataHash = mortgageHash,
           sequenceNumber = 0,
           owners = Set(Faythe).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         titleFiber = Records.StateMachineFiberRecord(
@@ -1400,13 +1401,13 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = titleDef,
-          currentState = StateMachine.StateId("pending"),
+          currentState = StateId("pending"),
           stateData = titleData,
           stateDataHash = titleHash,
           sequenceNumber = 0,
           owners = Set(Grace).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         propertyManagementFiber = Records.StateMachineFiberRecord(
@@ -1415,13 +1416,13 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = propertyManagementDef,
-          currentState = StateMachine.StateId("available"),
+          currentState = StateId("available"),
           stateData = propertyManagementData,
           stateDataHash = propertyManagementHash,
           sequenceNumber = 0,
           owners = Set(Heidi).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         inState = DataState(
@@ -1454,9 +1455,10 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
 
         // PHASE 1: CONTRACT PHASE
         // Step 1: Sign contract
-        signContractEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("sign"),
-          payload = MapValue(
+        signContractUpdate = Updates.TransitionStateMachine(
+          contractCid,
+          EventType("sign"),
+          MapValue(
             Map(
               "timestamp"     -> IntValue(1000),
               "buyerSigned"   -> BoolValue(true),
@@ -1469,14 +1471,14 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             )
           )
         )
-        signContractUpdate = Updates.ProcessFiberEvent(contractCid, signContractEvent)
         signContractProof <- registry.generateProofs(signContractUpdate, Set(Alice, Bob))
         state1            <- combiner.insert(inState, Signed(signContractUpdate, signContractProof))
 
         // Step 2: Accept offer on property
-        acceptOfferEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("accept_offer"),
-          payload = MapValue(
+        acceptOfferUpdate = Updates.TransitionStateMachine(
+          propertyCid,
+          EventType("accept_offer"),
+          MapValue(
             Map(
               "timestamp"   -> IntValue(1100),
               "offerAmount" -> IntValue(500000),
@@ -1484,117 +1486,117 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             )
           )
         )
-        acceptOfferUpdate = Updates.ProcessFiberEvent(propertyCid, acceptOfferEvent)
         acceptOfferProof <- registry.generateProofs(acceptOfferUpdate, Set(Alice))
         state2           <- combiner.insert(state1, Signed(acceptOfferUpdate, acceptOfferProof))
 
         // Step 3: Deposit earnest money
-        depositEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("deposit"),
-          payload = MapValue(
+        depositUpdate = Updates.TransitionStateMachine(
+          escrowCid,
+          EventType("deposit"),
+          MapValue(
             Map(
               "timestamp" -> IntValue(1200),
               "amount"    -> IntValue(10000)
             )
           )
         )
-        depositUpdate = Updates.ProcessFiberEvent(escrowCid, depositEvent)
         depositProof <- registry.generateProofs(depositUpdate, Set(Bob))
         state3       <- combiner.insert(state2, Signed(depositUpdate, depositProof))
 
         // Step 4: Hold escrow
-        holdEscrowEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("hold"),
-          payload = MapValue(Map("timestamp" -> IntValue(1300)))
+        holdEscrowUpdate = Updates.TransitionStateMachine(
+          escrowCid,
+          EventType("hold"),
+          MapValue(Map("timestamp" -> IntValue(1300)))
         )
-        holdEscrowUpdate = Updates.ProcessFiberEvent(escrowCid, holdEscrowEvent)
         holdEscrowProof <- registry.generateProofs(holdEscrowUpdate, Set(Charlie))
         state4          <- combiner.insert(state3, Signed(holdEscrowUpdate, holdEscrowProof))
 
         // Step 5: Enter contingency period
-        enterContingencyEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("enter_contingency"),
-          payload = MapValue(Map("timestamp" -> IntValue(1400)))
+        enterContingencyUpdate = Updates.TransitionStateMachine(
+          contractCid,
+          EventType("enter_contingency"),
+          MapValue(Map("timestamp" -> IntValue(1400)))
         )
-        enterContingencyUpdate = Updates.ProcessFiberEvent(contractCid, enterContingencyEvent)
         enterContingencyProof <- registry.generateProofs(enterContingencyUpdate, Set(Alice, Bob))
         state5                <- combiner.insert(state4, Signed(enterContingencyUpdate, enterContingencyProof))
 
         // PHASE 2: CONTINGENCY PHASE
         // Step 6: Schedule and complete inspection
-        scheduleInspectionEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("schedule"),
-          payload = MapValue(Map("inspectionDate" -> IntValue(1500)))
+        scheduleInspectionUpdate = Updates.TransitionStateMachine(
+          inspectionCid,
+          EventType("schedule"),
+          MapValue(Map("inspectionDate" -> IntValue(1500)))
         )
-        scheduleInspectionUpdate = Updates.ProcessFiberEvent(inspectionCid, scheduleInspectionEvent)
         scheduleInspectionProof <- registry.generateProofs(scheduleInspectionUpdate, Set(Dave))
         state6                  <- combiner.insert(state5, Signed(scheduleInspectionUpdate, scheduleInspectionProof))
 
-        completeInspectionEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("complete"),
-          payload = MapValue(
+        completeInspectionUpdate = Updates.TransitionStateMachine(
+          inspectionCid,
+          EventType("complete"),
+          MapValue(
             Map(
               "timestamp" -> IntValue(1600),
               "issues"    -> IntValue(1)
             )
           )
         )
-        completeInspectionUpdate = Updates.ProcessFiberEvent(inspectionCid, completeInspectionEvent)
         completeInspectionProof <- registry.generateProofs(completeInspectionUpdate, Set(Dave))
         state7                  <- combiner.insert(state6, Signed(completeInspectionUpdate, completeInspectionProof))
 
-        approveInspectionEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("approve"),
-          payload = MapValue(
+        approveInspectionUpdate = Updates.TransitionStateMachine(
+          inspectionCid,
+          EventType("approve"),
+          MapValue(
             Map(
               "timestamp"     -> IntValue(1700),
               "repairsAgreed" -> BoolValue(true)
             )
           )
         )
-        approveInspectionUpdate = Updates.ProcessFiberEvent(inspectionCid, approveInspectionEvent)
         approveInspectionProof <- registry.generateProofs(approveInspectionUpdate, Set(Dave))
         state8                 <- combiner.insert(state7, Signed(approveInspectionUpdate, approveInspectionProof))
 
         // Step 7: Order and complete appraisal
-        orderAppraisalEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("order"),
-          payload = MapValue(
+        orderAppraisalUpdate = Updates.TransitionStateMachine(
+          appraisalCid,
+          EventType("order"),
+          MapValue(
             Map(
               "timestamp"     -> IntValue(1800),
               "purchasePrice" -> IntValue(500000)
             )
           )
         )
-        orderAppraisalUpdate = Updates.ProcessFiberEvent(appraisalCid, orderAppraisalEvent)
         orderAppraisalProof <- registry.generateProofs(orderAppraisalUpdate, Set(Eve))
         state9              <- combiner.insert(state8, Signed(orderAppraisalUpdate, orderAppraisalProof))
 
-        completeAppraisalEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("complete"),
-          payload = MapValue(
+        completeAppraisalUpdate = Updates.TransitionStateMachine(
+          appraisalCid,
+          EventType("complete"),
+          MapValue(
             Map(
               "timestamp"      -> IntValue(1900),
               "appraisedValue" -> IntValue(510000)
             )
           )
         )
-        completeAppraisalUpdate = Updates.ProcessFiberEvent(appraisalCid, completeAppraisalEvent)
         completeAppraisalProof <- registry.generateProofs(completeAppraisalUpdate, Set(Eve))
         state10                <- combiner.insert(state9, Signed(completeAppraisalUpdate, completeAppraisalProof))
 
-        reviewAppraisalEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("review"),
-          payload = MapValue(Map("timestamp" -> IntValue(2000)))
+        reviewAppraisalUpdate = Updates.TransitionStateMachine(
+          appraisalCid,
+          EventType("review"),
+          MapValue(Map("timestamp" -> IntValue(2000)))
         )
-        reviewAppraisalUpdate = Updates.ProcessFiberEvent(appraisalCid, reviewAppraisalEvent)
         reviewAppraisalProof <- registry.generateProofs(reviewAppraisalUpdate, Set(Eve))
         state11              <- combiner.insert(state10, Signed(reviewAppraisalUpdate, reviewAppraisalProof))
 
         // Step 8: Submit and approve mortgage
-        submitMortgageEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("submit"),
-          payload = MapValue(
+        submitMortgageUpdate = Updates.TransitionStateMachine(
+          mortgageCid,
+          EventType("submit"),
+          MapValue(
             Map(
               "timestamp"  -> IntValue(2100),
               "loanAmount" -> IntValue(400000),
@@ -1603,13 +1605,13 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             )
           )
         )
-        submitMortgageUpdate = Updates.ProcessFiberEvent(mortgageCid, submitMortgageEvent)
         submitMortgageProof <- registry.generateProofs(submitMortgageUpdate, Set(Faythe))
         state12             <- combiner.insert(state11, Signed(submitMortgageUpdate, submitMortgageProof))
 
-        underwriteMortgageEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("underwrite"),
-          payload = MapValue(
+        underwriteMortgageUpdate = Updates.TransitionStateMachine(
+          mortgageCid,
+          EventType("underwrite"),
+          MapValue(
             Map(
               "timestamp"    -> IntValue(2200),
               "creditScore"  -> IntValue(720),
@@ -1619,53 +1621,53 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             )
           )
         )
-        underwriteMortgageUpdate = Updates.ProcessFiberEvent(mortgageCid, underwriteMortgageEvent)
         underwriteMortgageProof <- registry.generateProofs(underwriteMortgageUpdate, Set(Faythe))
         state13                 <- combiner.insert(state12, Signed(underwriteMortgageUpdate, underwriteMortgageProof))
 
         // Step 9: Pass all contingencies
-        passContingenciesEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("pass_contingencies"),
-          payload = MapValue(Map("timestamp" -> IntValue(2300)))
+        passContingenciesUpdate = Updates.TransitionStateMachine(
+          propertyCid,
+          EventType("pass_contingencies"),
+          MapValue(Map("timestamp" -> IntValue(2300)))
         )
-        passContingenciesUpdate = Updates.ProcessFiberEvent(propertyCid, passContingenciesEvent)
         passContingenciesProof <- registry.generateProofs(passContingenciesUpdate, Set(Alice))
         state14                <- combiner.insert(state13, Signed(passContingenciesUpdate, passContingenciesProof))
 
         // PHASE 3: CLOSING PHASE
         // Step 10: Title search and transfer
-        searchTitleEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("search"),
-          payload = MapValue(Map("timestamp" -> IntValue(2400)))
+        searchTitleUpdate = Updates.TransitionStateMachine(
+          titleCid,
+          EventType("search"),
+          MapValue(Map("timestamp" -> IntValue(2400)))
         )
-        searchTitleUpdate = Updates.ProcessFiberEvent(titleCid, searchTitleEvent)
         searchTitleProof <- registry.generateProofs(searchTitleUpdate, Set(Grace))
         state15          <- combiner.insert(state14, Signed(searchTitleUpdate, searchTitleProof))
 
-        completeSearchEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("complete_search"),
-          payload = MapValue(
+        completeSearchUpdate = Updates.TransitionStateMachine(
+          titleCid,
+          EventType("complete_search"),
+          MapValue(
             Map(
               "timestamp"   -> IntValue(2500),
               "issuesFound" -> IntValue(0)
             )
           )
         )
-        completeSearchUpdate = Updates.ProcessFiberEvent(titleCid, completeSearchEvent)
         completeSearchProof <- registry.generateProofs(completeSearchUpdate, Set(Grace))
         state16             <- combiner.insert(state15, Signed(completeSearchUpdate, completeSearchProof))
 
-        insureTitleEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("insure"),
-          payload = MapValue(Map("timestamp" -> IntValue(2600)))
+        insureTitleUpdate = Updates.TransitionStateMachine(
+          titleCid,
+          EventType("insure"),
+          MapValue(Map("timestamp" -> IntValue(2600)))
         )
-        insureTitleUpdate = Updates.ProcessFiberEvent(titleCid, insureTitleEvent)
         insureTitleProof <- registry.generateProofs(insureTitleUpdate, Set(Grace))
         state17          <- combiner.insert(state16, Signed(insureTitleUpdate, insureTitleProof))
 
-        transferTitleEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("transfer"),
-          payload = MapValue(
+        transferTitleUpdate = Updates.TransitionStateMachine(
+          titleCid,
+          EventType("transfer"),
+          MapValue(
             Map(
               "timestamp" -> IntValue(2700),
               "fromOwner" -> StrValue(aliceAddr.toString),
@@ -1673,33 +1675,32 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             )
           )
         )
-        transferTitleUpdate = Updates.ProcessFiberEvent(titleCid, transferTitleEvent)
         transferTitleProof <- registry.generateProofs(transferTitleUpdate, Set(Grace))
         state18            <- combiner.insert(state17, Signed(transferTitleUpdate, transferTitleProof))
 
         // Step 11: Disburse and close escrow
-        disburseEscrowEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("disburse"),
-          payload = MapValue(Map("timestamp" -> IntValue(2800)))
+        disburseEscrowUpdate = Updates.TransitionStateMachine(
+          escrowCid,
+          EventType("disburse"),
+          MapValue(Map("timestamp" -> IntValue(2800)))
         )
-        disburseEscrowUpdate = Updates.ProcessFiberEvent(escrowCid, disburseEscrowEvent)
         disburseEscrowProof <- registry.generateProofs(disburseEscrowUpdate, Set(Charlie))
         state19             <- combiner.insert(state18, Signed(disburseEscrowUpdate, disburseEscrowProof))
 
-        closeEscrowEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("close"),
-          payload = MapValue(Map("timestamp" -> IntValue(2900)))
+        closeEscrowUpdate = Updates.TransitionStateMachine(
+          escrowCid,
+          EventType("close"),
+          MapValue(Map("timestamp" -> IntValue(2900)))
         )
-        closeEscrowUpdate = Updates.ProcessFiberEvent(escrowCid, closeEscrowEvent)
         closeEscrowProof <- registry.generateProofs(closeEscrowUpdate, Set(Charlie))
         state20          <- combiner.insert(state19, Signed(closeEscrowUpdate, closeEscrowProof))
 
         // Step 12: Close sale on property (triggers mortgage activation)
-        closeSaleEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("close_sale"),
-          payload = MapValue(Map("timestamp" -> IntValue(3000)))
+        closeSaleUpdate = Updates.TransitionStateMachine(
+          propertyCid,
+          EventType("close_sale"),
+          MapValue(Map("timestamp" -> IntValue(3000)))
         )
-        closeSaleUpdate = Updates.ProcessFiberEvent(propertyCid, closeSaleEvent)
         closeSaleProof <- registry.generateProofs(closeSaleUpdate, Set(Alice))
         state21        <- combiner.insert(state20, Signed(closeSaleUpdate, closeSaleProof))
 
@@ -1716,25 +1717,25 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         }
 
         // Step 13: Close contract
-        closeContractEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("close"),
-          payload = MapValue(Map("timestamp" -> IntValue(3100)))
+        closeContractUpdate = Updates.TransitionStateMachine(
+          contractCid,
+          EventType("close"),
+          MapValue(Map("timestamp" -> IntValue(3100)))
         )
-        closeContractUpdate = Updates.ProcessFiberEvent(contractCid, closeContractEvent)
         closeContractProof <- registry.generateProofs(closeContractUpdate, Set(Alice, Bob))
         state22            <- combiner.insert(state21, Signed(closeContractUpdate, closeContractProof))
 
         // PHASE 4: OWNERSHIP PHASE - Make first mortgage payment
-        firstPaymentEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("first_payment"),
-          payload = MapValue(
+        firstPaymentUpdate = Updates.TransitionStateMachine(
+          mortgageCid,
+          EventType("first_payment"),
+          MapValue(
             Map(
               "timestamp"     -> IntValue(5000),
               "principalPaid" -> IntValue(500)
             )
           )
         )
-        firstPaymentUpdate = Updates.ProcessFiberEvent(mortgageCid, firstPaymentEvent)
         firstPaymentProof <- registry.generateProofs(firstPaymentUpdate, Set(Bob))
         state23           <- combiner.insert(state22, Signed(firstPaymentUpdate, firstPaymentProof))
 
@@ -1770,57 +1771,57 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
       } yield expect.all(
         // Verify contract signed
         state1.calculated.stateMachines.get(contractCid).exists {
-          case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("signed")
+          case r: Records.StateMachineFiberRecord => r.currentState == StateId("signed")
           case _                                  => false
         },
         // Verify property under contract
         state2.calculated.stateMachines.get(propertyCid).exists {
-          case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("under_contract")
+          case r: Records.StateMachineFiberRecord => r.currentState == StateId("under_contract")
           case _                                  => false
         },
         // Verify escrow funded
         state3.calculated.stateMachines.get(escrowCid).exists {
-          case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("funded")
+          case r: Records.StateMachineFiberRecord => r.currentState == StateId("funded")
           case _                                  => false
         },
         // Verify contract in contingency
         state5.calculated.stateMachines.get(contractCid).exists {
-          case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("contingent")
+          case r: Records.StateMachineFiberRecord => r.currentState == StateId("contingent")
           case _                                  => false
         },
         // Verify inspection passed with repairs
         state8.calculated.stateMachines.get(inspectionCid).exists {
-          case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("passed_with_repairs")
+          case r: Records.StateMachineFiberRecord => r.currentState == StateId("passed_with_repairs")
           case _                                  => false
         },
         // Verify appraisal approved
         state11.calculated.stateMachines.get(appraisalCid).exists {
-          case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("approved")
+          case r: Records.StateMachineFiberRecord => r.currentState == StateId("approved")
           case _                                  => false
         },
         // Verify mortgage approved
         state13.calculated.stateMachines.get(mortgageCid).exists {
-          case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("approved")
+          case r: Records.StateMachineFiberRecord => r.currentState == StateId("approved")
           case _                                  => false
         },
         // Verify property pending sale
         state14.calculated.stateMachines.get(propertyCid).exists {
-          case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("pending_sale")
+          case r: Records.StateMachineFiberRecord => r.currentState == StateId("pending_sale")
           case _                                  => false
         },
         // Verify title transferred
         state18.calculated.stateMachines.get(titleCid).exists {
-          case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("transferred")
+          case r: Records.StateMachineFiberRecord => r.currentState == StateId("transferred")
           case _                                  => false
         },
         // Verify escrow closed
         state20.calculated.stateMachines.get(escrowCid).exists {
-          case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("closed")
+          case r: Records.StateMachineFiberRecord => r.currentState == StateId("closed")
           case _                                  => false
         },
         // Verify property ownership transferred and now owned by Bob
         propertyAfterSale.isDefined,
-        propertyAfterSale.map(_.currentState).contains(StateMachine.StateId("owned")),
+        propertyAfterSale.map(_.currentState).contains(StateId("owned")),
         propertyOwner.contains(bobAddr.toString),
         propertyStatus.contains("owned"),
         // Verify mortgage activated by trigger from property close
@@ -1828,11 +1829,11 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         mortgageStatus.contains("active"),
         // Verify mortgage is now current after first payment
         mortgageAfterFirstPayment.isDefined,
-        mortgageAfterFirstPayment.map(_.currentState).contains(StateMachine.StateId("current")),
+        mortgageAfterFirstPayment.map(_.currentState).contains(StateId("current")),
         mortgageBalance.contains(BigInt(399500)), // 400000 - 500
         // Verify contract executed
         state22.calculated.stateMachines.get(contractCid).exists {
-          case r: Records.StateMachineFiberRecord => r.currentState == StateMachine.StateId("executed")
+          case r: Records.StateMachineFiberRecord => r.currentState == StateId("executed")
           case _                                  => false
         }
       )

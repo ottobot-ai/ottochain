@@ -1,15 +1,15 @@
-package xyz.kd5ujc.shared_data.fiber.domain
+package xyz.kd5ujc.schema.fiber
 
 import java.util.UUID
 
-import xyz.kd5ujc.schema.{Records, StateMachine}
+import xyz.kd5ujc.schema.Records
 
 /**
  * Final outcome of a complete transaction (including all cascading triggers).
  */
-sealed trait TransactionOutcome
+sealed trait TransactionResult
 
-object TransactionOutcome {
+object TransactionResult {
 
   /**
    * Transaction committed successfully.
@@ -25,11 +25,11 @@ object TransactionOutcome {
   final case class Committed(
     updatedStateMachines: Map[UUID, Records.StateMachineFiberRecord],
     updatedOracles:       Map[UUID, Records.ScriptOracleFiberRecord],
-    statuses:             List[(UUID, Records.EventProcessingStatus)],
+    statuses:             List[(UUID, EventProcessingStatus)],
     totalGasUsed:         Long,
     maxDepth:             Int = 0,
     operationCount:       Long = 0L
-  ) extends TransactionOutcome
+  ) extends TransactionResult
 
   /**
    * Transaction aborted.
@@ -40,8 +40,8 @@ object TransactionOutcome {
    * @param depth Trigger chain depth when aborted
    */
   final case class Aborted(
-    reason:  StateMachine.FailureReason,
+    reason:  FailureReason,
     gasUsed: Long,
     depth:   Int = 0
-  ) extends TransactionOutcome
+  ) extends TransactionResult
 }

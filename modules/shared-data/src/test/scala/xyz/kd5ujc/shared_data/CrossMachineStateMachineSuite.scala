@@ -11,7 +11,8 @@ import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Participant._
 import xyz.kd5ujc.shared_test.TestFixture
@@ -30,12 +31,12 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
         combiner <- Combiner.make[IO].pure[IO]
 
         sellerCid <- UUIDGen.randomUUID[IO]
-        sellerDef = StateMachine.StateMachineDefinition(
+        sellerDef = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("holding")  -> StateMachine.State(StateMachine.StateId("holding")),
-            StateMachine.StateId("released") -> StateMachine.State(StateMachine.StateId("released"))
+            StateId("holding")  -> State(StateId("holding")),
+            StateId("released") -> State(StateId("released"))
           ),
-          initialState = StateMachine.StateId("holding"),
+          initialState = StateId("holding"),
           transitions = List.empty
         )
 
@@ -53,27 +54,27 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = sellerDef,
-          currentState = StateMachine.StateId("holding"),
+          currentState = StateId("holding"),
           stateData = sellerData,
           stateDataHash = sellerHash,
           sequenceNumber = 0,
           owners = Set(Alice).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         buyerCid <- UUIDGen.randomUUID[IO]
-        buyerDef = StateMachine.StateMachineDefinition(
+        buyerDef = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("pending")   -> StateMachine.State(StateMachine.StateId("pending")),
-            StateMachine.StateId("purchased") -> StateMachine.State(StateMachine.StateId("purchased"))
+            StateId("pending")   -> State(StateId("pending")),
+            StateId("purchased") -> State(StateId("purchased"))
           ),
-          initialState = StateMachine.StateId("pending"),
+          initialState = StateId("pending"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("pending"),
-              to = StateMachine.StateId("purchased"),
-              eventType = StateMachine.EventType("buy"),
+            Transition(
+              from = StateId("pending"),
+              to = StateId("purchased"),
+              eventType = EventType("buy"),
               guard = ApplyExpression(
                 AndOp,
                 List(
@@ -113,13 +114,13 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = buyerDef,
-          currentState = StateMachine.StateId("pending"),
+          currentState = StateId("pending"),
           stateData = buyerData,
           stateDataHash = buyerHash,
           sequenceNumber = 0,
           owners = Set(Bob).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         inState = DataState(
@@ -133,11 +134,8 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
           )
         )
 
-        buyEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("buy"),
-          payload = MapValue(Map.empty[String, JsonLogicValue])
-        )
-        buyUpdate = Updates.ProcessFiberEvent(buyerCid, buyEvent)
+        buyUpdate = Updates
+          .TransitionStateMachine(buyerCid, EventType("buy"), MapValue(Map.empty[String, JsonLogicValue]))
         buyProof   <- registry.generateProofs(buyUpdate, Set(Bob))
         finalState <- combiner.insert(inState, Signed(buyUpdate, buyProof))
 
@@ -158,7 +156,7 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
           }
         }
       } yield expect(updatedBuyer.isDefined) and
-      expect(updatedBuyer.map(_.currentState).contains(StateMachine.StateId("purchased"))) and
+      expect(updatedBuyer.map(_.currentState).contains(StateId("purchased"))) and
       expect(buyerBalance.contains(BigInt(0))) and
       expect(buyerPurchased.contains(true))
     }

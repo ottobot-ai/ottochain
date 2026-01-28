@@ -15,9 +15,10 @@ package xyz.kd5ujc.shared_data
  * }}}
  */
 package object syntax {
-  object all extends DataStateOps with L0NodeContextOps with CalculatedStateOps
+  object all extends DataStateOps with L0NodeContextOps with CalculatedStateOps with JsonLogicExceptionOps
 
   val dataState: DataStateOps.type = DataStateOps
   val l0NodeContext: L0NodeContextOps.type = L0NodeContextOps
   val calculatedState: CalculatedStateOps.type = CalculatedStateOps
+  val jsonLogicException: JsonLogicExceptionOps.type = JsonLogicExceptionOps
 }

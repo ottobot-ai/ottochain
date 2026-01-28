@@ -8,7 +8,8 @@ import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
 import xyz.kd5ujc.shared_test.Participant
@@ -78,7 +79,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
           cid = innerCid,
           scriptProgram = innerProg,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         createInnerProof <- registry.generateProofs(createInner, Set(Alice))
@@ -130,7 +131,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
           cid = oracleCid,
           scriptProgram = prog,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Whitelist(Set(registry(Alice).address))
+          accessControl = AccessControlPolicy.Whitelist(Set(registry(Alice).address))
         )
 
         createProof <- registry.generateProofs(createOracle, Set(Alice))
@@ -202,7 +203,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
           cid = oracle1Cid,
           scriptProgram = prog,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         // Create counter oracle
@@ -210,7 +211,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
           cid = oracle2Cid,
           scriptProgram = counterProg,
           initialState = Some(MapValue(Map("value" -> IntValue(0)))),
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         proof1 <- registry.generateProofs(createOracle1, Set(Alice))
@@ -276,7 +277,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
           cid = oracleCid,
           scriptProgram = validationProg,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         createProof <- registry.generateProofs(createOracle, Set(Alice))

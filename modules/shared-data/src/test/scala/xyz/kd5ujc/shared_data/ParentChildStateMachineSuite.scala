@@ -9,7 +9,8 @@ import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Participant._
 import xyz.kd5ujc.shared_test.TestFixture
@@ -90,7 +91,7 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
           ]
         }"""
 
-        orderDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](orderJson))
+        orderDef <- IO.fromEither(decode[StateMachineDefinition](orderJson))
 
         initialData = MapValue(
           Map(
@@ -101,29 +102,25 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
           )
         )
 
-        createOrder = Updates.CreateStateMachineFiber(orderCid, orderDef, initialData)
+        createOrder = Updates.CreateStateMachine(orderCid, orderDef, initialData)
         createProof <- registry.generateProofs(createOrder, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createOrder, createProof)
         )
 
-        confirmEvent = Updates.ProcessFiberEvent(
+        confirmEvent = Updates.TransitionStateMachine(
           orderCid,
-          StateMachine.Event(
-            StateMachine.EventType("confirm"),
-            MapValue(Map("timestamp" -> IntValue(1000)))
-          )
+          EventType("confirm"),
+          MapValue(Map("timestamp" -> IntValue(1000)))
         )
         confirmProof      <- registry.generateProofs(confirmEvent, Set(Alice))
         stateAfterConfirm <- combiner.insert(stateAfterCreate, Signed(confirmEvent, confirmProof))
 
-        shipEvent = Updates.ProcessFiberEvent(
+        shipEvent = Updates.TransitionStateMachine(
           orderCid,
-          StateMachine.Event(
-            StateMachine.EventType("ship"),
-            MapValue(Map("trackingNumber" -> StrValue("TRACK-456")))
-          )
+          EventType("ship"),
+          MapValue(Map("trackingNumber" -> StrValue("TRACK-456")))
         )
         shipProof      <- registry.generateProofs(shipEvent, Set(Alice))
         stateAfterShip <- combiner.insert(stateAfterConfirm, Signed(shipEvent, shipProof))
@@ -141,7 +138,7 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
         tracking = orderState.flatMap(_.value.get("trackingNumber")).collect { case StrValue(s) => s }
 
       } yield expect(finalOrder.isDefined) and
-      expect(finalOrder.map(_.currentState).contains(StateMachine.StateId("shipped"))) and
+      expect(finalOrder.map(_.currentState).contains(StateId("shipped"))) and
       expect(status.contains("shipped")) and
       expect(tracking.contains("TRACK-456"))
     }
@@ -204,36 +201,28 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
           ]
         }"""
 
-        parentDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](parentJson))
-        childDef  <- IO.fromEither(decode[StateMachine.StateMachineDefinition](childJson))
+        parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
+        childDef  <- IO.fromEither(decode[StateMachineDefinition](childJson))
 
         parentInitialData = MapValue(Map("status" -> StrValue("active")))
         childInitialData = MapValue(Map("status" -> StrValue("running")))
 
-        createParent = Updates.CreateStateMachineFiber(parentCid, parentDef, parentInitialData)
+        createParent = Updates.CreateStateMachine(parentCid, parentDef, parentInitialData)
         parentProof <- registry.generateProofs(createParent, Set(Alice))
         stateAfterParent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createParent, parentProof)
         )
 
-        createChild = Updates.CreateStateMachineFiber(childCid, childDef, childInitialData, Some(parentCid))
+        createChild = Updates.CreateStateMachine(childCid, childDef, childInitialData, Some(parentCid))
         childProof      <- registry.generateProofs(createChild, Set(Bob))
         stateAfterChild <- combiner.insert(stateAfterParent, Signed(createChild, childProof))
 
-        suspendEvent = StateMachine.Event(
-          StateMachine.EventType("suspend"),
-          MapValue(Map.empty)
-        )
-        suspendUpdate = Updates.ProcessFiberEvent(parentCid, suspendEvent)
+        suspendUpdate = Updates.TransitionStateMachine(parentCid, EventType("suspend"), MapValue(Map.empty))
         suspendProof      <- registry.generateProofs(suspendUpdate, Set(Alice))
         stateAfterSuspend <- combiner.insert(stateAfterChild, Signed(suspendUpdate, suspendProof))
 
-        checkEvent = StateMachine.Event(
-          StateMachine.EventType("check_parent"),
-          MapValue(Map.empty)
-        )
-        checkUpdate = Updates.ProcessFiberEvent(childCid, checkEvent)
+        checkUpdate = Updates.TransitionStateMachine(childCid, EventType("check_parent"), MapValue(Map.empty))
         checkProof <- registry.generateProofs(checkUpdate, Set(Bob))
         finalState <- combiner.insert(stateAfterSuspend, Signed(checkUpdate, checkProof))
 
@@ -269,10 +258,10 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
         childParentId = finalChild.flatMap(_.parentFiberId)
 
       } yield expect(finalParent.isDefined) and
-      expect(finalParent.map(_.currentState).contains(StateMachine.StateId("suspended"))) and
+      expect(finalParent.map(_.currentState).contains(StateId("suspended"))) and
       expect(parentStatus.contains("suspended")) and
       expect(finalChild.isDefined) and
-      expect(finalChild.map(_.currentState).contains(StateMachine.StateId("paused"))) and
+      expect(finalChild.map(_.currentState).contains(StateId("paused"))) and
       expect(childStatus.contains("paused")) and
       expect(childReason.contains("parent_suspended")) and
       expect(childParentId.contains(parentCid))
@@ -291,28 +280,28 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
         child1Cid <- UUIDGen.randomUUID[IO]
         child2Cid <- UUIDGen.randomUUID[IO]
 
-        simpleDef = StateMachine.StateMachineDefinition(
+        simpleDef = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("active") -> StateMachine.State(StateMachine.StateId("active"), isFinal = false)
+            StateId("active") -> State(StateId("active"), isFinal = false)
           ),
-          initialState = StateMachine.StateId("active"),
+          initialState = StateId("active"),
           transitions = List.empty
         )
 
         initialData = MapValue(Map("status" -> StrValue("active")))
 
-        createParent = Updates.CreateStateMachineFiber(parentCid, simpleDef, initialData)
+        createParent = Updates.CreateStateMachine(parentCid, simpleDef, initialData)
         parentProof <- registry.generateProofs(createParent, Set(Alice))
         stateAfterParent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createParent, parentProof)
         )
 
-        createChild1 = Updates.CreateStateMachineFiber(child1Cid, simpleDef, initialData, Some(parentCid))
+        createChild1 = Updates.CreateStateMachine(child1Cid, simpleDef, initialData, Some(parentCid))
         child1Proof      <- registry.generateProofs(createChild1, Set(Alice))
         stateAfterChild1 <- combiner.insert(stateAfterParent, Signed(createChild1, child1Proof))
 
-        createChild2 = Updates.CreateStateMachineFiber(child2Cid, simpleDef, initialData, Some(parentCid))
+        createChild2 = Updates.CreateStateMachine(child2Cid, simpleDef, initialData, Some(parentCid))
         child2Proof <- registry.generateProofs(createChild2, Set(Alice))
         finalState  <- combiner.insert(stateAfterChild1, Signed(createChild2, child2Proof))
 

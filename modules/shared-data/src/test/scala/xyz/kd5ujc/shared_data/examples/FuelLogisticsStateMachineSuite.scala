@@ -11,7 +11,8 @@ import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
 import xyz.kd5ujc.shared_test.Participant._
@@ -500,25 +501,25 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         }"""
 
         contractDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](contractJson).left.map(err =>
+          decode[StateMachineDefinition](contractJson).left.map(err =>
             new RuntimeException(s"Failed to decode contract JSON: $err")
           )
         )
 
         gpsTrackerDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](gpsTrackerJson).left.map(err =>
+          decode[StateMachineDefinition](gpsTrackerJson).left.map(err =>
             new RuntimeException(s"Failed to decode GPS tracker JSON: $err")
           )
         )
 
         supplierDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](supplierApprovalJson).left.map(err =>
+          decode[StateMachineDefinition](supplierApprovalJson).left.map(err =>
             new RuntimeException(s"Failed to decode supplier JSON: $err")
           )
         )
 
         inspectionDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](qualityInspectionJson).left.map(err =>
+          decode[StateMachineDefinition](qualityInspectionJson).left.map(err =>
             new RuntimeException(s"Failed to decode inspection JSON: $err")
           )
         )
@@ -566,13 +567,13 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = contractDef,
-          currentState = StateMachine.StateId("draft"),
+          currentState = StateId("draft"),
           stateData = contractData,
           stateDataHash = contractHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         gpsTrackerFiber = Records.StateMachineFiberRecord(
@@ -581,13 +582,13 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = gpsTrackerDef,
-          currentState = StateMachine.StateId("inactive"),
+          currentState = StateId("inactive"),
           stateData = gpsTrackerData,
           stateDataHash = gpsTrackerHash,
           sequenceNumber = 0,
           owners = Set(Alice).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         supplierFiber = Records.StateMachineFiberRecord(
@@ -596,13 +597,13 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = supplierDef,
-          currentState = StateMachine.StateId("pending"),
+          currentState = StateId("pending"),
           stateData = supplierData,
           stateDataHash = supplierHash,
           sequenceNumber = 0,
           owners = Set(Bob).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         inspectionFiber = Records.StateMachineFiberRecord(
@@ -611,13 +612,13 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = inspectionDef,
-          currentState = StateMachine.StateId("pending"),
+          currentState = StateId("pending"),
           stateData = inspectionData,
           stateDataHash = inspectionHash,
           sequenceNumber = 0,
           owners = Set(Charlie).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         inState = DataState(
@@ -641,32 +642,33 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         )
 
         // STEP 1: Submit contract for approval
-        submitEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("submit_for_approval"),
-          payload = MapValue(Map("timestamp" -> IntValue(1000)))
+        submitUpdate = Updates.TransitionStateMachine(
+          contractCid,
+          EventType("submit_for_approval"),
+          MapValue(Map("timestamp" -> IntValue(1000)))
         )
-        submitUpdate = Updates.ProcessFiberEvent(contractCid, submitEvent)
         submitProof <- registry.generateProofs(submitUpdate, Set(Alice))
         state1      <- combiner.insert(inState, Signed(submitUpdate, submitProof))
 
         // STEP 2: Begin supplier review
-        beginReviewEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("begin_review"),
-          payload = MapValue(
+        beginReviewUpdate = Updates.TransitionStateMachine(
+          supplierCid,
+          EventType("begin_review"),
+          MapValue(
             Map(
               "timestamp" -> IntValue(1100),
               "reviewer"  -> StrValue(registry.addresses(Bob).toString)
             )
           )
         )
-        beginReviewUpdate = Updates.ProcessFiberEvent(supplierCid, beginReviewEvent)
         beginReviewProof <- registry.generateProofs(beginReviewUpdate, Set(Bob))
         state2           <- combiner.insert(state1, Signed(beginReviewUpdate, beginReviewProof))
 
         // STEP 3: Approve supplier
-        approveSupplierEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("approve"),
-          payload = MapValue(
+        approveSupplierUpdate = Updates.TransitionStateMachine(
+          supplierCid,
+          EventType("approve"),
+          MapValue(
             Map(
               "timestamp"       -> IntValue(1200),
               "complianceScore" -> IntValue(90),
@@ -675,37 +677,37 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             )
           )
         )
-        approveSupplierUpdate = Updates.ProcessFiberEvent(supplierCid, approveSupplierEvent)
         approveSupplierProof <- registry.generateProofs(approveSupplierUpdate, Set(Bob))
         state3               <- combiner.insert(state2, Signed(approveSupplierUpdate, approveSupplierProof))
 
         // STEP 4: Contract receives supplier approval
-        supplierApprovedEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("supplier_approved"),
-          payload = MapValue(Map("timestamp" -> IntValue(1300)))
+        supplierApprovedUpdate = Updates.TransitionStateMachine(
+          contractCid,
+          EventType("supplier_approved"),
+          MapValue(Map("timestamp" -> IntValue(1300)))
         )
-        supplierApprovedUpdate = Updates.ProcessFiberEvent(contractCid, supplierApprovedEvent)
         supplierApprovedProof <- registry.generateProofs(supplierApprovedUpdate, Set(Alice))
         state4                <- combiner.insert(state3, Signed(supplierApprovedUpdate, supplierApprovedProof))
 
         // STEP 5: Activate GPS tracker
-        activateGpsEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("activate"),
-          payload = MapValue(
+        activateGpsUpdate = Updates.TransitionStateMachine(
+          gpsTrackerCid,
+          EventType("activate"),
+          MapValue(
             Map(
               "timestamp" -> IntValue(1400),
               "vehicleId" -> StrValue("TRUCK-42")
             )
           )
         )
-        activateGpsUpdate = Updates.ProcessFiberEvent(gpsTrackerCid, activateGpsEvent)
         activateGpsProof <- registry.generateProofs(activateGpsUpdate, Set(Alice))
         state5           <- combiner.insert(state4, Signed(activateGpsUpdate, activateGpsProof))
 
         // STEP 6: Prepare shipment (contract checks GPS is active)
-        prepareShipmentEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("prepare_shipment"),
-          payload = MapValue(
+        prepareShipmentUpdate = Updates.TransitionStateMachine(
+          contractCid,
+          EventType("prepare_shipment"),
+          MapValue(
             Map(
               "timestamp" -> IntValue(1500),
               "vehicleId" -> StrValue("TRUCK-42"),
@@ -713,14 +715,14 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             )
           )
         )
-        prepareShipmentUpdate = Updates.ProcessFiberEvent(contractCid, prepareShipmentEvent)
         prepareShipmentProof <- registry.generateProofs(prepareShipmentUpdate, Set(Alice))
         state6               <- combiner.insert(state5, Signed(prepareShipmentUpdate, prepareShipmentProof))
 
         // STEP 7: Start GPS tracking
-        startTrackingEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("start_tracking"),
-          payload = MapValue(
+        startTrackingUpdate = Updates.TransitionStateMachine(
+          gpsTrackerCid,
+          EventType("start_tracking"),
+          MapValue(
             Map(
               "timestamp" -> IntValue(1600),
               "latitude"  -> IntValue(40_7128),
@@ -728,28 +730,28 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             )
           )
         )
-        startTrackingUpdate = Updates.ProcessFiberEvent(gpsTrackerCid, startTrackingEvent)
         startTrackingProof <- registry.generateProofs(startTrackingUpdate, Set(Alice))
         state7             <- combiner.insert(state6, Signed(startTrackingUpdate, startTrackingProof))
 
         // STEP 8: Begin transit (contract checks GPS is tracking)
-        beginTransitEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("begin_transit"),
-          payload = MapValue(
+        beginTransitUpdate = Updates.TransitionStateMachine(
+          contractCid,
+          EventType("begin_transit"),
+          MapValue(
             Map(
               "timestamp"        -> IntValue(1700),
               "estimatedArrival" -> IntValue(3000)
             )
           )
         )
-        beginTransitUpdate = Updates.ProcessFiberEvent(contractCid, beginTransitEvent)
         beginTransitProof <- registry.generateProofs(beginTransitUpdate, Set(Alice))
         state8            <- combiner.insert(state7, Signed(beginTransitUpdate, beginTransitProof))
 
         // STEP 9-11: Log GPS positions during transit
-        logPosition1Event = StateMachine.Event(
-          eventType = StateMachine.EventType("log_position"),
-          payload = MapValue(
+        logPosition1Update = Updates.TransitionStateMachine(
+          gpsTrackerCid,
+          EventType("log_position"),
+          MapValue(
             Map(
               "timestamp"     -> IntValue(1800),
               "latitude"      -> IntValue(40_7580),
@@ -758,13 +760,13 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             )
           )
         )
-        logPosition1Update = Updates.ProcessFiberEvent(gpsTrackerCid, logPosition1Event)
         logPosition1Proof <- registry.generateProofs(logPosition1Update, Set(Alice))
         state9            <- combiner.insert(state8, Signed(logPosition1Update, logPosition1Proof))
 
-        logPosition2Event = StateMachine.Event(
-          eventType = StateMachine.EventType("log_position"),
-          payload = MapValue(
+        logPosition2Update = Updates.TransitionStateMachine(
+          gpsTrackerCid,
+          EventType("log_position"),
+          MapValue(
             Map(
               "timestamp"     -> IntValue(2000),
               "latitude"      -> IntValue(40_8500),
@@ -773,13 +775,13 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             )
           )
         )
-        logPosition2Update = Updates.ProcessFiberEvent(gpsTrackerCid, logPosition2Event)
         logPosition2Proof <- registry.generateProofs(logPosition2Update, Set(Alice))
         state10           <- combiner.insert(state9, Signed(logPosition2Update, logPosition2Proof))
 
-        logPosition3Event = StateMachine.Event(
-          eventType = StateMachine.EventType("log_position"),
-          payload = MapValue(
+        logPosition3Update = Updates.TransitionStateMachine(
+          gpsTrackerCid,
+          EventType("log_position"),
+          MapValue(
             Map(
               "timestamp"     -> IntValue(2200),
               "latitude"      -> IntValue(41_0000),
@@ -788,64 +790,64 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             )
           )
         )
-        logPosition3Update = Updates.ProcessFiberEvent(gpsTrackerCid, logPosition3Event)
         logPosition3Proof <- registry.generateProofs(logPosition3Update, Set(Alice))
         state11           <- combiner.insert(state10, Signed(logPosition3Update, logPosition3Proof))
 
         // STEP 12: Stop GPS tracking
-        stopTrackingEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("stop_tracking"),
-          payload = MapValue(Map("timestamp" -> IntValue(2500)))
+        stopTrackingUpdate = Updates.TransitionStateMachine(
+          gpsTrackerCid,
+          EventType("stop_tracking"),
+          MapValue(Map("timestamp" -> IntValue(2500)))
         )
-        stopTrackingUpdate = Updates.ProcessFiberEvent(gpsTrackerCid, stopTrackingEvent)
         stopTrackingProof <- registry.generateProofs(stopTrackingUpdate, Set(Alice))
         state12           <- combiner.insert(state11, Signed(stopTrackingUpdate, stopTrackingProof))
 
         // STEP 13: Confirm delivery (contract checks GPS stopped and has data)
-        confirmDeliveryEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("confirm_delivery"),
-          payload = MapValue(Map("timestamp" -> IntValue(2600)))
+        confirmDeliveryUpdate = Updates.TransitionStateMachine(
+          contractCid,
+          EventType("confirm_delivery"),
+          MapValue(Map("timestamp" -> IntValue(2600)))
         )
-        confirmDeliveryUpdate = Updates.ProcessFiberEvent(contractCid, confirmDeliveryEvent)
         confirmDeliveryProof <- registry.generateProofs(confirmDeliveryUpdate, Set(Alice))
         state13              <- combiner.insert(state12, Signed(confirmDeliveryUpdate, confirmDeliveryProof))
 
         // STEP 14: Schedule quality inspection
-        scheduleInspectionEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("schedule"),
-          payload = MapValue(
+        scheduleInspectionUpdate = Updates.TransitionStateMachine(
+          inspectionCid,
+          EventType("schedule"),
+          MapValue(
             Map(
               "timestamp" -> IntValue(2700),
               "inspector" -> StrValue(registry.addresses(Charlie).toString)
             )
           )
         )
-        scheduleInspectionUpdate = Updates.ProcessFiberEvent(inspectionCid, scheduleInspectionEvent)
         scheduleInspectionProof <- registry.generateProofs(scheduleInspectionUpdate, Set(Charlie))
         state14                 <- combiner.insert(state13, Signed(scheduleInspectionUpdate, scheduleInspectionProof))
 
         // STEP 15: Contract initiates inspection
-        initiateInspectionEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("initiate_inspection"),
-          payload = MapValue(Map("timestamp" -> IntValue(2800)))
+        initiateInspectionUpdate = Updates.TransitionStateMachine(
+          contractCid,
+          EventType("initiate_inspection"),
+          MapValue(Map("timestamp" -> IntValue(2800)))
         )
-        initiateInspectionUpdate = Updates.ProcessFiberEvent(contractCid, initiateInspectionEvent)
         initiateInspectionProof <- registry.generateProofs(initiateInspectionUpdate, Set(Alice))
         state15                 <- combiner.insert(state14, Signed(initiateInspectionUpdate, initiateInspectionProof))
 
         // STEP 16: Begin inspection
-        beginInspectionEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("begin_inspection"),
-          payload = MapValue(Map("timestamp" -> IntValue(2900)))
+        beginInspectionUpdate = Updates.TransitionStateMachine(
+          inspectionCid,
+          EventType("begin_inspection"),
+          MapValue(Map("timestamp" -> IntValue(2900)))
         )
-        beginInspectionUpdate = Updates.ProcessFiberEvent(inspectionCid, beginInspectionEvent)
         beginInspectionProof <- registry.generateProofs(beginInspectionUpdate, Set(Charlie))
         state16              <- combiner.insert(state15, Signed(beginInspectionUpdate, beginInspectionProof))
 
         // STEP 17: Complete inspection (passed)
-        completeInspectionEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("complete"),
-          payload = MapValue(
+        completeInspectionUpdate = Updates.TransitionStateMachine(
+          inspectionCid,
+          EventType("complete"),
+          MapValue(
             Map(
               "timestamp"             -> IntValue(3000),
               "qualityScore"          -> IntValue(95),
@@ -854,39 +856,38 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             )
           )
         )
-        completeInspectionUpdate = Updates.ProcessFiberEvent(inspectionCid, completeInspectionEvent)
         completeInspectionProof <- registry.generateProofs(completeInspectionUpdate, Set(Charlie))
         state17                 <- combiner.insert(state16, Signed(completeInspectionUpdate, completeInspectionProof))
 
         // STEP 18: Contract receives inspection completion
-        inspectionCompleteEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("inspection_complete"),
-          payload = MapValue(Map("timestamp" -> IntValue(3100)))
+        inspectionCompleteUpdate = Updates.TransitionStateMachine(
+          contractCid,
+          EventType("inspection_complete"),
+          MapValue(Map("timestamp" -> IntValue(3100)))
         )
-        inspectionCompleteUpdate = Updates.ProcessFiberEvent(contractCid, inspectionCompleteEvent)
         inspectionCompleteProof <- registry.generateProofs(inspectionCompleteUpdate, Set(Alice))
         state18                 <- combiner.insert(state17, Signed(inspectionCompleteUpdate, inspectionCompleteProof))
 
         // STEP 19: Initiate settlement
-        initiateSettlementEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("initiate_settlement"),
-          payload = MapValue(Map("timestamp" -> IntValue(3200)))
+        initiateSettlementUpdate = Updates.TransitionStateMachine(
+          contractCid,
+          EventType("initiate_settlement"),
+          MapValue(Map("timestamp" -> IntValue(3200)))
         )
-        initiateSettlementUpdate = Updates.ProcessFiberEvent(contractCid, initiateSettlementEvent)
         initiateSettlementProof <- registry.generateProofs(initiateSettlementUpdate, Set(Alice))
         state19                 <- combiner.insert(state18, Signed(initiateSettlementUpdate, initiateSettlementProof))
 
         // STEP 20: Finalize settlement
-        finalizeSettlementEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("finalize_settlement"),
-          payload = MapValue(
+        finalizeSettlementUpdate = Updates.TransitionStateMachine(
+          contractCid,
+          EventType("finalize_settlement"),
+          MapValue(
             Map(
               "timestamp"           -> IntValue(3300),
               "paymentConfirmation" -> IntValue(10000)
             )
           )
         )
-        finalizeSettlementUpdate = Updates.ProcessFiberEvent(contractCid, finalizeSettlementEvent)
         finalizeSettlementProof <- registry.generateProofs(finalizeSettlementUpdate, Set(Alice))
         finalState              <- combiner.insert(state19, Signed(finalizeSettlementUpdate, finalizeSettlementProof))
 
@@ -943,17 +944,17 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
 
       } yield expect.all(
         finalContract.isDefined,
-        finalContract.map(_.currentState).contains(StateMachine.StateId("settled")),
+        finalContract.map(_.currentState).contains(StateId("settled")),
         contractStatus.contains("settled"),
         contractCompleted.contains(true),
         finalGpsTracker.isDefined,
-        finalGpsTracker.map(_.currentState).contains(StateMachine.StateId("stopped")),
+        finalGpsTracker.map(_.currentState).contains(StateId("stopped")),
         gpsDataPointCount.contains(BigInt(4)),
         totalDistance.contains(BigInt(25)),
         finalSupplier.isDefined,
-        finalSupplier.map(_.currentState).contains(StateMachine.StateId("approved")),
+        finalSupplier.map(_.currentState).contains(StateId("approved")),
         finalInspection.isDefined,
-        finalInspection.map(_.currentState).contains(StateMachine.StateId("passed")),
+        finalInspection.map(_.currentState).contains(StateId("passed")),
         qualityScore.contains(BigInt(95))
       )
     }

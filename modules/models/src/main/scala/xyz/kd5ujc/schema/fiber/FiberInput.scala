@@ -1,9 +1,7 @@
-package xyz.kd5ujc.shared_data.fiber.domain
+package xyz.kd5ujc.schema.fiber
 
 import io.constellationnetwork.metagraph_sdk.json_logic.JsonLogicValue
 import io.constellationnetwork.schema.address.Address
-
-import xyz.kd5ujc.schema.StateMachine
 
 /**
  * Unified input for fiber processing.
@@ -17,10 +15,19 @@ sealed trait FiberInput {
 
 object FiberInput {
 
-  /** State machine transition input */
+  /**
+   * State machine transition input.
+   *
+   * @param eventType Event type to trigger the transition
+   * @param payload Payload data for the event
+   * @param idempotencyKey Optional key for idempotency tracking.
+   *                       If provided, duplicate transitions with the same key
+   *                       within a time window will be rejected.
+   */
   final case class Transition(
-    eventType: StateMachine.EventType,
-    payload:   JsonLogicValue
+    eventType:      EventType,
+    payload:        JsonLogicValue,
+    idempotencyKey: Option[String] = None
   ) extends FiberInput {
     def inputKey: String = eventType.value
   }

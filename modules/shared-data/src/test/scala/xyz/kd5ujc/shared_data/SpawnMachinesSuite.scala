@@ -11,9 +11,9 @@ import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
-import xyz.kd5ujc.shared_data.fiber.domain._
-import xyz.kd5ujc.shared_data.fiber.engine.FiberOrchestrator
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
+import xyz.kd5ujc.shared_data.fiber.FiberEngine
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Participant._
 import xyz.kd5ujc.shared_test.TestFixture
@@ -71,23 +71,17 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         }
         """
 
-        parentDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](parentJson))
+        parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
         parentData = MapValue(Map("childCount" -> IntValue(0)))
 
-        createParent = Updates.CreateStateMachineFiber(parentCid, parentDef, parentData)
+        createParent = Updates.CreateStateMachine(parentCid, parentDef, parentData)
         parentProof <- fixture.registry.generateProofs(createParent, Set(Alice))
         stateAfterParent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createParent, parentProof)
         )
 
-        spawnEvent = Updates.ProcessFiberEvent(
-          parentCid,
-          StateMachine.Event(
-            StateMachine.EventType("spawn_child"),
-            MapValue(Map.empty)
-          )
-        )
+        spawnEvent = Updates.TransitionStateMachine(parentCid, EventType("spawn_child"), MapValue(Map.empty))
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -114,12 +108,12 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         }
 
       } yield expect(parent.isDefined) and
-      expect(parent.map(_.currentState).contains(StateMachine.StateId("spawned"))) and
+      expect(parent.map(_.currentState).contains(StateId("spawned"))) and
       expect(parent.exists(_.childFiberIds.contains(childCid))) and
       expect(child.isDefined) and
-      expect(child.map(_.currentState).contains(StateMachine.StateId("active"))) and
+      expect(child.map(_.currentState).contains(StateId("active"))) and
       expect(child.map(_.parentFiberId).contains(Some(parentCid))) and
-      expect(child.map(_.status).contains(Records.FiberStatus.Active)) and
+      expect(child.map(_.status).contains(FiberStatus.Active)) and
       expect(childParentId.contains(parentCid.toString)) and
       expect(childCreatedAt.contains(BigInt(1)))
     }
@@ -194,23 +188,17 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         }
         """
 
-        parentDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](parentJson))
+        parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
         parentData = MapValue(Map("childCount" -> IntValue(0)))
 
-        createParent = Updates.CreateStateMachineFiber(parentCid, parentDef, parentData)
+        createParent = Updates.CreateStateMachine(parentCid, parentDef, parentData)
         parentProof <- fixture.registry.generateProofs(createParent, Set(Alice))
         stateAfterParent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createParent, parentProof)
         )
 
-        spawnEvent = Updates.ProcessFiberEvent(
-          parentCid,
-          StateMachine.Event(
-            StateMachine.EventType("spawn_multiple"),
-            MapValue(Map.empty)
-          )
-        )
+        spawnEvent = Updates.TransitionStateMachine(parentCid, EventType("spawn_multiple"), MapValue(Map.empty))
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -252,7 +240,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         }
 
       } yield expect(parent.isDefined) and
-      expect(parent.map(_.currentState).contains(StateMachine.StateId("spawned"))) and
+      expect(parent.map(_.currentState).contains(StateId("spawned"))) and
       expect(parent.map(_.childFiberIds.size).contains(3)) and
       expect(parent.exists(_.childFiberIds.contains(child1Cid))) and
       expect(parent.exists(_.childFiberIds.contains(child2Cid))) and
@@ -333,23 +321,17 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         }
         """
 
-        parentDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](parentJson))
+        parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
         parentData = MapValue(Map("childCount" -> IntValue(0)))
 
-        createParent = Updates.CreateStateMachineFiber(parentCid, parentDef, parentData)
+        createParent = Updates.CreateStateMachine(parentCid, parentDef, parentData)
         parentProof <- fixture.registry.generateProofs(createParent, Set(Alice))
         stateAfterParent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createParent, parentProof)
         )
 
-        spawnEvent = Updates.ProcessFiberEvent(
-          parentCid,
-          StateMachine.Event(
-            StateMachine.EventType("spawn_and_trigger"),
-            MapValue(Map.empty)
-          )
-        )
+        spawnEvent = Updates.TransitionStateMachine(parentCid, EventType("spawn_and_trigger"), MapValue(Map.empty))
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -376,9 +358,9 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         }
 
       } yield expect(parent.isDefined) and
-      expect(parent.map(_.currentState).contains(StateMachine.StateId("spawned"))) and
+      expect(parent.map(_.currentState).contains(StateId("spawned"))) and
       expect(child.isDefined) and
-      expect(child.map(_.currentState).contains(StateMachine.StateId("activated"))) and
+      expect(child.map(_.currentState).contains(StateId("activated"))) and
       expect(childStatus.contains("activated")) and
       expect(childMessage.contains("Hello from parent"))
     }
@@ -429,23 +411,17 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         }
         """
 
-        parentDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](parentJson))
+        parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
         parentData = MapValue(Map("status" -> StrValue("init")))
 
-        createParent = Updates.CreateStateMachineFiber(parentCid, parentDef, parentData)
+        createParent = Updates.CreateStateMachine(parentCid, parentDef, parentData)
         parentProof <- fixture.registry.generateProofs(createParent, Set(Alice, Bob))
         stateAfterParent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createParent, parentProof)
         )
 
-        spawnEvent = Updates.ProcessFiberEvent(
-          parentCid,
-          StateMachine.Event(
-            StateMachine.EventType("spawn_child"),
-            MapValue(Map.empty)
-          )
-        )
+        spawnEvent = Updates.TransitionStateMachine(parentCid, EventType("spawn_child"), MapValue(Map.empty))
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -541,23 +517,17 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         }
         """
 
-        parentDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](parentJson))
+        parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
         parentData = MapValue(Map("childStatus" -> StrValue("none")))
 
-        createParent = Updates.CreateStateMachineFiber(parentCid, parentDef, parentData)
+        createParent = Updates.CreateStateMachine(parentCid, parentDef, parentData)
         parentProof <- fixture.registry.generateProofs(createParent, Set(Alice))
         stateAfterParent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createParent, parentProof)
         )
 
-        spawnEvent = Updates.ProcessFiberEvent(
-          parentCid,
-          StateMachine.Event(
-            StateMachine.EventType("create_child"),
-            MapValue(Map.empty)
-          )
-        )
+        spawnEvent = Updates.TransitionStateMachine(parentCid, EventType("create_child"), MapValue(Map.empty))
         spawnProof      <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         stateAfterSpawn <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -565,13 +535,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           .get(childCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        startWorkEvent = Updates.ProcessFiberEvent(
-          childCid,
-          StateMachine.Event(
-            StateMachine.EventType("start_work"),
-            MapValue(Map.empty)
-          )
-        )
+        startWorkEvent = Updates.TransitionStateMachine(childCid, EventType("start_work"), MapValue(Map.empty))
         startProof      <- fixture.registry.generateProofs(startWorkEvent, Set(Alice))
         stateAfterStart <- combiner.insert(stateAfterSpawn, Signed(startWorkEvent, startProof))
 
@@ -579,13 +543,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           .get(childCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finishWorkEvent = Updates.ProcessFiberEvent(
-          childCid,
-          StateMachine.Event(
-            StateMachine.EventType("finish_work"),
-            MapValue(Map.empty)
-          )
-        )
+        finishWorkEvent = Updates.TransitionStateMachine(childCid, EventType("finish_work"), MapValue(Map.empty))
         finishProof      <- fixture.registry.generateProofs(finishWorkEvent, Set(Alice))
         stateAfterFinish <- combiner.insert(stateAfterStart, Signed(finishWorkEvent, finishProof))
 
@@ -600,7 +558,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           }
         }
 
-        archiveChild = Updates.ArchiveFiber(childCid)
+        archiveChild = Updates.ArchiveStateMachine(childCid)
         archiveProof      <- fixture.registry.generateProofs(archiveChild, Set(Alice))
         stateAfterArchive <- combiner.insert(stateAfterFinish, Signed(archiveChild, archiveProof))
 
@@ -609,19 +567,19 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
       } yield expect(childAfterSpawn.isDefined) and
-      expect(childAfterSpawn.map(_.currentState).contains(StateMachine.StateId("idle"))) and
-      expect(childAfterSpawn.map(_.status).contains(Records.FiberStatus.Active)) and
+      expect(childAfterSpawn.map(_.currentState).contains(StateId("idle"))) and
+      expect(childAfterSpawn.map(_.status).contains(FiberStatus.Active)) and
       expect(childAfterSpawn.map(_.parentFiberId).contains(Some(parentCid))) and
       expect(childAfterStart.isDefined) and
-      expect(childAfterStart.map(_.currentState).contains(StateMachine.StateId("working"))) and
+      expect(childAfterStart.map(_.currentState).contains(StateId("working"))) and
       expect(childAfterStart.map(_.sequenceNumber).contains(1L)) and
       expect(childAfterFinish.isDefined) and
-      expect(childAfterFinish.map(_.currentState).contains(StateMachine.StateId("done"))) and
-      expect(childAfterFinish.exists(_.definition.states(StateMachine.StateId("done")).isFinal)) and
+      expect(childAfterFinish.map(_.currentState).contains(StateId("done"))) and
+      expect(childAfterFinish.exists(_.definition.states(StateId("done")).isFinal)) and
       expect(childAfterFinish.map(_.sequenceNumber).contains(2L)) and
       expect(progressAfterFinish.contains(BigInt(100))) and
       expect(childAfterArchive.isDefined) and
-      expect(childAfterArchive.map(_.status).contains(Records.FiberStatus.Archived))
+      expect(childAfterArchive.map(_.status).contains(FiberStatus.Archived))
     }
   }
 
@@ -696,23 +654,17 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         }
         """
 
-        parentDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](parentJson))
+        parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
         parentData = MapValue(Map("level" -> IntValue(1)))
 
-        createParent = Updates.CreateStateMachineFiber(parentCid, parentDef, parentData)
+        createParent = Updates.CreateStateMachine(parentCid, parentDef, parentData)
         parentProof <- fixture.registry.generateProofs(createParent, Set(Alice))
         stateAfterParent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createParent, parentProof)
         )
 
-        spawnEvent = Updates.ProcessFiberEvent(
-          parentCid,
-          StateMachine.Event(
-            StateMachine.EventType("spawn_and_trigger"),
-            MapValue(Map.empty)
-          )
-        )
+        spawnEvent = Updates.TransitionStateMachine(parentCid, EventType("spawn_and_trigger"), MapValue(Map.empty))
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -749,7 +701,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         }
 
       } yield expect(child.isDefined) and
-      expect(child.map(_.currentState).contains(StateMachine.StateId("active"))) and
+      expect(child.map(_.currentState).contains(StateId("active"))) and
       expect(childEventMessage.contains("Hello")) and
       expect(childEventAmount.contains(BigInt(42))) and
       expect(childParentState.contains(BigInt(1))) and
@@ -864,33 +816,23 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         }
         """
 
-        grandparentDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](grandparentJson))
+        grandparentDef <- IO.fromEither(decode[StateMachineDefinition](grandparentJson))
         grandparentData = MapValue(Map("level" -> IntValue(0)))
 
-        createGrandparent = Updates.CreateStateMachineFiber(grandparentCid, grandparentDef, grandparentData)
+        createGrandparent = Updates.CreateStateMachine(grandparentCid, grandparentDef, grandparentData)
         grandparentProof <- fixture.registry.generateProofs(createGrandparent, Set(Alice))
         stateAfterGrandparent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createGrandparent, grandparentProof)
         )
 
-        spawnParentEvent = Updates.ProcessFiberEvent(
-          grandparentCid,
-          StateMachine.Event(
-            StateMachine.EventType("spawn_parent"),
-            MapValue(Map.empty)
-          )
-        )
+        spawnParentEvent = Updates
+          .TransitionStateMachine(grandparentCid, EventType("spawn_parent"), MapValue(Map.empty))
         spawnParentProof <- fixture.registry.generateProofs(spawnParentEvent, Set(Alice))
         stateAfterParent <- combiner.insert(stateAfterGrandparent, Signed(spawnParentEvent, spawnParentProof))
 
-        spawnGrandchildEvent = Updates.ProcessFiberEvent(
-          parentCid,
-          StateMachine.Event(
-            StateMachine.EventType("spawn_grandchild"),
-            MapValue(Map.empty)
-          )
-        )
+        spawnGrandchildEvent = Updates
+          .TransitionStateMachine(parentCid, EventType("spawn_grandchild"), MapValue(Map.empty))
         spawnGrandchildProof <- fixture.registry.generateProofs(spawnGrandchildEvent, Set(Alice))
         finalState           <- combiner.insert(stateAfterParent, Signed(spawnGrandchildEvent, spawnGrandchildProof))
 
@@ -926,7 +868,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       expect(parent.map(_.parentFiberId).contains(Some(grandparentCid))) and
       expect(parent.exists(_.childFiberIds.contains(childCid))) and
       expect(grandchild.isDefined) and
-      expect(grandchild.map(_.currentState).contains(StateMachine.StateId("active"))) and
+      expect(grandchild.map(_.currentState).contains(StateId("active"))) and
       expect(grandchild.map(_.parentFiberId).contains(Some(parentCid))) and
       expect(grandchildGrandparentId.contains(grandparentCid.toString)) and
       expect(grandchildActivatedBy.contains(parentCid.toString))
@@ -1023,23 +965,18 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         }
         """
 
-        parentDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](parentJson))
+        parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
         parentData = MapValue(Map("spawnCount" -> IntValue(0)))
 
-        createParent = Updates.CreateStateMachineFiber(parentCid, parentDef, parentData)
+        createParent = Updates.CreateStateMachine(parentCid, parentDef, parentData)
         parentProof <- fixture.registry.generateProofs(createParent, Set(Alice))
         stateAfterParent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createParent, parentProof)
         )
 
-        spawnEvent = Updates.ProcessFiberEvent(
-          parentCid,
-          StateMachine.Event(
-            StateMachine.EventType("spawn_with_failing_trigger"),
-            MapValue(Map.empty)
-          )
-        )
+        spawnEvent = Updates
+          .TransitionStateMachine(parentCid, EventType("spawn_with_failing_trigger"), MapValue(Map.empty))
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -1052,10 +989,10 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         child3 = finalState.calculated.stateMachines.get(child3Cid)
 
       } yield expect(parent.isDefined) and
-      expect(parent.map(_.currentState).contains(StateMachine.StateId("init"))) and
+      expect(parent.map(_.currentState).contains(StateId("init"))) and
       expect(parent.map(_.lastEventStatus).exists {
-        case Records.EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
-        case _                                                            => false
+        case EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
+        case _                                                    => false
       }) and
       expect(child1.isEmpty) and
       expect(child2.isEmpty) and
@@ -1117,7 +1054,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         }
         """
 
-        parentDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](parentJson))
+        parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
         parentData = MapValue(Map("status" -> StrValue("init")))
         parentHash <- (parentData: JsonLogicValue).computeDigest
 
@@ -1127,37 +1064,32 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = parentDef,
-          currentState = StateMachine.StateId("init"),
+          currentState = StateId("init"),
           stateData = parentData,
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
 
-        event = StateMachine.Event(
-          StateMachine.EventType("spawn_many"),
-          MapValue(Map.empty)
-        )
-
         // Use a gas limit that will be exceeded by spawn overhead
         // 25 spawns * 50 gas = 1250 spawn gas, plus guard + effect evaluation
         limits = ExecutionLimits(maxDepth = 10, maxGas = 1000L)
-        input = FiberInput.Transition(event.eventType, event.payload)
+        input = FiberInput.Transition(EventType("spawn_many"), MapValue(Map.empty))
 
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, fixture.ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
         result <- orchestrator.process(parentCid, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.GasExhaustedFailure],
+            reason.isInstanceOf[FailureReason.GasExhaustedFailure],
             s"Expected GasExhaustedFailure, got ${reason.getClass.getSimpleName}: ${reason.toMessage}"
           )
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected Aborted with GasExhaustedFailure, but transaction was committed")
       }
     }
@@ -1220,7 +1152,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         }
         """
 
-        parentDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](parentJson))
+        parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
         parentData = MapValue(Map("status" -> StrValue("init")))
         parentHash <- (parentData: JsonLogicValue).computeDigest
 
@@ -1230,34 +1162,34 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = parentDef,
-          currentState = StateMachine.StateId("init"),
+          currentState = StateId("init"),
           stateData = parentData,
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("spawn_duplicate"),
+          EventType("spawn_duplicate"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 100_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, fixture.ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
 
         result <- orchestrator.process(parentCid, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
-          // Duplicate childId should be rejected with SpawnValidationFailed
+        case TransactionResult.Aborted(reason, _, _) =>
+          // Duplicate childId should be rejected with DuplicateChildId
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.SpawnValidationFailed],
-            s"Expected SpawnValidationFailed but got: ${reason.getClass.getSimpleName}"
+            reason.isInstanceOf[FailureReason.DuplicateChildId],
+            s"Expected DuplicateChildId but got: ${reason.getClass.getSimpleName}"
           )
-        case TransactionOutcome.Committed(machines, _, _, _, _, _) =>
+        case TransactionResult.Committed(machines, _, _, _, _, _) =>
           // If duplicates are deduplicated (second overwrites first), verify exactly 1 child
           val childCount = machines.values.count(_.parentFiberId.contains(parentCid))
           expect(childCount == 1, s"Expected exactly 1 child after dedup, got $childCount")
@@ -1317,7 +1249,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         }
         """
 
-        parentDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](parentJson))
+        parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
         parentData = MapValue(Map("status" -> StrValue("init")))
         parentHash <- (parentData: JsonLogicValue).computeDigest
 
@@ -1327,34 +1259,34 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = parentDef,
-          currentState = StateMachine.StateId("init"),
+          currentState = StateId("init"),
           stateData = parentData,
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("spawn_large"),
+          EventType("spawn_large"),
           MapValue(Map.empty)
         )
 
         // Set maxStateSizeBytes to 50 bytes - our 200 byte payload will exceed this
         limits = ExecutionLimits(maxDepth = 10, maxGas = 100_000L, maxStateSizeBytes = 50)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, fixture.ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
 
         result <- orchestrator.process(parentCid, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.StateSizeTooLarge],
+            reason.isInstanceOf[FailureReason.StateSizeTooLarge],
             s"Expected size-related failure but got: ${reason.getClass.getSimpleName}: ${reason.toMessage}"
           )
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected Aborted for oversized initialData")
       }
     }
@@ -1406,10 +1338,10 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         }
         """
 
-        parentDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](parentJson))
+        parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
 
         // Create parent with 3 owners
-        createParent = Updates.CreateStateMachineFiber(
+        createParent = Updates.CreateStateMachine(
           parentCid,
           parentDef,
           MapValue(Map("status" -> StrValue("init")))
@@ -1421,13 +1353,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         )
 
         // Spawn child (only Alice signs the spawn event)
-        spawnEvent = Updates.ProcessFiberEvent(
-          parentCid,
-          StateMachine.Event(
-            StateMachine.EventType("spawn_child"),
-            MapValue(Map.empty)
-          )
-        )
+        spawnEvent = Updates.TransitionStateMachine(parentCid, EventType("spawn_child"), MapValue(Map.empty))
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -1500,11 +1426,11 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         }
         """
 
-        parentDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](parentJson))
+        parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
         parentData = MapValue(Map("status" -> StrValue("init")))
 
         // Create parent with Alice and Bob as owners
-        createParent = Updates.CreateStateMachineFiber(parentCid, parentDef, parentData)
+        createParent = Updates.CreateStateMachine(parentCid, parentDef, parentData)
         parentProof <- fixture.registry.generateProofs(createParent, Set(Alice, Bob))
         stateAfterParent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -1512,14 +1438,12 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         )
 
         // Spawn child - pass Charlie's address in event payload for ownersExpr to use
-        spawnEvent = Updates.ProcessFiberEvent(
+        spawnEvent = Updates.TransitionStateMachine(
           parentCid,
-          StateMachine.Event(
-            StateMachine.EventType("spawn_child"),
-            MapValue(
-              Map(
-                "customOwners" -> ArrayValue(List(StrValue(charlieAddress.value.value)))
-              )
+          EventType("spawn_child"),
+          MapValue(
+            Map(
+              "customOwners" -> ArrayValue(List(StrValue(charlieAddress.value.value)))
             )
           )
         )
@@ -1553,17 +1477,17 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         parentCid <- UUIDGen.randomUUID[IO]
 
         // Parent that spawns with an invalid UUID
-        parentDefinition = StateMachine.StateMachineDefinition(
+        parentDefinition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("init")    -> StateMachine.State(StateMachine.StateId("init")),
-            StateMachine.StateId("spawned") -> StateMachine.State(StateMachine.StateId("spawned"))
+            StateId("init")    -> State(StateId("init")),
+            StateId("spawned") -> State(StateId("spawned"))
           ),
-          initialState = StateMachine.StateId("init"),
+          initialState = StateId("init"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("init"),
-              to = StateMachine.StateId("spawned"),
-              eventType = StateMachine.EventType("spawn"),
+            Transition(
+              from = StateId("init"),
+              to = StateId("spawned"),
+              eventType = EventType("spawn"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1611,23 +1535,23 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = parentDefinition,
-          currentState = StateMachine.StateId("init"),
+          currentState = StateId("init"),
           stateData = parentData,
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set(fixture.registry.addresses(Alice)),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("spawn"),
+          EventType("spawn"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, fixture.ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
 
         result <- orchestrator.process(parentCid, input, List.empty).attempt
 
@@ -1638,13 +1562,13 @@ object SpawnMachinesSuite extends SimpleIOSuite {
             err.getMessage != null,
             s"Expected error with message, got null message"
           )
-        case Right(TransactionOutcome.Aborted(reason, _, _)) =>
-          // Invalid UUID should cause SpawnValidationFailed
+        case Right(TransactionResult.Aborted(reason, _, _)) =>
+          // Invalid UUID should cause InvalidChildIdFormat
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.SpawnValidationFailed],
-            s"Expected SpawnValidationFailed but got: ${reason.getClass.getSimpleName}"
+            reason.isInstanceOf[FailureReason.InvalidChildIdFormat],
+            s"Expected InvalidChildIdFormat but got: ${reason.getClass.getSimpleName}"
           )
-        case Right(TransactionOutcome.Committed(_, _, _, _, _, _)) =>
+        case Right(TransactionResult.Committed(_, _, _, _, _, _)) =>
           failure("Expected error or Aborted for invalid UUID format, but transaction was committed")
       }
     }
@@ -1660,17 +1584,17 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         parentCid <- UUIDGen.randomUUID[IO]
 
         // Parent that spawns with childId as an integer instead of string
-        parentDefinition = StateMachine.StateMachineDefinition(
+        parentDefinition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("init")    -> StateMachine.State(StateMachine.StateId("init")),
-            StateMachine.StateId("spawned") -> StateMachine.State(StateMachine.StateId("spawned"))
+            StateId("init")    -> State(StateId("init")),
+            StateId("spawned") -> State(StateId("spawned"))
           ),
-          initialState = StateMachine.StateId("init"),
+          initialState = StateId("init"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("init"),
-              to = StateMachine.StateId("spawned"),
-              eventType = StateMachine.EventType("spawn"),
+            Transition(
+              from = StateId("init"),
+              to = StateId("spawned"),
+              eventType = EventType("spawn"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1718,23 +1642,23 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = parentDefinition,
-          currentState = StateMachine.StateId("init"),
+          currentState = StateId("init"),
           stateData = parentData,
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set(fixture.registry.addresses(Alice)),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("spawn"),
+          EventType("spawn"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, fixture.ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
 
         result <- orchestrator.process(parentCid, input, List.empty).attempt
 
@@ -1742,12 +1666,12 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         case Left(err) =>
           // Non-string childId should throw error
           expect(err.getMessage != null, s"Expected error with message")
-        case Right(TransactionOutcome.Aborted(reason, _, _)) =>
+        case Right(TransactionResult.Aborted(reason, _, _)) =>
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.SpawnValidationFailed],
-            s"Expected SpawnValidationFailed but got: ${reason.getClass.getSimpleName}"
+            reason.isInstanceOf[FailureReason.InvalidChildIdFormat],
+            s"Expected InvalidChildIdFormat but got: ${reason.getClass.getSimpleName}"
           )
-        case Right(TransactionOutcome.Committed(_, _, _, _, _, _)) =>
+        case Right(TransactionResult.Committed(_, _, _, _, _, _)) =>
           failure("Expected error or Aborted for non-string childIdExpr, but transaction was committed")
       }
     }
@@ -1764,17 +1688,17 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         childCid  <- UUIDGen.randomUUID[IO]
 
         // Parent that spawns with owners as a string instead of array
-        parentDefinition = StateMachine.StateMachineDefinition(
+        parentDefinition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("init")    -> StateMachine.State(StateMachine.StateId("init")),
-            StateMachine.StateId("spawned") -> StateMachine.State(StateMachine.StateId("spawned"))
+            StateId("init")    -> State(StateId("init")),
+            StateId("spawned") -> State(StateId("spawned"))
           ),
-          initialState = StateMachine.StateId("init"),
+          initialState = StateId("init"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("init"),
-              to = StateMachine.StateId("spawned"),
-              eventType = StateMachine.EventType("spawn"),
+            Transition(
+              from = StateId("init"),
+              to = StateId("spawned"),
+              eventType = EventType("spawn"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1823,23 +1747,23 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = parentDefinition,
-          currentState = StateMachine.StateId("init"),
+          currentState = StateId("init"),
           stateData = parentData,
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set(fixture.registry.addresses(Alice)),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("spawn"),
+          EventType("spawn"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, fixture.ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
 
         result <- orchestrator.process(parentCid, input, List.empty).attempt
 
@@ -1847,12 +1771,12 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         case Left(err) =>
           // Non-array owners should throw error
           expect(err.getMessage != null, s"Expected error with message")
-        case Right(TransactionOutcome.Aborted(reason, _, _)) =>
+        case Right(TransactionResult.Aborted(reason, _, _)) =>
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.SpawnValidationFailed],
-            s"Expected SpawnValidationFailed but got: ${reason.getClass.getSimpleName}"
+            reason.isInstanceOf[FailureReason.InvalidOwnersExpression],
+            s"Expected InvalidOwnersExpression but got: ${reason.getClass.getSimpleName}"
           )
-        case Right(TransactionOutcome.Committed(_, _, _, _, _, _)) =>
+        case Right(TransactionResult.Committed(_, _, _, _, _, _)) =>
           failure("Expected error or Aborted for non-array ownersExpr, but transaction was committed")
       }
     }
@@ -1869,17 +1793,17 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         childCid  <- UUIDGen.randomUUID[IO]
 
         // Parent that spawns with an invalid owner address
-        parentDefinition = StateMachine.StateMachineDefinition(
+        parentDefinition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("init")    -> StateMachine.State(StateMachine.StateId("init")),
-            StateMachine.StateId("spawned") -> StateMachine.State(StateMachine.StateId("spawned"))
+            StateId("init")    -> State(StateId("init")),
+            StateId("spawned") -> State(StateId("spawned"))
           ),
-          initialState = StateMachine.StateId("init"),
+          initialState = StateId("init"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("init"),
-              to = StateMachine.StateId("spawned"),
-              eventType = StateMachine.EventType("spawn"),
+            Transition(
+              from = StateId("init"),
+              to = StateId("spawned"),
+              eventType = EventType("spawn"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1928,23 +1852,23 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = parentDefinition,
-          currentState = StateMachine.StateId("init"),
+          currentState = StateId("init"),
           stateData = parentData,
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set(fixture.registry.addresses(Alice)),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("spawn"),
+          EventType("spawn"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, fixture.ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
 
         result <- orchestrator.process(parentCid, input, List.empty).attempt
 
@@ -1952,12 +1876,12 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         case Left(err) =>
           // Invalid address should throw error
           expect(err.getMessage != null, s"Expected error with message")
-        case Right(TransactionOutcome.Aborted(reason, _, _)) =>
+        case Right(TransactionResult.Aborted(reason, _, _)) =>
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.SpawnValidationFailed],
-            s"Expected SpawnValidationFailed but got: ${reason.getClass.getSimpleName}"
+            reason.isInstanceOf[FailureReason.InvalidOwnerAddress],
+            s"Expected InvalidOwnerAddress but got: ${reason.getClass.getSimpleName}"
           )
-        case Right(TransactionOutcome.Committed(_, _, _, _, _, _)) =>
+        case Right(TransactionResult.Committed(_, _, _, _, _, _)) =>
           failure("Expected error or Aborted for invalid owner address")
       }
     }

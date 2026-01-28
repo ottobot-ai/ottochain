@@ -9,7 +9,8 @@ import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Participant._
 import xyz.kd5ujc.shared_test.TestFixture
@@ -77,10 +78,10 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         }
         """
 
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map.empty[String, JsonLogicValue])
 
-        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
         machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -88,12 +89,10 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         )
 
         // Test 1: High priority (>= 80) - should match first guard
-        highPriorityEvent = Updates.ProcessFiberEvent(
+        highPriorityEvent = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("process"),
-            MapValue(Map("priority" -> IntValue(90)))
-          )
+          EventType("process"),
+          MapValue(Map("priority" -> IntValue(90)))
         )
         highProof      <- fixture.registry.generateProofs(highPriorityEvent, Set(Alice))
         stateAfterHigh <- combiner.insert(stateAfterCreate, Signed(highPriorityEvent, highProof))
@@ -110,7 +109,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         }
 
       } yield expect(highMachine.isDefined) and
-      expect(highMachine.map(_.currentState).contains(StateMachine.StateId("high_priority"))) and
+      expect(highMachine.map(_.currentState).contains(StateId("high_priority"))) and
       expect(highLevel.contains("high"))
     }
   }
@@ -176,10 +175,10 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         }
         """
 
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map.empty[String, JsonLogicValue])
 
-        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
         machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -187,12 +186,10 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         )
 
         // Test with value 15 - matches both first and second guards, should use first
-        checkEvent = Updates.ProcessFiberEvent(
+        checkEvent = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("check"),
-            MapValue(Map("value" -> IntValue(15)))
-          )
+          EventType("check"),
+          MapValue(Map("value" -> IntValue(15)))
         )
         checkProof <- fixture.registry.generateProofs(checkEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterCreate, Signed(checkEvent, checkProof))
@@ -216,7 +213,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         }
 
       } yield expect(machine.isDefined) and
-      expect(machine.map(_.currentState).contains(StateMachine.StateId("result_a"))) and
+      expect(machine.map(_.currentState).contains(StateId("result_a"))) and
       expect(result.contains("a")) and
       expect(message.contains("matched first guard (>= 10)"))
     }
@@ -282,10 +279,10 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         }
         """
 
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("tier" -> IntValue(0)))
 
-        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
         machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -293,12 +290,10 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         )
 
         // Send upgrade with insufficient amount - no guard should match
-        upgradeEvent = Updates.ProcessFiberEvent(
+        upgradeEvent = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("upgrade"),
-            MapValue(Map("amount" -> IntValue(50)))
-          )
+          EventType("upgrade"),
+          MapValue(Map("amount" -> IntValue(50)))
         )
         upgradeProof <- fixture.registry.generateProofs(upgradeEvent, Set(Alice))
         finalState   <- combiner.insert(stateAfterCreate, Signed(upgradeEvent, upgradeProof))
@@ -316,7 +311,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
 
       } yield expect(machine.isDefined) and
       // Should remain in idle state since no guard matched
-      expect(machine.map(_.currentState).contains(StateMachine.StateId("idle"))) and
+      expect(machine.map(_.currentState).contains(StateId("idle"))) and
       // Tier should remain 0 (no effect applied)
       expect(tier.contains(BigInt(0)))
     }
@@ -389,10 +384,10 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         }
         """
 
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map.empty[String, JsonLogicValue])
 
-        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
         machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -400,16 +395,14 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         )
 
         // Test 1: Qualifies for premium (all conditions met)
-        premiumEvent = Updates.ProcessFiberEvent(
+        premiumEvent = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("qualify"),
-            MapValue(
-              Map(
-                "age"      -> IntValue(30),
-                "income"   -> IntValue(150000),
-                "verified" -> BoolValue(true)
-              )
+          EventType("qualify"),
+          MapValue(
+            Map(
+              "age"      -> IntValue(30),
+              "income"   -> IntValue(150000),
+              "verified" -> BoolValue(true)
             )
           )
         )
@@ -428,7 +421,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         }
 
       } yield expect(machine.isDefined) and
-      expect(machine.map(_.currentState).contains(StateMachine.StateId("premium"))) and
+      expect(machine.map(_.currentState).contains(StateId("premium"))) and
       expect(level.contains("premium"))
     }
   }
@@ -485,7 +478,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         }
         """
 
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(
           Map(
             "secretCode" -> IntValue(1234),
@@ -493,7 +486,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
           )
         )
 
-        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
         machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -501,15 +494,13 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         )
 
         // Test: Admin unlock (first guard should match)
-        unlockEvent = Updates.ProcessFiberEvent(
+        unlockEvent = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("unlock"),
-            MapValue(
-              Map(
-                "role" -> StrValue("admin"),
-                "code" -> IntValue(0)
-              )
+          EventType("unlock"),
+          MapValue(
+            Map(
+              "role" -> StrValue("admin"),
+              "code" -> IntValue(0)
             )
           )
         )
@@ -528,7 +519,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         }
 
       } yield expect(machine.isDefined) and
-      expect(machine.map(_.currentState).contains(StateMachine.StateId("admin_unlocked"))) and
+      expect(machine.map(_.currentState).contains(StateId("admin_unlocked"))) and
       expect(unlockedBy.contains("admin"))
     }
   }

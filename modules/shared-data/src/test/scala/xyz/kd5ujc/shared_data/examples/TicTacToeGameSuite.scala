@@ -11,7 +11,8 @@ import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
 import xyz.kd5ujc.shared_test.Participant._
@@ -56,7 +57,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           cid = oracleCid,
           scriptProgram = oracleScript,
           initialState = oracleInitialState,
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         oracleProof <- registry.generateProofs(createOracle, Set(Alice))
@@ -69,7 +70,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           val stream = getClass.getResourceAsStream("/tictactoe/state-machine-definition.json")
           scala.io.Source.fromInputStream(stream).mkString
         }
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineDefJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineDefJson))
 
         // Create state machine with oracle CID
         initialData = MapValue(
@@ -87,13 +88,13 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = machineDef,
-          currentState = StateMachine.StateId("setup"),
+          currentState = StateId("setup"),
           stateData = initialData,
           stateDataHash = initialDataHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         stateAfterMachine = DataState(
@@ -102,9 +103,10 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         )
 
         // Step 1: Start game
-        startGameEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("start_game"),
-          payload = MapValue(
+        startGameUpdate = Updates.TransitionStateMachine(
+          machineCid,
+          EventType("start_game"),
+          MapValue(
             Map(
               "playerX" -> StrValue(aliceAddr.toString),
               "playerO" -> StrValue(bobAddr.toString),
@@ -112,7 +114,6 @@ object TicTacToeGameSuite extends SimpleIOSuite {
             )
           )
         )
-        startGameUpdate = Updates.ProcessFiberEvent(machineCid, startGameEvent)
         startGameProof <- registry.generateProofs(startGameUpdate, Set(Alice))
         state1         <- combiner.insert(stateAfterMachine, Signed(startGameUpdate, startGameProof))
 
@@ -122,52 +123,52 @@ object TicTacToeGameSuite extends SimpleIOSuite {
 
         _ = expect.all(
           machineAfterStart.isDefined,
-          machineAfterStart.map(_.currentState).contains(StateMachine.StateId("playing"))
+          machineAfterStart.map(_.currentState).contains(StateId("playing"))
         )
 
         // Step 2-6: Play game - X wins with top row (0, 1, 2)
         // Move 1: X plays top left (0)
-        move1 = StateMachine.Event(
-          eventType = StateMachine.EventType("make_move"),
-          payload = MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(0)))
+        move1Update = Updates.TransitionStateMachine(
+          machineCid,
+          EventType("make_move"),
+          MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(0)))
         )
-        move1Update = Updates.ProcessFiberEvent(machineCid, move1)
         move1Proof <- registry.generateProofs(move1Update, Set(Alice))
         state2     <- combiner.insert(state1, Signed(move1Update, move1Proof))
 
         // Move 2: O plays middle left (3)
-        move2 = StateMachine.Event(
-          eventType = StateMachine.EventType("make_move"),
-          payload = MapValue(Map("player" -> StrValue("O"), "cell" -> IntValue(3)))
+        move2Update = Updates.TransitionStateMachine(
+          machineCid,
+          EventType("make_move"),
+          MapValue(Map("player" -> StrValue("O"), "cell" -> IntValue(3)))
         )
-        move2Update = Updates.ProcessFiberEvent(machineCid, move2)
         move2Proof <- registry.generateProofs(move2Update, Set(Bob))
         state3     <- combiner.insert(state2, Signed(move2Update, move2Proof))
 
         // Move 3: X plays top middle (1)
-        move3 = StateMachine.Event(
-          eventType = StateMachine.EventType("make_move"),
-          payload = MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(1)))
+        move3Update = Updates.TransitionStateMachine(
+          machineCid,
+          EventType("make_move"),
+          MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(1)))
         )
-        move3Update = Updates.ProcessFiberEvent(machineCid, move3)
         move3Proof <- registry.generateProofs(move3Update, Set(Alice))
         state4     <- combiner.insert(state3, Signed(move3Update, move3Proof))
 
         // Move 4: O plays center (4)
-        move4 = StateMachine.Event(
-          eventType = StateMachine.EventType("make_move"),
-          payload = MapValue(Map("player" -> StrValue("O"), "cell" -> IntValue(4)))
+        move4Update = Updates.TransitionStateMachine(
+          machineCid,
+          EventType("make_move"),
+          MapValue(Map("player" -> StrValue("O"), "cell" -> IntValue(4)))
         )
-        move4Update = Updates.ProcessFiberEvent(machineCid, move4)
         move4Proof <- registry.generateProofs(move4Update, Set(Bob))
         state5     <- combiner.insert(state4, Signed(move4Update, move4Proof))
 
         // Move 5: X plays top right (2) - should trigger win
-        move5 = StateMachine.Event(
-          eventType = StateMachine.EventType("make_move"),
-          payload = MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(2)))
+        move5Update = Updates.TransitionStateMachine(
+          machineCid,
+          EventType("make_move"),
+          MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(2)))
         )
-        move5Update = Updates.ProcessFiberEvent(machineCid, move5)
         move5Proof <- registry.generateProofs(move5Update, Set(Alice))
         finalState <- combiner.insert(state5, Signed(move5Update, move5Proof))
 
@@ -198,7 +199,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         finalMachine.isDefined,
         finalMachine
           .map(_.currentState)
-          .contains(StateMachine.StateId("playing")), // Still playing - win detected next event
+          .contains(StateId("playing")), // Still playing - win detected next event
         finalMachine
           .flatMap(m =>
             m.stateData match {
@@ -263,7 +264,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           cid = oracleCid,
           scriptProgram = oracleScript,
           initialState = oracleInitialState,
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         oracleProof <- registry.generateProofs(createOracle, Set(Alice))
@@ -277,7 +278,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           val stream = getClass.getResourceAsStream("/tictactoe/state-machine-definition.json")
           scala.io.Source.fromInputStream(stream).mkString
         }
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineDefJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineDefJson))
 
         initialData = MapValue(
           Map(
@@ -294,13 +295,13 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = machineDef,
-          currentState = StateMachine.StateId("setup"),
+          currentState = StateId("setup"),
           stateData = initialData,
           stateDataHash = initialDataHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         stateAfterMachine = DataState(
@@ -309,9 +310,10 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         )
 
         // Start game
-        startGameEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("start_game"),
-          payload = MapValue(
+        startGameUpdate = Updates.TransitionStateMachine(
+          machineCid,
+          EventType("start_game"),
+          MapValue(
             Map(
               "playerX" -> StrValue(aliceAddr.toString),
               "playerO" -> StrValue(bobAddr.toString),
@@ -319,7 +321,6 @@ object TicTacToeGameSuite extends SimpleIOSuite {
             )
           )
         )
-        startGameUpdate = Updates.ProcessFiberEvent(machineCid, startGameEvent)
         startGameProof <- registry.generateProofs(startGameUpdate, Set(Alice))
         state1         <- combiner.insert(stateAfterMachine, Signed(startGameUpdate, startGameProof))
 
@@ -337,11 +338,11 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         )
 
         finalState <- drawMoves.foldLeftM(state1) { case (currentState, (player, cell, signer)) =>
-          val moveEvent = StateMachine.Event(
-            eventType = StateMachine.EventType("make_move"),
-            payload = MapValue(Map("player" -> StrValue(player), "cell" -> IntValue(cell)))
+          val moveUpdate = Updates.TransitionStateMachine(
+            machineCid,
+            EventType("make_move"),
+            MapValue(Map("player" -> StrValue(player), "cell" -> IntValue(cell)))
           )
-          val moveUpdate = Updates.ProcessFiberEvent(machineCid, moveEvent)
           for {
             moveProof <- registry.generateProofs(moveUpdate, Set(signer))
             nextState <- combiner.insert(currentState, Signed(moveUpdate, moveProof))
@@ -370,7 +371,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
 
       } yield expect.all(
         finalMachine.isDefined,
-        finalMachine.map(_.currentState).contains(StateMachine.StateId("playing")),
+        finalMachine.map(_.currentState).contains(StateId("playing")),
         finalOracle.isDefined,
         finalOracle.map(_.invocationCount).contains(10L),
         oracleStatus.contains("Draw")
@@ -411,7 +412,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           cid = oracleCid,
           scriptProgram = oracleScript,
           initialState = oracleInitialState,
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         oracleProof <- registry.generateProofs(createOracle, Set(Alice))
@@ -424,7 +425,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           val stream = getClass.getResourceAsStream("/tictactoe/state-machine-definition.json")
           scala.io.Source.fromInputStream(stream).mkString
         }
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineDefJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineDefJson))
 
         initialData = MapValue(
           Map(
@@ -441,13 +442,13 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = machineDef,
-          currentState = StateMachine.StateId("setup"),
+          currentState = StateId("setup"),
           stateData = initialData,
           stateDataHash = initialDataHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         stateAfterMachine = DataState(
@@ -456,9 +457,10 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         )
 
         // Start game
-        startGameEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("start_game"),
-          payload = MapValue(
+        startGameUpdate = Updates.TransitionStateMachine(
+          machineCid,
+          EventType("start_game"),
+          MapValue(
             Map(
               "playerX" -> StrValue(aliceAddr.toString),
               "playerO" -> StrValue(bobAddr.toString),
@@ -466,25 +468,24 @@ object TicTacToeGameSuite extends SimpleIOSuite {
             )
           )
         )
-        startGameUpdate = Updates.ProcessFiberEvent(machineCid, startGameEvent)
         startGameProof <- registry.generateProofs(startGameUpdate, Set(Alice))
         state1         <- combiner.insert(stateAfterMachine, Signed(startGameUpdate, startGameProof))
 
         // Move 1: X plays cell 0
-        move1 = StateMachine.Event(
-          eventType = StateMachine.EventType("make_move"),
-          payload = MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(0)))
+        move1Update = Updates.TransitionStateMachine(
+          machineCid,
+          EventType("make_move"),
+          MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(0)))
         )
-        move1Update = Updates.ProcessFiberEvent(machineCid, move1)
         move1Proof <- registry.generateProofs(move1Update, Set(Alice))
         state2     <- combiner.insert(state1, Signed(move1Update, move1Proof))
 
         // Invalid move: O tries to play same cell again (should be recorded as failed)
-        invalidMove = StateMachine.Event(
-          eventType = StateMachine.EventType("make_move"),
-          payload = MapValue(Map("player" -> StrValue("O"), "cell" -> IntValue(0)))
+        invalidMoveUpdate = Updates.TransitionStateMachine(
+          machineCid,
+          EventType("make_move"),
+          MapValue(Map("player" -> StrValue("O"), "cell" -> IntValue(0)))
         )
-        invalidMoveUpdate = Updates.ProcessFiberEvent(machineCid, invalidMove)
         invalidMoveProof <- registry.generateProofs(invalidMoveUpdate, Set(Bob))
         state3           <- combiner.insert(state2, Signed(invalidMoveUpdate, invalidMoveProof))
 
@@ -497,7 +498,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
       } yield expect.all(
         machineAfterInvalid.isDefined,
         // Event processing should have failed
-        machineAfterInvalid.exists(m => m.lastEventStatus.isInstanceOf[Records.EventProcessingStatus.ExecutionFailed]),
+        machineAfterInvalid.exists(m => m.lastEventStatus.isInstanceOf[EventProcessingStatus.ExecutionFailed]),
         // Oracle invocation count stays at 2 (init + first move) - invalid move failed before updating oracle
         oracleAfterInvalid.map(_.invocationCount).contains(2L),
         // Oracle state should remain unchanged from after first move
@@ -542,7 +543,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           cid = oracleCid,
           scriptProgram = oracleScript,
           initialState = oracleInitialState,
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         oracleProof <- registry.generateProofs(createOracle, Set(Alice))
@@ -555,7 +556,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           val stream = getClass.getResourceAsStream("/tictactoe/state-machine-definition.json")
           scala.io.Source.fromInputStream(stream).mkString
         }
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineDefJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineDefJson))
 
         initialData = MapValue(
           Map(
@@ -572,13 +573,13 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = machineDef,
-          currentState = StateMachine.StateId("setup"),
+          currentState = StateId("setup"),
           stateData = initialData,
           stateDataHash = initialDataHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         stateAfterMachine = DataState(
@@ -587,9 +588,10 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         )
 
         // Start and play first game to completion
-        startGameEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("start_game"),
-          payload = MapValue(
+        startGameUpdate = Updates.TransitionStateMachine(
+          machineCid,
+          EventType("start_game"),
+          MapValue(
             Map(
               "playerX" -> StrValue(aliceAddr.toString),
               "playerO" -> StrValue(bobAddr.toString),
@@ -597,7 +599,6 @@ object TicTacToeGameSuite extends SimpleIOSuite {
             )
           )
         )
-        startGameUpdate = Updates.ProcessFiberEvent(machineCid, startGameEvent)
         startGameProof <- registry.generateProofs(startGameUpdate, Set(Alice))
         state1         <- combiner.insert(stateAfterMachine, Signed(startGameUpdate, startGameProof))
 
@@ -605,11 +606,11 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         quickWin = List(("X", 0, Alice), ("O", 3, Bob), ("X", 1, Alice), ("O", 4, Bob), ("X", 2, Alice))
 
         stateAfterWin <- quickWin.foldLeftM(state1) { case (currentState, (player, cell, signer)) =>
-          val moveEvent = StateMachine.Event(
-            eventType = StateMachine.EventType("make_move"),
-            payload = MapValue(Map("player" -> StrValue(player), "cell" -> IntValue(cell)))
+          val moveUpdate = Updates.TransitionStateMachine(
+            machineCid,
+            EventType("make_move"),
+            MapValue(Map("player" -> StrValue(player), "cell" -> IntValue(cell)))
           )
-          val moveUpdate = Updates.ProcessFiberEvent(machineCid, moveEvent)
           for {
             moveProof <- registry.generateProofs(moveUpdate, Set(signer))
             nextState <- combiner.insert(currentState, Signed(moveUpdate, moveProof))
@@ -622,15 +623,15 @@ object TicTacToeGameSuite extends SimpleIOSuite {
 
         _ = expect.all(
           machineAfterWin.isDefined,
-          machineAfterWin.map(_.currentState).contains(StateMachine.StateId("finished"))
+          machineAfterWin.map(_.currentState).contains(StateId("finished"))
         )
 
         // Reset for round 2
-        resetEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("reset_board"),
-          payload = MapValue(Map.empty[String, JsonLogicValue])
+        resetUpdate = Updates.TransitionStateMachine(
+          machineCid,
+          EventType("reset_board"),
+          MapValue(Map.empty[String, JsonLogicValue])
         )
-        resetUpdate = Updates.ProcessFiberEvent(machineCid, resetEvent)
         resetProof      <- registry.generateProofs(resetUpdate, Set(Alice))
         stateAfterReset <- combiner.insert(stateAfterWin, Signed(resetUpdate, resetProof))
 
@@ -657,7 +658,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
       } yield expect.all(
         // State machine stayed in playing state
         machineAfterReset.isDefined,
-        machineAfterReset.map(_.currentState).contains(StateMachine.StateId("playing")),
+        machineAfterReset.map(_.currentState).contains(StateId("playing")),
         // Round counter incremented
         roundCount.contains(BigInt(1)),
         // Oracle reset to InProgress

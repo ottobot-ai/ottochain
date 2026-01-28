@@ -9,7 +9,8 @@ import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Participant._
 import xyz.kd5ujc.shared_test.TestFixture
@@ -43,7 +44,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
           cid = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         oracleProof <- registry.generateProofs(createOracle, Set(Alice))
@@ -82,19 +83,17 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         }
         """
 
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("status" -> StrValue("pending")))
 
-        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
         machineProof      <- registry.generateProofs(createMachine, Set(Bob))
         stateAfterMachine <- combiner.insert(stateAfterOracle, Signed(createMachine, machineProof))
 
-        submitEvent = Updates.ProcessFiberEvent(
+        submitEvent = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("submit"),
-            MapValue(Map("amount" -> IntValue(150)))
-          )
+          EventType("submit"),
+          MapValue(Map("amount" -> IntValue(150)))
         )
         submitProof <- registry.generateProofs(submitEvent, Set(Bob))
         finalState  <- combiner.insert(stateAfterMachine, Signed(submitEvent, submitProof))
@@ -120,7 +119,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         }
 
       } yield expect(machine.isDefined) and
-      expect(machine.map(_.currentState).contains(StateMachine.StateId("validated"))) and
+      expect(machine.map(_.currentState).contains(StateId("validated"))) and
       expect(machineStatus.contains("validated")) and
       expect(submittedAmount.contains(BigInt(150))) and
       expect(oracle.isDefined) and
@@ -157,7 +156,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
           cid = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         oracleProof <- registry.generateProofs(createOracle, Set(Alice))
@@ -196,19 +195,17 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         }
         """
 
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("status" -> StrValue("pending")))
 
-        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
         machineProof      <- registry.generateProofs(createMachine, Set(Bob))
         stateAfterMachine <- combiner.insert(stateAfterOracle, Signed(createMachine, machineProof))
 
-        submitEvent = Updates.ProcessFiberEvent(
+        submitEvent = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("submit"),
-            MapValue(Map("amount" -> IntValue(50)))
-          )
+          EventType("submit"),
+          MapValue(Map("amount" -> IntValue(50)))
         )
         submitProof <- registry.generateProofs(submitEvent, Set(Bob))
         finalState  <- combiner.insert(stateAfterMachine, Signed(submitEvent, submitProof))
@@ -220,10 +217,10 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         oracle = finalState.calculated.scriptOracles.get(oracleCid)
 
       } yield expect(machine.isDefined) and
-      expect(machine.map(_.currentState).contains(StateMachine.StateId("pending"))) and
+      expect(machine.map(_.currentState).contains(StateId("pending"))) and
       expect(machine.map(_.lastEventStatus).exists {
-        case Records.EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
-        case _                                                            => false
+        case EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
+        case _                                                    => false
       }) and
       expect(oracle.isDefined) and
       expect(oracle.map(_.invocationCount).contains(0L)) and
@@ -250,7 +247,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
           cid = oracleCid,
           scriptProgram = oracleProg,
           initialState = Some(initialOracleState),
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         oracleProof <- registry.generateProofs(createOracle, Set(Alice))
@@ -286,19 +283,17 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         }
         """
 
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("status" -> StrValue("locked")))
 
-        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
         machineProof      <- registry.generateProofs(createMachine, Set(Bob))
         stateAfterMachine <- combiner.insert(stateAfterOracle, Signed(createMachine, machineProof))
 
-        unlockEvent = Updates.ProcessFiberEvent(
+        unlockEvent = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("unlock"),
-            MapValue(Map.empty)
-          )
+          EventType("unlock"),
+          MapValue(Map.empty)
         )
         unlockProof           <- registry.generateProofs(unlockEvent, Set(Bob))
         stateAfterFirstUnlock <- combiner.insert(stateAfterMachine, Signed(unlockEvent, unlockProof))
@@ -323,13 +318,13 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
       } yield expect(machineAfterFirstUnlock.isDefined) and
-      expect(machineAfterFirstUnlock.map(_.currentState).contains(StateMachine.StateId("locked"))) and
+      expect(machineAfterFirstUnlock.map(_.currentState).contains(StateId("locked"))) and
       expect(machineAfterFirstUnlock.map(_.lastEventStatus).exists {
-        case Records.EventProcessingStatus.GuardFailed(_, _, _) => true
-        case _                                                  => false
+        case EventProcessingStatus.GuardFailed(_, _, _) => true
+        case _                                          => false
       }) and
       expect(machineAfterSecondUnlock.isDefined) and
-      expect(machineAfterSecondUnlock.map(_.currentState).contains(StateMachine.StateId("unlocked")))
+      expect(machineAfterSecondUnlock.map(_.currentState).contains(StateId("unlocked")))
     }
   }
 
@@ -357,7 +352,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
           cid = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         oracleProof <- registry.generateProofs(createOracle, Set(Alice))
@@ -411,29 +406,25 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         }
         """
 
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("status" -> StrValue("idle")))
 
-        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
         machineProof      <- registry.generateProofs(createMachine, Set(Bob))
         stateAfterMachine <- combiner.insert(stateAfterOracle, Signed(createMachine, machineProof))
 
-        initiateEvent = Updates.ProcessFiberEvent(
+        initiateEvent = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("initiate"),
-            MapValue(Map("amount" -> IntValue(1000)))
-          )
+          EventType("initiate"),
+          MapValue(Map("amount" -> IntValue(1000)))
         )
         initiateProof      <- registry.generateProofs(initiateEvent, Set(Bob))
         stateAfterInitiate <- combiner.insert(stateAfterMachine, Signed(initiateEvent, initiateProof))
 
-        finalizeEvent = Updates.ProcessFiberEvent(
+        finalizeEvent = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("finalize"),
-            MapValue(Map.empty)
-          )
+          EventType("finalize"),
+          MapValue(Map.empty)
         )
         finalizeProof <- registry.generateProofs(finalizeEvent, Set(Bob))
         finalState    <- combiner.insert(stateAfterInitiate, Signed(finalizeEvent, finalizeProof))
@@ -472,7 +463,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         }
 
       } yield expect(machine.isDefined) and
-      expect(machine.map(_.currentState).contains(StateMachine.StateId("completed"))) and
+      expect(machine.map(_.currentState).contains(StateId("completed"))) and
       expect(feeCalculated.contains(BigInt(50))) and
       expect(totalAmount.contains(BigInt(1050))) and
       expect(status.contains("completed"))
@@ -498,7 +489,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
           cid = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         oracleProof <- registry.generateProofs(createOracle, Set(Alice))
@@ -534,33 +525,29 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         }
         """
 
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("status" -> StrValue("idle")))
 
-        createMachine1 = Updates.CreateStateMachineFiber(machine1Cid, machineDef, initialData)
+        createMachine1 = Updates.CreateStateMachine(machine1Cid, machineDef, initialData)
         machine1Proof      <- registry.generateProofs(createMachine1, Set(Bob))
         stateAfterMachine1 <- combiner.insert(stateAfterOracle, Signed(createMachine1, machine1Proof))
 
-        createMachine2 = Updates.CreateStateMachineFiber(machine2Cid, machineDef, initialData)
+        createMachine2 = Updates.CreateStateMachine(machine2Cid, machineDef, initialData)
         machine2Proof      <- registry.generateProofs(createMachine2, Set(Charlie))
         stateAfterMachine2 <- combiner.insert(stateAfterMachine1, Signed(createMachine2, machine2Proof))
 
-        validateEvent1 = Updates.ProcessFiberEvent(
+        validateEvent1 = Updates.TransitionStateMachine(
           machine1Cid,
-          StateMachine.Event(
-            StateMachine.EventType("validate"),
-            MapValue(Map.empty)
-          )
+          EventType("validate"),
+          MapValue(Map.empty)
         )
         validate1Proof      <- registry.generateProofs(validateEvent1, Set(Bob))
         stateAfterValidate1 <- combiner.insert(stateAfterMachine2, Signed(validateEvent1, validate1Proof))
 
-        validateEvent2 = Updates.ProcessFiberEvent(
+        validateEvent2 = Updates.TransitionStateMachine(
           machine2Cid,
-          StateMachine.Event(
-            StateMachine.EventType("validate"),
-            MapValue(Map.empty)
-          )
+          EventType("validate"),
+          MapValue(Map.empty)
         )
         validate2Proof <- registry.generateProofs(validateEvent2, Set(Charlie))
         finalState     <- combiner.insert(stateAfterValidate1, Signed(validateEvent2, validate2Proof))
@@ -577,12 +564,12 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
       expect(
         machine1
           .collect { case r: Records.StateMachineFiberRecord => r.currentState }
-          .contains(StateMachine.StateId("validated"))
+          .contains(StateId("validated"))
       ) and
       expect(
         machine2
           .collect { case r: Records.StateMachineFiberRecord => r.currentState }
-          .contains(StateMachine.StateId("validated"))
+          .contains(StateId("validated"))
       )
     }
   }

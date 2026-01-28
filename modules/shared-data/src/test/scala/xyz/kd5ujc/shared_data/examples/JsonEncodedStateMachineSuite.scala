@@ -12,7 +12,8 @@ import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.hash.Hash
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
 import xyz.kd5ujc.shared_test.Participant._
@@ -70,7 +71,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         // Parse JSON into StateMachineDefinition
         parsedDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](timeLockJson).left.map(err =>
+          decode[StateMachineDefinition](timeLockJson).left.map(err =>
             new RuntimeException(s"Failed to decode JSON: $err")
           )
         )
@@ -78,11 +79,11 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         // Verify the parsed definition structure
         _ = expect.all(
           parsedDef.states.size == 2,
-          parsedDef.initialState == StateMachine.StateId("locked"),
+          parsedDef.initialState == StateId("locked"),
           parsedDef.transitions.size == 1,
-          parsedDef.transitions.head.from == StateMachine.StateId("locked"),
-          parsedDef.transitions.head.to == StateMachine.StateId("unlocked"),
-          parsedDef.transitions.head.eventType == StateMachine.EventType("unlock")
+          parsedDef.transitions.head.from == StateId("locked"),
+          parsedDef.transitions.head.to == StateId("unlocked"),
+          parsedDef.transitions.head.eventType == EventType("unlock")
         )
 
         // Create time lock fiber with unlock time set to timestamp 1000
@@ -102,13 +103,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = parsedDef,
-          currentState = StateMachine.StateId("locked"),
+          currentState = StateId("locked"),
           stateData = lockData,
           stateDataHash = lockHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         inState = DataState(
@@ -117,11 +118,11 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         )
 
         // Try to unlock BEFORE time (should fail)
-        earlyUnlockEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("unlock"),
-          payload = MapValue(Map("currentTime" -> IntValue(900)))
+        earlyUpdate = Updates.TransitionStateMachine(
+          lockCid,
+          EventType("unlock"),
+          MapValue(Map("currentTime" -> IntValue(900)))
         )
-        earlyUpdate = Updates.ProcessFiberEvent(lockCid, earlyUnlockEvent)
         earlyProof  <- registry.generateProofs(earlyUpdate, Set(Alice))
         earlyResult <- combiner.insert(inState, Signed(earlyUpdate, earlyProof)).attempt
 
@@ -129,11 +130,11 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         _ = expect(earlyResult.isLeft)
 
         // Try to unlock AFTER time (should succeed)
-        validUnlockEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("unlock"),
-          payload = MapValue(Map("currentTime" -> IntValue(1500)))
+        validUpdate = Updates.TransitionStateMachine(
+          lockCid,
+          EventType("unlock"),
+          MapValue(Map("currentTime" -> IntValue(1500)))
         )
-        validUpdate = Updates.ProcessFiberEvent(lockCid, validUnlockEvent)
         validProof <- registry.generateProofs(validUpdate, Set(Alice))
         finalState <- combiner.insert(inState, Signed(validUpdate, validProof))
 
@@ -156,7 +157,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
       } yield expect.all(
         unlockedFiber.isDefined,
-        unlockedFiber.map(_.currentState).contains(StateMachine.StateId("unlocked")),
+        unlockedFiber.map(_.currentState).contains(StateId("unlocked")),
         unlockedFiber.map(_.sequenceNumber).contains(1L),
         isUnlocked.contains(true),
         unlockedAtTime.contains(BigInt(1500))
@@ -253,7 +254,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         }"""
 
         parsedDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](htlcJson).left.map(err =>
+          decode[StateMachineDefinition](htlcJson).left.map(err =>
             new RuntimeException(s"Failed to decode HTLC JSON: $err")
           )
         )
@@ -281,13 +282,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = parsedDef,
-          currentState = StateMachine.StateId("pending"),
+          currentState = StateId("pending"),
           stateData = htlcData,
           stateDataHash = htlcHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         inState = DataState(
@@ -296,9 +297,10 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         )
 
         // Test 1: Bob tries to claim with WRONG secret (should fail)
-        wrongClaimEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("claim"),
-          payload = MapValue(
+        wrongClaimUpdate = Updates.TransitionStateMachine(
+          htlcCid,
+          EventType("claim"),
+          MapValue(
             Map(
               "secret"      -> StrValue("wrongsecret"),
               "secretHash"  -> StrValue("wronghash"),
@@ -307,16 +309,16 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             )
           )
         )
-        wrongClaimUpdate = Updates.ProcessFiberEvent(htlcCid, wrongClaimEvent)
         wrongClaimProof  <- registry.generateProofs(wrongClaimUpdate, Set(Bob))
         wrongClaimResult <- combiner.insert(inState, Signed(wrongClaimUpdate, wrongClaimProof)).attempt
 
         _ = expect(wrongClaimResult.isLeft)
 
         // Test 2: Bob claims with CORRECT secret BEFORE timeout (should succeed)
-        correctClaimEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("claim"),
-          payload = MapValue(
+        correctClaimUpdate = Updates.TransitionStateMachine(
+          htlcCid,
+          EventType("claim"),
+          MapValue(
             Map(
               "secret"      -> StrValue("opensesame"),
               "secretHash"  -> StrValue("secret123hash"),
@@ -325,7 +327,6 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             )
           )
         )
-        correctClaimUpdate = Updates.ProcessFiberEvent(htlcCid, correctClaimEvent)
         correctClaimProof <- registry.generateProofs(correctClaimUpdate, Set(Bob))
         claimedState      <- combiner.insert(inState, Signed(correctClaimUpdate, correctClaimProof))
 
@@ -355,7 +356,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         // Verify Bob successfully claimed
         _ = expect.all(
           claimedFiber.isDefined,
-          claimedFiber.map(_.currentState).contains(StateMachine.StateId("claimed")),
+          claimedFiber.map(_.currentState).contains(StateId("claimed")),
           wasClaimed.contains(true),
           claimedBy.contains(bobAddr.toString),
           revealedSecret.contains("opensesame")
@@ -380,13 +381,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = parsedDef,
-          currentState = StateMachine.StateId("pending"),
+          currentState = StateId("pending"),
           stateData = htlcData2,
           stateDataHash = htlcHash2,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         inState2 = DataState(
@@ -395,32 +396,32 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         )
 
         // Alice tries to refund BEFORE timeout (should fail)
-        earlyRefundEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("refund"),
-          payload = MapValue(
+        earlyRefundUpdate = Updates.TransitionStateMachine(
+          htlcCid2,
+          EventType("refund"),
+          MapValue(
             Map(
               "refunder"    -> StrValue(aliceAddr.toString),
               "currentTime" -> IntValue(1500)
             )
           )
         )
-        earlyRefundUpdate = Updates.ProcessFiberEvent(htlcCid2, earlyRefundEvent)
         earlyRefundProof  <- registry.generateProofs(earlyRefundUpdate, Set(Alice))
         earlyRefundResult <- combiner.insert(inState2, Signed(earlyRefundUpdate, earlyRefundProof)).attempt
 
         _ = expect(earlyRefundResult.isLeft)
 
         // Alice refunds AFTER timeout (should succeed)
-        refundEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("refund"),
-          payload = MapValue(
+        refundUpdate = Updates.TransitionStateMachine(
+          htlcCid2,
+          EventType("refund"),
+          MapValue(
             Map(
               "refunder"    -> StrValue(aliceAddr.toString),
               "currentTime" -> IntValue(2500)
             )
           )
         )
-        refundUpdate = Updates.ProcessFiberEvent(htlcCid2, refundEvent)
         refundProof   <- registry.generateProofs(refundUpdate, Set(Alice))
         refundedState <- combiner.insert(inState2, Signed(refundUpdate, refundProof))
 
@@ -444,14 +445,14 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
       } yield expect.all(
         // Verify claim succeeded
         claimedFiber.isDefined,
-        claimedFiber.map(_.currentState).contains(StateMachine.StateId("claimed")),
+        claimedFiber.map(_.currentState).contains(StateId("claimed")),
         claimedFiber.map(_.sequenceNumber).contains(1L),
         wasClaimed.contains(true),
         claimedBy.contains(bobAddr.toString),
         revealedSecret.contains("opensesame"),
         // Verify refund succeeded
         refundedFiber.isDefined,
-        refundedFiber.map(_.currentState).contains(StateMachine.StateId("refunded")),
+        refundedFiber.map(_.currentState).contains(StateId("refunded")),
         refundedFiber.map(_.sequenceNumber).contains(1L),
         wasRefunded.contains(true),
         refundedAt.contains(BigInt(2500))
@@ -1123,31 +1124,31 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         }"""
 
         orderDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](orderJson).left.map(err =>
+          decode[StateMachineDefinition](orderJson).left.map(err =>
             new RuntimeException(s"Failed to decode order JSON: $err")
           )
         )
 
         escrowDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](escrowJson).left.map(err =>
+          decode[StateMachineDefinition](escrowJson).left.map(err =>
             new RuntimeException(s"Failed to decode escrow JSON: $err")
           )
         )
 
         shippingDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](shippingJson).left.map(err =>
+          decode[StateMachineDefinition](shippingJson).left.map(err =>
             new RuntimeException(s"Failed to decode shipping JSON: $err")
           )
         )
 
         inspectionDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](inspectionJson).left.map(err =>
+          decode[StateMachineDefinition](inspectionJson).left.map(err =>
             new RuntimeException(s"Failed to decode inspection JSON: $err")
           )
         )
 
         insuranceDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](insuranceJson).left.map(err =>
+          decode[StateMachineDefinition](insuranceJson).left.map(err =>
             new RuntimeException(s"Failed to decode insurance JSON: $err")
           )
         )
@@ -1204,13 +1205,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = orderDef,
-          currentState = StateMachine.StateId("placed"),
+          currentState = StateId("placed"),
           stateData = orderData,
           stateDataHash = orderHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         escrowFiber = Records.StateMachineFiberRecord(
@@ -1219,13 +1220,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = escrowDef,
-          currentState = StateMachine.StateId("empty"),
+          currentState = StateId("empty"),
           stateData = escrowData,
           stateDataHash = escrowHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         shippingFiber = Records.StateMachineFiberRecord(
@@ -1234,13 +1235,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = shippingDef,
-          currentState = StateMachine.StateId("pending"),
+          currentState = StateId("pending"),
           stateData = shippingData,
           stateDataHash = shippingHash,
           sequenceNumber = 0,
           owners = Set(Alice).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         inspectionFiber = Records.StateMachineFiberRecord(
@@ -1249,13 +1250,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = inspectionDef,
-          currentState = StateMachine.StateId("inactive"),
+          currentState = StateId("inactive"),
           stateData = inspectionData,
           stateDataHash = inspectionHash,
           sequenceNumber = 0,
           owners = Set(Charlie).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         insuranceFiber = Records.StateMachineFiberRecord(
@@ -1264,13 +1265,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = insuranceDef,
-          currentState = StateMachine.StateId("active"),
+          currentState = StateId("active"),
           stateData = insuranceData,
           stateDataHash = insuranceHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         inState = DataState(
@@ -1295,126 +1296,127 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           )
         )
 
-        lockFundsEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("lock_funds"),
-          payload = MapValue(
+        lockFundsUpdate = Updates.TransitionStateMachine(
+          escrowCid,
+          EventType("lock_funds"),
+          MapValue(
             Map(
               "amount"    -> IntValue(5000),
               "timestamp" -> IntValue(1000)
             )
           )
         )
-        lockFundsUpdate = Updates.ProcessFiberEvent(escrowCid, lockFundsEvent)
         lockFundsProof <- registry.generateProofs(lockFundsUpdate, Set(Bob))
         state1         <- combiner.insert(inState, Signed(lockFundsUpdate, lockFundsProof))
 
-        confirmFundingEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("confirm_funding"),
-          payload = MapValue(Map("timestamp" -> IntValue(1100)))
+        confirmFundingUpdate = Updates.TransitionStateMachine(
+          orderCid,
+          EventType("confirm_funding"),
+          MapValue(Map("timestamp" -> IntValue(1100)))
         )
-        confirmFundingUpdate = Updates.ProcessFiberEvent(orderCid, confirmFundingEvent)
         confirmFundingProof <- registry.generateProofs(confirmFundingUpdate, Set(Alice))
         state2              <- combiner.insert(state1, Signed(confirmFundingUpdate, confirmFundingProof))
 
-        shipEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("ship"),
-          payload = MapValue(Map("timestamp" -> IntValue(1200)))
+        shipUpdate = Updates.TransitionStateMachine(
+          orderCid,
+          EventType("ship"),
+          MapValue(Map("timestamp" -> IntValue(1200)))
         )
-        shipUpdate = Updates.ProcessFiberEvent(orderCid, shipEvent)
         shipProof <- registry.generateProofs(shipUpdate, Set(Alice))
         state3    <- combiner.insert(state2, Signed(shipUpdate, shipProof))
 
-        pickupEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("pickup"),
-          payload = MapValue(Map("timestamp" -> IntValue(1300)))
+        pickupUpdate = Updates.TransitionStateMachine(
+          shippingCid,
+          EventType("pickup"),
+          MapValue(Map("timestamp" -> IntValue(1300)))
         )
-        pickupUpdate = Updates.ProcessFiberEvent(shippingCid, pickupEvent)
         pickupProof <- registry.generateProofs(pickupUpdate, Set(Alice))
         state4      <- combiner.insert(state3, Signed(pickupUpdate, pickupProof))
 
-        holdEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("hold"),
-          payload = MapValue(Map("timestamp" -> IntValue(1400)))
+        holdUpdate = Updates.TransitionStateMachine(
+          escrowCid,
+          EventType("hold"),
+          MapValue(Map("timestamp" -> IntValue(1400)))
         )
-        holdUpdate = Updates.ProcessFiberEvent(escrowCid, holdEvent)
         holdProof <- registry.generateProofs(holdUpdate, Set(Alice))
         state5    <- combiner.insert(state4, Signed(holdUpdate, holdProof))
 
-        acceptShipmentEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("accept_shipment"),
-          payload = MapValue(Map("timestamp" -> IntValue(1500)))
+        acceptShipmentUpdate = Updates.TransitionStateMachine(
+          orderCid,
+          EventType("accept_shipment"),
+          MapValue(Map("timestamp" -> IntValue(1500)))
         )
-        acceptShipmentUpdate = Updates.ProcessFiberEvent(orderCid, acceptShipmentEvent)
         acceptShipmentProof <- registry.generateProofs(acceptShipmentUpdate, Set(Alice))
         state6              <- combiner.insert(state5, Signed(acceptShipmentUpdate, acceptShipmentProof))
 
-        checkpointEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("checkpoint"),
-          payload = MapValue(Map("timestamp" -> IntValue(1600)))
+        checkpointUpdate = Updates.TransitionStateMachine(
+          shippingCid,
+          EventType("checkpoint"),
+          MapValue(Map("timestamp" -> IntValue(1600)))
         )
-        checkpointUpdate = Updates.ProcessFiberEvent(shippingCid, checkpointEvent)
         checkpointProof <- registry.generateProofs(checkpointUpdate, Set(Alice))
         state7          <- combiner.insert(state6, Signed(checkpointUpdate, checkpointProof))
 
-        enterCustomsEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("enter_customs"),
-          payload = MapValue(Map("timestamp" -> IntValue(2000)))
+        enterCustomsUpdate = Updates.TransitionStateMachine(
+          shippingCid,
+          EventType("enter_customs"),
+          MapValue(Map("timestamp" -> IntValue(2000)))
         )
-        enterCustomsUpdate = Updates.ProcessFiberEvent(shippingCid, enterCustomsEvent)
         enterCustomsProof <- registry.generateProofs(enterCustomsUpdate, Set(Alice))
         state8            <- combiner.insert(state7, Signed(enterCustomsUpdate, enterCustomsProof))
 
-        clearCustomsEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("clear_customs"),
-          payload = MapValue(Map("timestamp" -> IntValue(3000)))
+        clearCustomsUpdate = Updates.TransitionStateMachine(
+          shippingCid,
+          EventType("clear_customs"),
+          MapValue(Map("timestamp" -> IntValue(3000)))
         )
-        clearCustomsUpdate = Updates.ProcessFiberEvent(shippingCid, clearCustomsEvent)
         clearCustomsProof <- registry.generateProofs(clearCustomsUpdate, Set(Alice))
         state9            <- combiner.insert(state8, Signed(clearCustomsUpdate, clearCustomsProof))
 
-        deliverEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("deliver"),
-          payload = MapValue(Map("timestamp" -> IntValue(4000)))
+        deliverUpdate = Updates.TransitionStateMachine(
+          shippingCid,
+          EventType("deliver"),
+          MapValue(Map("timestamp" -> IntValue(4000)))
         )
-        deliverUpdate = Updates.ProcessFiberEvent(shippingCid, deliverEvent)
         deliverProof <- registry.generateProofs(deliverUpdate, Set(Alice))
         state10      <- combiner.insert(state9, Signed(deliverUpdate, deliverProof))
 
-        confirmDeliveryEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("confirm_delivery"),
-          payload = MapValue(Map("timestamp" -> IntValue(4100)))
+        confirmDeliveryUpdate = Updates.TransitionStateMachine(
+          orderCid,
+          EventType("confirm_delivery"),
+          MapValue(Map("timestamp" -> IntValue(4100)))
         )
-        confirmDeliveryUpdate = Updates.ProcessFiberEvent(orderCid, confirmDeliveryEvent)
         confirmDeliveryProof <- registry.generateProofs(confirmDeliveryUpdate, Set(Alice))
         state11              <- combiner.insert(state10, Signed(confirmDeliveryUpdate, confirmDeliveryProof))
 
-        scheduleEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("schedule"),
-          payload = MapValue(Map("timestamp" -> IntValue(4200)))
+        scheduleUpdate = Updates.TransitionStateMachine(
+          inspectionCid,
+          EventType("schedule"),
+          MapValue(Map("timestamp" -> IntValue(4200)))
         )
-        scheduleUpdate = Updates.ProcessFiberEvent(inspectionCid, scheduleEvent)
         scheduleProof <- registry.generateProofs(scheduleUpdate, Set(Charlie))
         state12       <- combiner.insert(state11, Signed(scheduleUpdate, scheduleProof))
 
-        startInspectionEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("start_inspection"),
-          payload = MapValue(Map("timestamp" -> IntValue(4300)))
+        startInspectionUpdate = Updates.TransitionStateMachine(
+          orderCid,
+          EventType("start_inspection"),
+          MapValue(Map("timestamp" -> IntValue(4300)))
         )
-        startInspectionUpdate = Updates.ProcessFiberEvent(orderCid, startInspectionEvent)
         startInspectionProof <- registry.generateProofs(startInspectionUpdate, Set(Alice))
         state13              <- combiner.insert(state12, Signed(startInspectionUpdate, startInspectionProof))
 
-        beginInspectionEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("begin_inspection"),
-          payload = MapValue(Map("timestamp" -> IntValue(4400)))
+        beginInspectionUpdate = Updates.TransitionStateMachine(
+          inspectionCid,
+          EventType("begin_inspection"),
+          MapValue(Map("timestamp" -> IntValue(4400)))
         )
-        beginInspectionUpdate = Updates.ProcessFiberEvent(inspectionCid, beginInspectionEvent)
         beginInspectionProof <- registry.generateProofs(beginInspectionUpdate, Set(Charlie))
         state14              <- combiner.insert(state13, Signed(beginInspectionUpdate, beginInspectionProof))
 
-        completeInspectionEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("complete_inspection"),
-          payload = MapValue(
+        completeInspectionUpdate = Updates.TransitionStateMachine(
+          inspectionCid,
+          EventType("complete_inspection"),
+          MapValue(
             Map(
               "timestamp"    -> IntValue(5000),
               "qualityScore" -> IntValue(9),
@@ -1422,31 +1424,30 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             )
           )
         )
-        completeInspectionUpdate = Updates.ProcessFiberEvent(inspectionCid, completeInspectionEvent)
         completeInspectionProof <- registry.generateProofs(completeInspectionUpdate, Set(Charlie))
         state15                 <- combiner.insert(state14, Signed(completeInspectionUpdate, completeInspectionProof))
 
-        releaseEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("release"),
-          payload = MapValue(Map("timestamp" -> IntValue(90000)))
+        releaseUpdate = Updates.TransitionStateMachine(
+          escrowCid,
+          EventType("release"),
+          MapValue(Map("timestamp" -> IntValue(90000)))
         )
-        releaseUpdate = Updates.ProcessFiberEvent(escrowCid, releaseEvent)
         releaseProof <- registry.generateProofs(releaseUpdate, Set(Alice))
         state16      <- combiner.insert(state15, Signed(releaseUpdate, releaseProof))
 
-        finalizeReleaseEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("finalize_release"),
-          payload = MapValue(Map("timestamp" -> IntValue(90100)))
+        finalizeReleaseUpdate = Updates.TransitionStateMachine(
+          escrowCid,
+          EventType("finalize_release"),
+          MapValue(Map("timestamp" -> IntValue(90100)))
         )
-        finalizeReleaseUpdate = Updates.ProcessFiberEvent(escrowCid, finalizeReleaseEvent)
         finalizeReleaseProof <- registry.generateProofs(finalizeReleaseUpdate, Set(Alice))
         state17              <- combiner.insert(state16, Signed(finalizeReleaseUpdate, finalizeReleaseProof))
 
-        completeOrderEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("complete_order"),
-          payload = MapValue(Map("timestamp" -> IntValue(90200)))
+        completeOrderUpdate = Updates.TransitionStateMachine(
+          orderCid,
+          EventType("complete_order"),
+          MapValue(Map("timestamp" -> IntValue(90200)))
         )
-        completeOrderUpdate = Updates.ProcessFiberEvent(orderCid, completeOrderEvent)
         completeOrderProof <- registry.generateProofs(completeOrderUpdate, Set(Alice))
         finalState         <- combiner.insert(state17, Signed(completeOrderUpdate, completeOrderProof))
 
@@ -1493,18 +1494,18 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
       } yield expect.all(
         finalOrder.isDefined,
-        finalOrder.map(_.currentState).contains(StateMachine.StateId("completed")),
+        finalOrder.map(_.currentState).contains(StateId("completed")),
         orderStatus.contains("completed"),
         finalEscrow.isDefined,
-        finalEscrow.map(_.currentState).contains(StateMachine.StateId("released")),
+        finalEscrow.map(_.currentState).contains(StateId("released")),
         escrowStatus.contains("released"),
         finalShipping.isDefined,
-        finalShipping.map(_.currentState).contains(StateMachine.StateId("delivered")),
+        finalShipping.map(_.currentState).contains(StateId("delivered")),
         finalInspection.isDefined,
-        finalInspection.map(_.currentState).contains(StateMachine.StateId("passed")),
+        finalInspection.map(_.currentState).contains(StateId("passed")),
         inspectionResult.contains("passed"),
         finalInsurance.isDefined,
-        finalInsurance.map(_.currentState).contains(StateMachine.StateId("active"))
+        finalInsurance.map(_.currentState).contains(StateId("active"))
       )
     }
   }
@@ -1695,19 +1696,19 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         }"""
 
         proposalDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](proposalJson).left.map(err =>
+          decode[StateMachineDefinition](proposalJson).left.map(err =>
             new RuntimeException(s"Failed to decode proposal JSON: $err")
           )
         )
 
         voterDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](voterJson).left.map(err =>
+          decode[StateMachineDefinition](voterJson).left.map(err =>
             new RuntimeException(s"Failed to decode voter JSON: $err")
           )
         )
 
         actionDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](actionJson).left.map(err =>
+          decode[StateMachineDefinition](actionJson).left.map(err =>
             new RuntimeException(s"Failed to decode action JSON: $err")
           )
         )
@@ -1730,13 +1731,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = proposalDef,
-          currentState = StateMachine.StateId("proposed"),
+          currentState = StateId("proposed"),
           stateData = proposalData,
           stateDataHash = proposalHash,
           sequenceNumber = 0,
           owners = Set(Alice).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         // Create voter fibers for Alice, Bob, and Charlie
@@ -1755,13 +1756,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = voterDef,
-          currentState = StateMachine.StateId("idle"),
+          currentState = StateId("idle"),
           stateData = aliceVoterData,
           stateDataHash = aliceVoterHash,
           sequenceNumber = 0,
           owners = Set(Alice).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         bobCid <- UUIDGen.randomUUID[IO]
@@ -1779,13 +1780,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = voterDef,
-          currentState = StateMachine.StateId("idle"),
+          currentState = StateId("idle"),
           stateData = bobVoterData,
           stateDataHash = bobVoterHash,
           sequenceNumber = 0,
           owners = Set(Bob).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         charlieCid <- UUIDGen.randomUUID[IO]
@@ -1803,13 +1804,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = voterDef,
-          currentState = StateMachine.StateId("idle"),
+          currentState = StateId("idle"),
           stateData = charlieVoterData,
           stateDataHash = charlieVoterHash,
           sequenceNumber = 0,
           owners = Set(Charlie).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         // Create first action fiber (for early submission test - will be rejected)
@@ -1828,13 +1829,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = actionDef,
-          currentState = StateMachine.StateId("pending"),
+          currentState = StateId("pending"),
           stateData = earlyActionData,
           stateDataHash = earlyActionHash,
           sequenceNumber = 0,
           owners = Set(Charlie).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         // Create second action fiber (for valid submission test)
@@ -1853,13 +1854,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = actionDef,
-          currentState = StateMachine.StateId("pending"),
+          currentState = StateId("pending"),
           stateData = validActionData,
           stateDataHash = validActionHash,
           sequenceNumber = 0,
           owners = Set(Charlie).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         // Initial state with all machines (proposal, voters, and both action fibers)
@@ -1888,9 +1889,10 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         )
 
         // Step 0: Try to submit action BEFORE proposal is open (should transition to rejected)
-        earlySubmitEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("submit"),
-          payload = MapValue(
+        earlySubmitUpdate = Updates.TransitionStateMachine(
+          earlyActionCid,
+          EventType("submit"),
+          MapValue(
             Map(
               "timestamp"  -> IntValue(900),
               "submitter"  -> StrValue(registry.addresses(Charlie).toString),
@@ -1898,7 +1900,6 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             )
           )
         )
-        earlySubmitUpdate = Updates.ProcessFiberEvent(earlyActionCid, earlySubmitEvent)
         earlySubmitProof      <- registry.generateProofs(earlySubmitUpdate, Set(Charlie))
         stateAfterEarlySubmit <- combiner.insert(inState, Signed(earlySubmitUpdate, earlySubmitProof))
 
@@ -1922,17 +1923,17 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         // Verify early submission was rejected
         _ = expect.all(
           earlyActionFiberResult.isDefined,
-          earlyActionFiberResult.map(_.currentState).contains(StateMachine.StateId("rejected")),
+          earlyActionFiberResult.map(_.currentState).contains(StateId("rejected")),
           earlyRejected.contains(true),
           earlyReason.contains("proposal not open")
         )
 
         // Step 1: Open the proposal (proposed -> open)
-        collectEvent1 = StateMachine.Event(
-          eventType = StateMachine.EventType("collect"),
-          payload = MapValue(Map("timestamp" -> IntValue(1000)))
+        collectUpdate1 = Updates.TransitionStateMachine(
+          proposalCid,
+          EventType("collect"),
+          MapValue(Map("timestamp" -> IntValue(1000)))
         )
-        collectUpdate1 = Updates.ProcessFiberEvent(proposalCid, collectEvent1)
         collectProof1 <- registry.generateProofs(collectUpdate1, Set(Alice))
         state1        <- combiner.insert(inState, Signed(collectUpdate1, collectProof1))
 
@@ -1941,9 +1942,10 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Step 1.5: Submit action AFTER proposal is open (should succeed)
-        validSubmitEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("submit"),
-          payload = MapValue(
+        validSubmitUpdate = Updates.TransitionStateMachine(
+          validActionCid,
+          EventType("submit"),
+          MapValue(
             Map(
               "timestamp"  -> IntValue(1050),
               "submitter"  -> StrValue(registry.addresses(Charlie).toString),
@@ -1951,7 +1953,6 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             )
           )
         )
-        validSubmitUpdate = Updates.ProcessFiberEvent(validActionCid, validSubmitEvent)
         validSubmitProof <- registry.generateProofs(validSubmitUpdate, Set(Charlie))
         state1_5         <- combiner.insert(state1, Signed(validSubmitUpdate, validSubmitProof))
 
@@ -1960,9 +1961,10 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Step 2: Alice votes YES
-        aliceVoteEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("vote"),
-          payload = MapValue(
+        aliceVoteUpdate = Updates.TransitionStateMachine(
+          aliceCid,
+          EventType("vote"),
+          MapValue(
             Map(
               "vote"       -> StrValue("yes"),
               "timestamp"  -> IntValue(1100),
@@ -1970,7 +1972,6 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             )
           )
         )
-        aliceVoteUpdate = Updates.ProcessFiberEvent(aliceCid, aliceVoteEvent)
         aliceVoteProof <- registry.generateProofs(aliceVoteUpdate, Set(Alice))
         state2         <- combiner.insert(state1_5, Signed(aliceVoteUpdate, aliceVoteProof))
 
@@ -1979,9 +1980,10 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Step 3: Bob votes YES
-        bobVoteEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("vote"),
-          payload = MapValue(
+        bobVoteUpdate = Updates.TransitionStateMachine(
+          bobCid,
+          EventType("vote"),
+          MapValue(
             Map(
               "vote"       -> StrValue("yes"),
               "timestamp"  -> IntValue(1200),
@@ -1989,7 +1991,6 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             )
           )
         )
-        bobVoteUpdate = Updates.ProcessFiberEvent(bobCid, bobVoteEvent)
         bobVoteProof <- registry.generateProofs(bobVoteUpdate, Set(Bob))
         state3       <- combiner.insert(state2, Signed(bobVoteUpdate, bobVoteProof))
 
@@ -2037,11 +2038,11 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           .getOrElse(state3)
 
         // Step 5: Close voting (open -> closing)
-        closeEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("close"),
-          payload = MapValue(Map("timestamp" -> IntValue(2100)))
+        closeUpdate = Updates.TransitionStateMachine(
+          proposalCid,
+          EventType("close"),
+          MapValue(Map("timestamp" -> IntValue(2100)))
         )
-        closeUpdate = Updates.ProcessFiberEvent(proposalCid, closeEvent)
         closeProof <- registry.generateProofs(closeUpdate, Set(Alice))
         state5     <- combiner.insert(state4, Signed(closeUpdate, closeProof))
 
@@ -2050,11 +2051,11 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Step 6: Finalize (closing -> finalized)
-        finalCollectEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("collect"),
-          payload = MapValue(Map("timestamp" -> IntValue(2200)))
+        finalCollectUpdate = Updates.TransitionStateMachine(
+          proposalCid,
+          EventType("collect"),
+          MapValue(Map("timestamp" -> IntValue(2200)))
         )
-        finalCollectUpdate = Updates.ProcessFiberEvent(proposalCid, finalCollectEvent)
         finalCollectProof <- registry.generateProofs(finalCollectUpdate, Set(Alice))
         finalState        <- combiner.insert(state5, Signed(finalCollectUpdate, finalCollectProof))
 
@@ -2093,25 +2094,25 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
       } yield expect.all(
         // Verify valid action submission succeeded when proposal was open
         validActionFiberResult.isDefined,
-        validActionFiberResult.map(_.currentState).contains(StateMachine.StateId("submitted")),
+        validActionFiberResult.map(_.currentState).contains(StateId("submitted")),
         actionSubmitted.contains(true),
         // Verify proposal opened
         proposalAfterOpen.isDefined,
-        proposalAfterOpen.map(_.currentState).contains(StateMachine.StateId("open")),
+        proposalAfterOpen.map(_.currentState).contains(StateId("open")),
         // Verify Alice voted
         aliceAfterVote.isDefined,
-        aliceAfterVote.map(_.currentState).contains(StateMachine.StateId("voted")),
+        aliceAfterVote.map(_.currentState).contains(StateId("voted")),
         aliceVote.contains("yes"),
         // Verify Bob voted
         bobAfterVote.isDefined,
-        bobAfterVote.map(_.currentState).contains(StateMachine.StateId("voted")),
+        bobAfterVote.map(_.currentState).contains(StateId("voted")),
         bobVote.contains("yes"),
         // Verify proposal closed
         proposalAfterClose.isDefined,
-        proposalAfterClose.map(_.currentState).contains(StateMachine.StateId("closing")),
+        proposalAfterClose.map(_.currentState).contains(StateId("closing")),
         // Verify proposal finalized with passing result
         finalProposal.isDefined,
-        finalProposal.map(_.currentState).contains(StateMachine.StateId("finalized")),
+        finalProposal.map(_.currentState).contains(StateId("finalized")),
         proposalResult.contains("passed")
       )
     }

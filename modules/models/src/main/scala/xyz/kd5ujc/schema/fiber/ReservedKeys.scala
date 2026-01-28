@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber.domain
+package xyz.kd5ujc.schema.fiber
 
 /**
  * Reserved keys used throughout the fiber processing engine.

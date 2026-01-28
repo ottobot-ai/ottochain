@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber.domain
+package xyz.kd5ujc.schema.fiber
 
 import io.constellationnetwork.metagraph_sdk.json_logic.gas.GasCost
 

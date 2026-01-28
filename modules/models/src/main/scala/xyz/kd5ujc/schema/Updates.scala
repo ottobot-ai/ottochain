@@ -5,6 +5,8 @@ import java.util.UUID
 import io.constellationnetwork.currency.dataApplication.DataUpdate
 import io.constellationnetwork.metagraph_sdk.json_logic.{JsonLogicExpression, JsonLogicValue}
 
+import xyz.kd5ujc.schema.fiber.{AccessControlPolicy, EventType, StateMachineDefinition}
+
 import derevo.circe.magnolia.{decoder, encoder}
 import derevo.derive
 import io.circe._
@@ -20,23 +22,33 @@ object Updates {
   sealed trait StateMachineFiberOp
 
   @derive(decoder, encoder)
-  final case class CreateStateMachineFiber(
+  final case class CreateStateMachine(
     cid:           UUID,
-    definition:    StateMachine.StateMachineDefinition,
+    definition:    StateMachineDefinition,
     initialData:   JsonLogicValue,
     parentFiberId: Option[UUID] = None
   ) extends StateMachineFiberOp
       with OttochainMessage
 
+  /**
+   * Event to trigger a state machine transition.
+   *
+   * @param cid Target fiber CID
+   * @param eventType Type of event to trigger
+   * @param payload Event payload data
+   * @param idempotencyKey Optional key for duplicate detection
+   */
   @derive(decoder, encoder)
-  final case class ProcessFiberEvent(
-    cid:   UUID,
-    event: StateMachine.Event
+  final case class TransitionStateMachine(
+    cid:            UUID,
+    eventType:      EventType,
+    payload:        JsonLogicValue,
+    idempotencyKey: Option[String] = None
   ) extends StateMachineFiberOp
       with OttochainMessage
 
   @derive(decoder, encoder)
-  final case class ArchiveFiber(
+  final case class ArchiveStateMachine(
     cid: UUID
   ) extends StateMachineFiberOp
       with OttochainMessage
@@ -48,7 +60,7 @@ object Updates {
     cid:           UUID,
     scriptProgram: JsonLogicExpression,
     initialState:  Option[JsonLogicValue],
-    accessControl: Records.AccessControlPolicy
+    accessControl: AccessControlPolicy
   ) extends ScriptOracleFiberOp
       with OttochainMessage
 
@@ -63,19 +75,19 @@ object Updates {
   object OttochainMessage {
 
     implicit val messageEncoder: Encoder[OttochainMessage] = {
-      case u: Updates.CreateStateMachineFiber => Json.obj(u.messageName -> u.asJson)
-      case u: Updates.ProcessFiberEvent       => Json.obj(u.messageName -> u.asJson)
-      case u: Updates.ArchiveFiber            => Json.obj(u.messageName -> u.asJson)
-      case u: Updates.CreateScriptOracle      => Json.obj(u.messageName -> u.asJson)
-      case u: Updates.InvokeScriptOracle      => Json.obj(u.messageName -> u.asJson)
+      case u: Updates.CreateStateMachine     => Json.obj(u.messageName -> u.asJson)
+      case u: Updates.TransitionStateMachine => Json.obj(u.messageName -> u.asJson)
+      case u: Updates.ArchiveStateMachine    => Json.obj(u.messageName -> u.asJson)
+      case u: Updates.CreateScriptOracle     => Json.obj(u.messageName -> u.asJson)
+      case u: Updates.InvokeScriptOracle     => Json.obj(u.messageName -> u.asJson)
     }
 
     implicit val messageDecoder: Decoder[OttochainMessage] =
       (c: HCursor) => {
         val decoders = List(
-          Decoder[Updates.CreateStateMachineFiber],
-          Decoder[Updates.ProcessFiberEvent],
-          Decoder[Updates.ArchiveFiber],
+          Decoder[Updates.CreateStateMachine],
+          Decoder[Updates.TransitionStateMachine],
+          Decoder[Updates.ArchiveStateMachine],
           Decoder[Updates.CreateScriptOracle],
           Decoder[Updates.InvokeScriptOracle]
         )

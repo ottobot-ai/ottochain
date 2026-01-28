@@ -1,12 +1,12 @@
-package xyz.kd5ujc.shared_data.fiber
+package xyz.kd5ujc.shared_data
 
 import cats.data.{ReaderT, StateT}
 import cats.mtl.{Ask, Stateful}
-import cats.{Applicative, Monad}
+import cats.{~>, Applicative, Monad}
 
-import xyz.kd5ujc.shared_data.fiber.domain.{ExecutionState, FiberContext}
+import xyz.kd5ujc.schema.fiber.FiberContext
 
-package object engine {
+package object fiber {
 
   /** Effect type for execution state tracking */
   type ExecutionT[F[_], A] = StateT[F, ExecutionState, A]
@@ -79,6 +79,12 @@ package object engine {
         def ask[E2 >: FiberContext]: FiberT[F, E2] =
           ReaderT[ExecutionT[F, *], FiberContext, E2](ctx => StateT.pure(ctx))
       }
+
+    /** Natural transformation F ~> FiberT[F, *] for lifting effects */
+    implicit def fiberTLift[F[_]: Monad]: F ~> FiberT[F, *] =
+      new (F ~> FiberT[F, *]) {
+        def apply[A](fa: F[A]): FiberT[F, A] = fa.liftFiber
+      }
   }
 
   /**
@@ -100,6 +106,12 @@ package object engine {
 
         override def modify(f: ExecutionState => ExecutionState): ExecutionT[F, Unit] =
           StateT.modify(f)
+      }
+
+    /** Natural transformation F ~> ExecutionT[F, *] for lifting effects */
+    implicit def executionTLift[F[_]: Monad]: F ~> ExecutionT[F, *] =
+      new (F ~> ExecutionT[F, *]) {
+        def apply[A](fa: F[A]): ExecutionT[F, A] = fa.liftExec
       }
   }
 }

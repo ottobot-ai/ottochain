@@ -9,7 +9,8 @@ import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Participant._
 import xyz.kd5ujc.shared_test.TestFixture
@@ -106,29 +107,27 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
         }
         """
 
-        machine1Def <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machine1Json))
-        machine2Def <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machine2Json))
+        machine1Def <- IO.fromEither(decode[StateMachineDefinition](machine1Json))
+        machine2Def <- IO.fromEither(decode[StateMachineDefinition](machine2Json))
 
         initialData = MapValue(Map("count" -> IntValue(0)))
 
-        createMachine1 = Updates.CreateStateMachineFiber(machine1Cid, machine1Def, initialData)
+        createMachine1 = Updates.CreateStateMachine(machine1Cid, machine1Def, initialData)
         machine1Proof <- fixture.registry.generateProofs(createMachine1, Set(Alice))
         stateAfterMachine1 <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createMachine1, machine1Proof)
         )
 
-        createMachine2 = Updates.CreateStateMachineFiber(machine2Cid, machine2Def, initialData)
+        createMachine2 = Updates.CreateStateMachine(machine2Cid, machine2Def, initialData)
         machine2Proof      <- fixture.registry.generateProofs(createMachine2, Set(Alice))
         stateAfterMachine2 <- combiner.insert(stateAfterMachine1, Signed(createMachine2, machine2Proof))
 
         // Send initial ping - should hit depth limit due to ping-pong loop
-        pingEvent = Updates.ProcessFiberEvent(
+        pingEvent = Updates.TransitionStateMachine(
           machine1Cid,
-          StateMachine.Event(
-            StateMachine.EventType("ping"),
-            MapValue(Map.empty)
-          )
+          EventType("ping"),
+          MapValue(Map.empty)
         )
         pingProof  <- fixture.registry.generateProofs(pingEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterMachine2, Signed(pingEvent, pingProof))
@@ -160,11 +159,11 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
       expect(machine2.isDefined) and
       expect(machine1Count.contains(BigInt(0))) and
       expect(machine2Count.contains(BigInt(0))) and
-      expect(machine1.map(_.currentState).contains(StateMachine.StateId("idle"))) and
-      expect(machine2.map(_.currentState).contains(StateMachine.StateId("idle"))) and
+      expect(machine1.map(_.currentState).contains(StateId("idle"))) and
+      expect(machine2.map(_.currentState).contains(StateId("idle"))) and
       expect(machine1.map(_.lastEventStatus).exists {
-        case Records.EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
-        case _                                                            => false
+        case EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
+        case _                                                    => false
       })
     }
   }
@@ -252,10 +251,10 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
         }
         """
 
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("step" -> IntValue(0)))
 
-        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
         machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -263,12 +262,10 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
         )
 
         // Send advance event - should trigger chain but stop when gas exhausted
-        advanceEvent = Updates.ProcessFiberEvent(
+        advanceEvent = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("advance"),
-            MapValue(Map.empty)
-          )
+          EventType("advance"),
+          MapValue(Map.empty)
         )
         advanceProof <- fixture.registry.generateProofs(advanceEvent, Set(Alice))
         finalState   <- combiner.insert(stateAfterCreate, Signed(advanceEvent, advanceProof))
@@ -287,11 +284,11 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
       } yield expect(machine.isDefined) and
       // Atomic rollback - transaction aborted due to gas exhaustion
       expect(step.contains(BigInt(0))) and // No state changes
-      expect(machine.map(_.currentState).contains(StateMachine.StateId("s0"))) and // Original state
+      expect(machine.map(_.currentState).contains(StateId("s0"))) and // Original state
       expect(machine.map(_.sequenceNumber).contains(0L)) and // Sequence not incremented
       expect(machine.map(_.lastEventStatus).exists {
-        case Records.EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
-        case _                                                            => false
+        case EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
+        case _                                                    => false
       })
     }
   }
@@ -352,10 +349,10 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
         }
         """
 
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("count" -> IntValue(0)))
 
-        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
         machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -363,12 +360,10 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
         )
 
         // Send start event - should detect cycle when trigger tries to send "start" again
-        startEvent = Updates.ProcessFiberEvent(
+        startEvent = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("start"),
-            MapValue(Map.empty)
-          )
+          EventType("start"),
+          MapValue(Map.empty)
         )
         startProof <- fixture.registry.generateProofs(startEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterCreate, Signed(startEvent, startProof))
@@ -387,11 +382,11 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
       } yield expect(machine.isDefined) and
       // Atomic rollback - cycle detected, transaction aborted
       expect(count.contains(BigInt(0))) and // No state changes
-      expect(machine.map(_.currentState).contains(StateMachine.StateId("idle"))) and // Original state
+      expect(machine.map(_.currentState).contains(StateId("idle"))) and // Original state
       expect(machine.map(_.sequenceNumber).contains(0L)) and // Sequence not incremented
       expect(machine.map(_.lastEventStatus).exists {
-        case Records.EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
-        case _                                                            => false
+        case EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
+        case _                                                    => false
       })
     }
   }

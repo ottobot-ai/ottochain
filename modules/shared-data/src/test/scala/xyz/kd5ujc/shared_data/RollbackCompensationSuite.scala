@@ -10,9 +10,9 @@ import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluat
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 
-import xyz.kd5ujc.schema.{CalculatedState, Records, StateMachine}
-import xyz.kd5ujc.shared_data.fiber.domain._
-import xyz.kd5ujc.shared_data.fiber.engine._
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, Records}
+import xyz.kd5ujc.shared_data.fiber.FiberEngine
 import xyz.kd5ujc.shared_test.TestFixture
 
 import weaver.SimpleIOSuite
@@ -39,17 +39,17 @@ object RollbackCompensationSuite extends SimpleIOSuite {
         machineC <- UUIDGen.randomUUID[IO]
 
         // Machine A triggers B
-        defA = StateMachine.StateMachineDefinition(
+        defA = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("idle")      -> StateMachine.State(StateMachine.StateId("idle")),
-            StateMachine.StateId("triggered") -> StateMachine.State(StateMachine.StateId("triggered"))
+            StateId("idle")      -> State(StateId("idle")),
+            StateId("triggered") -> State(StateId("triggered"))
           ),
-          initialState = StateMachine.StateId("idle"),
+          initialState = StateId("idle"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("idle"),
-              to = StateMachine.StateId("triggered"),
-              eventType = StateMachine.EventType("start"),
+            Transition(
+              from = StateId("idle"),
+              to = StateId("triggered"),
+              eventType = EventType("start"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -74,17 +74,17 @@ object RollbackCompensationSuite extends SimpleIOSuite {
         )
 
         // Machine B triggers C
-        defB = StateMachine.StateMachineDefinition(
+        defB = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("waiting")   -> StateMachine.State(StateMachine.StateId("waiting")),
-            StateMachine.StateId("continued") -> StateMachine.State(StateMachine.StateId("continued"))
+            StateId("waiting")   -> State(StateId("waiting")),
+            StateId("continued") -> State(StateId("continued"))
           ),
-          initialState = StateMachine.StateId("waiting"),
+          initialState = StateId("waiting"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("waiting"),
-              to = StateMachine.StateId("continued"),
-              eventType = StateMachine.EventType("continue"),
+            Transition(
+              from = StateId("waiting"),
+              to = StateId("continued"),
+              eventType = EventType("continue"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -109,17 +109,17 @@ object RollbackCompensationSuite extends SimpleIOSuite {
         )
 
         // Machine C fails (guard always false, no valid transition)
-        defC = StateMachine.StateMachineDefinition(
+        defC = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("pending")  -> StateMachine.State(StateMachine.StateId("pending")),
-            StateMachine.StateId("finished") -> StateMachine.State(StateMachine.StateId("finished"))
+            StateId("pending")  -> State(StateId("pending")),
+            StateId("finished") -> State(StateId("finished"))
           ),
-          initialState = StateMachine.StateId("pending"),
+          initialState = StateId("pending"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("pending"),
-              to = StateMachine.StateId("finished"),
-              eventType = StateMachine.EventType("finish"),
+            Transition(
+              from = StateId("pending"),
+              to = StateId("finished"),
+              eventType = EventType("finish"),
               // Guard that always fails
               guard = ConstExpression(BoolValue(false)),
               effect = ConstExpression(MapValue(Map("step" -> IntValue(3))))
@@ -142,13 +142,13 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = defA,
-          currentState = StateMachine.StateId("idle"),
+          currentState = StateId("idle"),
           stateData = dataA,
           stateDataHash = hashA,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         fiberB = Records.StateMachineFiberRecord(
@@ -157,13 +157,13 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = defB,
-          currentState = StateMachine.StateId("waiting"),
+          currentState = StateId("waiting"),
           stateData = dataB,
           stateDataHash = hashB,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         fiberC = Records.StateMachineFiberRecord(
@@ -172,13 +172,13 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = defC,
-          currentState = StateMachine.StateId("pending"),
+          currentState = StateId("pending"),
           stateData = dataC,
           stateDataHash = hashC,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(
@@ -187,30 +187,30 @@ object RollbackCompensationSuite extends SimpleIOSuite {
         )
 
         input = FiberInput.Transition(
-          StateMachine.EventType("start"),
+          EventType("start"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 100_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(machineA, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(_, _, _) =>
+        case TransactionResult.Aborted(_, _, _) =>
           // All machines should be unchanged in the original calculatedState
           // (the Aborted result means no changes were applied)
-          expect(calculatedState.stateMachines.get(machineA).exists(_.currentState == StateMachine.StateId("idle"))) and
+          expect(calculatedState.stateMachines.get(machineA).exists(_.currentState == StateId("idle"))) and
           expect(
-            calculatedState.stateMachines.get(machineB).exists(_.currentState == StateMachine.StateId("waiting"))
+            calculatedState.stateMachines.get(machineB).exists(_.currentState == StateId("waiting"))
           ) and
           expect(
-            calculatedState.stateMachines.get(machineC).exists(_.currentState == StateMachine.StateId("pending"))
+            calculatedState.stateMachines.get(machineC).exists(_.currentState == StateId("pending"))
           ) and
           expect(calculatedState.stateMachines.get(machineA).exists(_.sequenceNumber == 0)) and
           expect(calculatedState.stateMachines.get(machineB).exists(_.sequenceNumber == 0)) and
           expect(calculatedState.stateMachines.get(machineC).exists(_.sequenceNumber == 0))
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected Aborted due to C's failed guard, got Committed")
       }
     }
@@ -227,17 +227,17 @@ object RollbackCompensationSuite extends SimpleIOSuite {
 
         // State machine with guard that passes but effect that causes issues
         // by trying to access non-existent nested property in complex way
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("start") -> StateMachine.State(StateMachine.StateId("start")),
-            StateMachine.StateId("end")   -> StateMachine.State(StateMachine.StateId("end"))
+            StateId("start") -> State(StateId("start")),
+            StateId("end")   -> State(StateId("end"))
           ),
-          initialState = StateMachine.StateId("start"),
+          initialState = StateId("start"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("process"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("process"),
               guard = ConstExpression(BoolValue(true)), // Guard passes
               // Effect that will fail during evaluation (merge with non-map values)
               // This attempts to merge a string with a map, which should error
@@ -262,35 +262,35 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("start"),
+          currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 5,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
 
         // Payload without the expected nested structure
         input = FiberInput.Transition(
-          StateMachine.EventType("process"),
+          EventType("process"),
           MapValue(Map("simple" -> StrValue("value")))
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(_, _, _) =>
+        case TransactionResult.Aborted(_, _, _) =>
           // Original state should be preserved
-          expect(calculatedState.stateMachines.get(fiberId).exists(_.currentState == StateMachine.StateId("start"))) and
+          expect(calculatedState.stateMachines.get(fiberId).exists(_.currentState == StateId("start"))) and
           expect(calculatedState.stateMachines.get(fiberId).exists(_.sequenceNumber == 5)) and
           expect(calculatedState.stateMachines.get(fiberId).exists(_.stateData == initialData))
-        case TransactionOutcome.Committed(machines, _, _, _, _, _) =>
+        case TransactionResult.Committed(machines, _, _, _, _, _) =>
           // If it committed (JsonLogic might handle missing vars gracefully),
           // verify state was actually updated
           val updated = machines.get(fiberId)
@@ -334,17 +334,17 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           )
         )
 
-        parentDefinition = StateMachine.StateMachineDefinition(
+        parentDefinition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("ready")   -> StateMachine.State(StateMachine.StateId("ready")),
-            StateMachine.StateId("spawned") -> StateMachine.State(StateMachine.StateId("spawned"))
+            StateId("ready")   -> State(StateId("ready")),
+            StateId("spawned") -> State(StateId("spawned"))
           ),
-          initialState = StateMachine.StateId("ready"),
+          initialState = StateId("ready"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("ready"),
-              to = StateMachine.StateId("spawned"),
-              eventType = StateMachine.EventType("spawn_and_trigger"),
+            Transition(
+              from = StateId("ready"),
+              to = StateId("spawned"),
+              eventType = EventType("spawn_and_trigger"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -389,36 +389,36 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = parentDefinition,
-          currentState = StateMachine.StateId("ready"),
+          currentState = StateId("ready"),
           stateData = parentData,
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(parentId -> parentFiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("spawn_and_trigger"),
+          EventType("spawn_and_trigger"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 100_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(parentId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(_, _, _) =>
+        case TransactionResult.Aborted(_, _, _) =>
           // Parent should remain unchanged
           expect(
-            calculatedState.stateMachines.get(parentId).exists(_.currentState == StateMachine.StateId("ready"))
+            calculatedState.stateMachines.get(parentId).exists(_.currentState == StateId("ready"))
           ) and
           expect(calculatedState.stateMachines.get(parentId).exists(_.sequenceNumber == 0)) and
           // No children should exist
           expect(calculatedState.stateMachines.size == 1)
-        case TransactionOutcome.Committed(machines, _, _, _, _, _) =>
+        case TransactionResult.Committed(machines, _, _, _, _, _) =>
           // If it committed, the child's trigger might have been handled differently
           // Document the actual behavior
           expect(machines.contains(parentId))
@@ -436,11 +436,11 @@ object RollbackCompensationSuite extends SimpleIOSuite {
         fiberId <- UUIDGen.randomUUID[IO]
 
         // State machine with no valid transitions for the event
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("locked") -> StateMachine.State(StateMachine.StateId("locked"))
+            StateId("locked") -> State(StateId("locked"))
           ),
-          initialState = StateMachine.StateId("locked"),
+          initialState = StateId("locked"),
           transitions = List.empty // No transitions at all
         )
 
@@ -455,33 +455,33 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("locked"),
+          currentState = StateId("locked"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = originalSeqNum,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("unlock"),
+          EventType("unlock"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(_, _, _) =>
+        case TransactionResult.Aborted(_, _, _) =>
           // Original state completely preserved
           expect(calculatedState.stateMachines.get(fiberId).exists(_.sequenceNumber == originalSeqNum)) and
           expect(calculatedState.stateMachines.get(fiberId).exists(_.stateData == initialData)) and
           expect(calculatedState.stateMachines.get(fiberId).exists(_.stateDataHash == initialHash))
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected Aborted for event with no transitions, got Committed")
       }
     }

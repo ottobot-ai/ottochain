@@ -10,9 +10,9 @@ import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluat
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 
-import xyz.kd5ujc.schema.{CalculatedState, Records, StateMachine}
-import xyz.kd5ujc.shared_data.fiber.domain._
-import xyz.kd5ujc.shared_data.fiber.engine._
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, Records}
+import xyz.kd5ujc.shared_data.fiber.FiberEngine
 import xyz.kd5ujc.shared_test.TestFixture
 
 import weaver.SimpleIOSuite
@@ -51,17 +51,17 @@ object DepthAndHashSuite extends SimpleIOSuite {
         )
 
         // Parent spawns child
-        parentDefinition = StateMachine.StateMachineDefinition(
+        parentDefinition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("ready")   -> StateMachine.State(StateMachine.StateId("ready")),
-            StateMachine.StateId("spawned") -> StateMachine.State(StateMachine.StateId("spawned"))
+            StateId("ready")   -> State(StateId("ready")),
+            StateId("spawned") -> State(StateId("spawned"))
           ),
-          initialState = StateMachine.StateId("ready"),
+          initialState = StateId("ready"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("ready"),
-              to = StateMachine.StateId("spawned"),
-              eventType = StateMachine.EventType("spawn"),
+            Transition(
+              from = StateId("ready"),
+              to = StateId("spawned"),
+              eventType = EventType("spawn"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -94,29 +94,29 @@ object DepthAndHashSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = parentDefinition,
-          currentState = StateMachine.StateId("ready"),
+          currentState = StateId("ready"),
           stateData = parentData,
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(parentId -> parentFiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("spawn"),
+          EventType("spawn"),
           MapValue(Map.empty)
         )
 
         // Test with very low depth limit
         limits = ExecutionLimits(maxDepth = 1, maxGas = 100_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(parentId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Committed(machines, _, _, _, _, _) =>
+        case TransactionResult.Committed(machines, _, _, _, _, _) =>
           // Spawns don't increment depth - only triggers do
           // With maxDepth=1, parent transition at depth 0 succeeds, child is spawned
           expect(
@@ -124,10 +124,10 @@ object DepthAndHashSuite extends SimpleIOSuite {
             "Parent machine should be in result"
           ) and
           expect(
-            machines.get(parentId).exists(_.currentState == StateMachine.StateId("spawned")),
+            machines.get(parentId).exists(_.currentState == StateId("spawned")),
             s"Expected parent in 'spawned' state, got ${machines.get(parentId).map(_.currentState)}"
           )
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           failure(s"Expected Committed (spawns don't increment depth), but got Aborted: ${reason.toMessage}")
       }
     }
@@ -143,11 +143,11 @@ object DepthAndHashSuite extends SimpleIOSuite {
         fiberId <- UUIDGen.randomUUID[IO]
 
         // State machine with no valid transitions
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("locked") -> StateMachine.State(StateMachine.StateId("locked"))
+            StateId("locked") -> State(StateId("locked"))
           ),
-          initialState = StateMachine.StateId("locked"),
+          initialState = StateId("locked"),
           transitions = List.empty
         )
 
@@ -160,34 +160,34 @@ object DepthAndHashSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("locked"),
+          currentState = StateId("locked"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 10,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("unlock"), // No such transition
+          EventType("unlock"), // No such transition
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(_, _, _) =>
+        case TransactionResult.Aborted(_, _, _) =>
           // Original state in calculatedState should be unchanged
           val originalFiber = calculatedState.stateMachines.get(fiberId)
           expect(originalFiber.exists(_.stateDataHash == initialHash)) and
           expect(originalFiber.exists(_.stateData == initialData)) and
           expect(originalFiber.exists(_.sequenceNumber == 10))
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected Aborted for missing transition")
       }
     }
@@ -224,17 +224,17 @@ object DepthAndHashSuite extends SimpleIOSuite {
         machine3 <- UUIDGen.randomUUID[IO]
 
         // Chain: 1 -> 2 -> 3 with maxDepth=2 should fail at 3
-        def1 = StateMachine.StateMachineDefinition(
+        def1 = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("a") -> StateMachine.State(StateMachine.StateId("a")),
-            StateMachine.StateId("b") -> StateMachine.State(StateMachine.StateId("b"))
+            StateId("a") -> State(StateId("a")),
+            StateId("b") -> State(StateId("b"))
           ),
-          initialState = StateMachine.StateId("a"),
+          initialState = StateId("a"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("a"),
-              to = StateMachine.StateId("b"),
-              eventType = StateMachine.EventType("go"),
+            Transition(
+              from = StateId("a"),
+              to = StateId("b"),
+              eventType = EventType("go"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -258,17 +258,17 @@ object DepthAndHashSuite extends SimpleIOSuite {
           )
         )
 
-        def2 = StateMachine.StateMachineDefinition(
+        def2 = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("a") -> StateMachine.State(StateMachine.StateId("a")),
-            StateMachine.StateId("b") -> StateMachine.State(StateMachine.StateId("b"))
+            StateId("a") -> State(StateId("a")),
+            StateId("b") -> State(StateId("b"))
           ),
-          initialState = StateMachine.StateId("a"),
+          initialState = StateId("a"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("a"),
-              to = StateMachine.StateId("b"),
-              eventType = StateMachine.EventType("go"),
+            Transition(
+              from = StateId("a"),
+              to = StateId("b"),
+              eventType = EventType("go"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -292,17 +292,17 @@ object DepthAndHashSuite extends SimpleIOSuite {
           )
         )
 
-        def3 = StateMachine.StateMachineDefinition(
+        def3 = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("a") -> StateMachine.State(StateMachine.StateId("a")),
-            StateMachine.StateId("b") -> StateMachine.State(StateMachine.StateId("b"))
+            StateId("a") -> State(StateId("a")),
+            StateId("b") -> State(StateId("b"))
           ),
-          initialState = StateMachine.StateId("a"),
+          initialState = StateId("a"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("a"),
-              to = StateMachine.StateId("b"),
-              eventType = StateMachine.EventType("go"),
+            Transition(
+              from = StateId("a"),
+              to = StateId("b"),
+              eventType = EventType("go"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("step" -> IntValue(3))))
             )
@@ -322,13 +322,13 @@ object DepthAndHashSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = def1,
-          currentState = StateMachine.StateId("a"),
+          currentState = StateId("a"),
           stateData = data1,
           stateDataHash = hash1,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         fiber2 = Records.StateMachineFiberRecord(
@@ -337,13 +337,13 @@ object DepthAndHashSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = def2,
-          currentState = StateMachine.StateId("a"),
+          currentState = StateId("a"),
           stateData = data2,
           stateDataHash = hash2,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         fiber3 = Records.StateMachineFiberRecord(
@@ -352,13 +352,13 @@ object DepthAndHashSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = def3,
-          currentState = StateMachine.StateId("a"),
+          currentState = StateId("a"),
           stateData = data3,
           stateDataHash = hash3,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(
@@ -367,20 +367,20 @@ object DepthAndHashSuite extends SimpleIOSuite {
         )
 
         input = FiberInput.Transition(
-          StateMachine.EventType("go"),
+          EventType("go"),
           MapValue(Map.empty)
         )
 
         // Depth 2 should allow 1->2 but fail at 3
         limits = ExecutionLimits(maxDepth = 2, maxGas = 100_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(machine1, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
-          expect(reason.isInstanceOf[StateMachine.FailureReason.DepthExceeded])
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
+          expect(reason.isInstanceOf[FailureReason.DepthExceeded])
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected to exceed depth")
       }
     }

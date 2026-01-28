@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber.engine
+package xyz.kd5ujc.shared_data.fiber
 
 import cats.Monad
 import cats.syntax.all._
@@ -6,8 +6,7 @@ import cats.syntax.all._
 import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.metagraph_sdk.json_logic.core.StrValue
 
-import xyz.kd5ujc.schema.StateMachine
-import xyz.kd5ujc.shared_data.fiber.domain.ReservedKeys
+import xyz.kd5ujc.schema.fiber.{FailureReason, GasExhaustionPhase, ReservedKeys}
 
 /**
  * Centralized state merging with unified semantics.
@@ -30,7 +29,7 @@ trait StateMerger[F[_]] {
   def mergeEffectIntoState(
     currentState: MapValue,
     effectResult: JsonLogicValue
-  ): F[Either[StateMachine.FailureReason, MapValue]]
+  ): F[Either[FailureReason, MapValue]]
 }
 
 object StateMerger {
@@ -43,7 +42,7 @@ object StateMerger {
     def mergeEffectIntoState(
       currentState: MapValue,
       effectResult: JsonLogicValue
-    ): F[Either[StateMachine.FailureReason, MapValue]] =
+    ): F[Either[FailureReason, MapValue]] =
       effectResult match {
         case m: MapValue =>
           mergeMapValue(currentState, m)
@@ -52,9 +51,10 @@ object StateMerger {
           mergeArrayUpdates(currentState, updates)
 
         case _ =>
-          (StateMachine.FailureReason.EffectEvaluationError(
+          (FailureReason.EvaluationError(
+            GasExhaustionPhase.Effect,
             s"Effect must return MapValue or ArrayValue, got: ${effectResult.getClass.getSimpleName}"
-          ): StateMachine.FailureReason)
+          ): FailureReason)
             .asLeft[MapValue]
             .pure[F]
       }
@@ -66,9 +66,9 @@ object StateMerger {
     private def mergeMapValue(
       currentState: MapValue,
       effectMap:    MapValue
-    ): F[Either[StateMachine.FailureReason, MapValue]] = {
+    ): F[Either[FailureReason, MapValue]] = {
       val filteredMap = effectMap.value.filterNot { case (key, _) => ReservedKeys.isInternal(key) }
-      MapValue(currentState.value ++ filteredMap).asRight[StateMachine.FailureReason].pure[F]
+      MapValue(currentState.value ++ filteredMap).asRight[FailureReason].pure[F]
     }
 
     /**
@@ -78,26 +78,27 @@ object StateMerger {
     private def mergeArrayUpdates(
       currentState: MapValue,
       updates:      List[JsonLogicValue]
-    ): F[Either[StateMachine.FailureReason, MapValue]] =
+    ): F[Either[FailureReason, MapValue]] =
       updates
-        .foldLeftM[F, Either[StateMachine.FailureReason, Map[String, JsonLogicValue]]](
+        .foldLeftM[F, Either[FailureReason, Map[String, JsonLogicValue]]](
           currentState.value.asRight
         ) {
           case (Right(acc), ArrayValue(List(StrValue(key), value))) if !ReservedKeys.isInternal(key) =>
-            (acc + (key -> value)).asRight[StateMachine.FailureReason].pure[F]
+            (acc + (key -> value)).asRight[FailureReason].pure[F]
 
           case (Right(acc), ArrayValue(List(StrValue(key), _))) if ReservedKeys.isInternal(key) =>
             // Skip internal keys silently
-            acc.asRight[StateMachine.FailureReason].pure[F]
+            acc.asRight[FailureReason].pure[F]
 
           case (Left(err), _) =>
             // Propagate earlier error
             err.asLeft[Map[String, JsonLogicValue]].pure[F]
 
           case (_, other) =>
-            (StateMachine.FailureReason.EffectEvaluationError(
+            (FailureReason.EvaluationError(
+              GasExhaustionPhase.Effect,
               s"Invalid effect update format, expected [key, value] array: $other"
-            ): StateMachine.FailureReason)
+            ): FailureReason)
               .asLeft[Map[String, JsonLogicValue]]
               .pure[F]
         }

@@ -10,9 +10,9 @@ import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluat
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 
-import xyz.kd5ujc.schema.{CalculatedState, Records, StateMachine}
-import xyz.kd5ujc.shared_data.fiber.domain._
-import xyz.kd5ujc.shared_data.fiber.engine._
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, Records}
+import xyz.kd5ujc.shared_data.fiber.FiberEngine
 import xyz.kd5ujc.shared_test.Participant._
 import xyz.kd5ujc.shared_test.TestFixture
 
@@ -36,17 +36,17 @@ object FailureReasonSuite extends SimpleIOSuite {
         fiberId <- UUIDGen.randomUUID[IO]
 
         // State machine with only one event type defined
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("idle")   -> StateMachine.State(StateMachine.StateId("idle")),
-            StateMachine.StateId("active") -> StateMachine.State(StateMachine.StateId("active"))
+            StateId("idle")   -> State(StateId("idle")),
+            StateId("active") -> State(StateId("active"))
           ),
-          initialState = StateMachine.StateId("idle"),
+          initialState = StateId("idle"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("idle"),
-              to = StateMachine.StateId("active"),
-              eventType = StateMachine.EventType("activate"),
+            Transition(
+              from = StateId("idle"),
+              to = StateId("active"),
+              eventType = EventType("activate"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("activated" -> BoolValue(true))))
             )
@@ -62,41 +62,41 @@ object FailureReasonSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("idle"),
+          currentState = StateId("idle"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
 
         // Send an event type that doesn't exist in the transitionMap
         input = FiberInput.Transition(
-          StateMachine.EventType("unknown_event"),
+          EventType("unknown_event"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           reason match {
-            case StateMachine.FailureReason.NoTransitionFound(state, eventType) =>
-              expect(state == StateMachine.StateId("idle"), s"Expected state 'idle', got $state") and
+            case FailureReason.NoTransitionFound(state, eventType) =>
+              expect(state == StateId("idle"), s"Expected state 'idle', got $state") and
               expect(
-                eventType == StateMachine.EventType("unknown_event"),
+                eventType == EventType("unknown_event"),
                 s"Expected event 'unknown_event', got $eventType"
               )
             case other =>
               failure(s"Expected NoTransitionFound but got: ${other.getClass.getSimpleName}")
           }
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected Aborted with NoTransitionFound, but transaction was committed")
       }
     }
@@ -112,24 +112,24 @@ object FailureReasonSuite extends SimpleIOSuite {
         fiberId <- UUIDGen.randomUUID[IO]
 
         // Multiple transitions for same event, all guards return false
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("start") -> StateMachine.State(StateMachine.StateId("start")),
-            StateMachine.StateId("end")   -> StateMachine.State(StateMachine.StateId("end"))
+            StateId("start") -> State(StateId("start")),
+            StateId("end")   -> State(StateId("end"))
           ),
-          initialState = StateMachine.StateId("start"),
+          initialState = StateId("start"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("go"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("go"),
               guard = ConstExpression(BoolValue(false)), // Always false
               effect = ConstExpression(MapValue(Map("path" -> StrValue("first"))))
             ),
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("go"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("go"),
               guard = ConstExpression(BoolValue(false)), // Always false
               effect = ConstExpression(MapValue(Map("path" -> StrValue("second"))))
             )
@@ -145,35 +145,35 @@ object FailureReasonSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("start"),
+          currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("go"),
+          EventType("go"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           reason match {
-            case StateMachine.FailureReason.NoGuardMatched(_, _, attemptedCount) =>
+            case FailureReason.NoGuardMatched(_, _, attemptedCount) =>
               expect(attemptedCount == 2, s"Expected 2 guard attempts, got $attemptedCount")
             case other =>
               failure(s"Expected NoGuardMatched but got: ${other.getClass.getSimpleName}")
           }
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected Aborted with NoGuardMatched, but transaction was committed")
       }
     }
@@ -190,17 +190,17 @@ object FailureReasonSuite extends SimpleIOSuite {
         nonExistentId <- UUIDGen.randomUUID[IO]
 
         // State machine that triggers a non-existent target
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("idle")      -> StateMachine.State(StateMachine.StateId("idle")),
-            StateMachine.StateId("triggered") -> StateMachine.State(StateMachine.StateId("triggered"))
+            StateId("idle")      -> State(StateId("idle")),
+            StateId("triggered") -> State(StateId("triggered"))
           ),
-          initialState = StateMachine.StateId("idle"),
+          initialState = StateId("idle"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("idle"),
-              to = StateMachine.StateId("triggered"),
-              eventType = StateMachine.EventType("fire"),
+            Transition(
+              from = StateId("idle"),
+              to = StateId("triggered"),
+              eventType = EventType("fire"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -233,36 +233,36 @@ object FailureReasonSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("idle"),
+          currentState = StateId("idle"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         // Only the source fiber exists, target doesn't
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("fire"),
+          EventType("fire"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           reason match {
-            case StateMachine.FailureReason.TriggerTargetNotFound(targetId, _) =>
+            case FailureReason.TriggerTargetNotFound(targetId, _) =>
               expect(targetId == nonExistentId, s"Expected target $nonExistentId, got $targetId")
             case other =>
               failure(s"Expected TriggerTargetNotFound but got: ${other.getClass.getSimpleName}")
           }
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected Aborted with TriggerTargetNotFound, but transaction was committed")
       }
     }
@@ -278,17 +278,17 @@ object FailureReasonSuite extends SimpleIOSuite {
         fiberId <- UUIDGen.randomUUID[IO]
 
         // State machine triggers itself with same event type
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("a") -> StateMachine.State(StateMachine.StateId("a")),
-            StateMachine.StateId("b") -> StateMachine.State(StateMachine.StateId("b"))
+            StateId("a") -> State(StateId("a")),
+            StateId("b") -> State(StateId("b"))
           ),
-          initialState = StateMachine.StateId("a"),
+          initialState = StateId("a"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("a"),
-              to = StateMachine.StateId("b"),
-              eventType = StateMachine.EventType("loop"),
+            Transition(
+              from = StateId("a"),
+              to = StateId("b"),
+              eventType = EventType("loop"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -309,10 +309,10 @@ object FailureReasonSuite extends SimpleIOSuite {
                 )
               )
             ),
-            StateMachine.Transition(
-              from = StateMachine.StateId("b"),
-              to = StateMachine.StateId("a"),
-              eventType = StateMachine.EventType("loop"),
+            Transition(
+              from = StateId("b"),
+              to = StateId("a"),
+              eventType = EventType("loop"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -345,30 +345,30 @@ object FailureReasonSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("a"),
+          currentState = StateId("a"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("loop"),
+          EventType("loop"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 100_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
-          expect(reason.isInstanceOf[StateMachine.FailureReason.CycleDetected])
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
+          expect(reason.isInstanceOf[FailureReason.CycleDetected])
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected Aborted with CycleDetected, got Committed")
       }
     }
@@ -390,17 +390,17 @@ object FailureReasonSuite extends SimpleIOSuite {
           ApplyExpression(AddOp, List(acc, ConstExpression(IntValue(1))))
         }
 
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("start") -> StateMachine.State(StateMachine.StateId("start")),
-            StateMachine.StateId("end")   -> StateMachine.State(StateMachine.StateId("end"))
+            StateId("start") -> State(StateId("start")),
+            StateId("end")   -> State(StateId("end"))
           ),
-          initialState = StateMachine.StateId("start"),
+          initialState = StateId("start"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("go"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("go"),
               guard = ApplyExpression(EqOp, List(expensiveGuard, ConstExpression(IntValue(100)))),
               effect = ConstExpression(MapValue(Map("done" -> BoolValue(true))))
             )
@@ -416,36 +416,36 @@ object FailureReasonSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("start"),
+          currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("go"),
+          EventType("go"),
           MapValue(Map.empty)
         )
 
         // Gas limit set to exhaust during guard evaluation (100 additions need ~100+ gas)
         limits = ExecutionLimits(maxDepth = 10, maxGas = 50L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           reason match {
-            case StateMachine.FailureReason.GasExhaustedFailure(gasUsed, gasLimit, phase) =>
+            case FailureReason.GasExhaustedFailure(gasUsed, gasLimit, phase) =>
               // Gas should exhaust during guard evaluation (100 additions with 50L limit)
               expect(gasUsed <= gasLimit, s"Gas used ($gasUsed) should not exceed limit ($gasLimit)") and
               expect(gasLimit == 50L, s"Expected gas limit 50L, got $gasLimit") and
               expect(
-                phase == StateMachine.GasExhaustionPhase.Guard,
+                phase == GasExhaustionPhase.Guard,
                 s"Expected Guard phase (guard has 100 additions), got $phase"
               )
             case other =>
@@ -453,7 +453,7 @@ object FailureReasonSuite extends SimpleIOSuite {
                 s"Expected GasExhaustedFailure in Guard phase but got: ${other.getClass.getSimpleName}: ${other.toMessage}"
               )
           }
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected Aborted with GasExhaustedFailure, but transaction was committed")
       }
     }
@@ -472,17 +472,17 @@ object FailureReasonSuite extends SimpleIOSuite {
       for {
         fiberId <- UUIDGen.randomUUID[IO]
 
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("start") -> StateMachine.State(StateMachine.StateId("start")),
-            StateMachine.StateId("end")   -> StateMachine.State(StateMachine.StateId("end"))
+            StateId("start") -> State(StateId("start")),
+            StateId("end")   -> State(StateId("end"))
           ),
-          initialState = StateMachine.StateId("start"),
+          initialState = StateId("start"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("process"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("process"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("done" -> BoolValue(true))))
             )
@@ -498,13 +498,13 @@ object FailureReasonSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("start"),
+          currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -517,19 +517,19 @@ object FailureReasonSuite extends SimpleIOSuite {
         )
 
         input = FiberInput.Transition(
-          StateMachine.EventType("process"),
+          EventType("process"),
           validPayload
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           success
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           failure(s"Expected Committed but got Aborted: ${reason}")
       }
     }
@@ -545,11 +545,11 @@ object FailureReasonSuite extends SimpleIOSuite {
       for {
         fiberId <- UUIDGen.randomUUID[IO]
 
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("idle") -> StateMachine.State(StateMachine.StateId("idle"))
+            StateId("idle") -> State(StateId("idle"))
           ),
-          initialState = StateMachine.StateId("idle"),
+          initialState = StateId("idle"),
           transitions = List.empty
         )
 
@@ -563,13 +563,13 @@ object FailureReasonSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("idle"),
+          currentState = StateId("idle"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -583,14 +583,14 @@ object FailureReasonSuite extends SimpleIOSuite {
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           reason match {
-            case StateMachine.FailureReason.FiberInputMismatch(fid, fiberType, inputType) =>
+            case FailureReason.FiberInputMismatch(fid, fiberType, inputType) =>
               expect(fid == fiberId, s"Expected fiber $fiberId, got $fid") and
               expect(
                 fiberType == "StateMachineFiberRecord",
@@ -600,7 +600,7 @@ object FailureReasonSuite extends SimpleIOSuite {
             case other =>
               failure(s"Expected FiberInputMismatch but got: ${other.getClass.getSimpleName}")
           }
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected Aborted with FiberInputMismatch, but transaction was committed")
       }
     }
@@ -630,29 +630,29 @@ object FailureReasonSuite extends SimpleIOSuite {
           stateData = Some(oracleData),
           stateDataHash = Some(oracleHash),
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
+          status = FiberStatus.Active,
           invocationCount = 0,
           invocationLog = List.empty,
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         calculatedState = CalculatedState(Map.empty, Map(oracleId -> oracle))
 
         // Use Transition input (state machine-style) with oracle - type mismatch
         input = FiberInput.Transition(
-          StateMachine.EventType("someEvent"),
+          EventType("someEvent"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(oracleId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           reason match {
-            case StateMachine.FailureReason.FiberInputMismatch(oid, fiberType, inputType) =>
+            case FailureReason.FiberInputMismatch(oid, fiberType, inputType) =>
               expect(oid == oracleId, s"Expected oracle $oracleId, got $oid") and
               expect(
                 fiberType == "ScriptOracleFiberRecord",
@@ -662,7 +662,7 @@ object FailureReasonSuite extends SimpleIOSuite {
             case other =>
               failure(s"Expected FiberInputMismatch but got: ${other.getClass.getSimpleName}")
           }
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected Aborted with FiberInputMismatch, but transaction was committed")
       }
     }

@@ -9,7 +9,8 @@ import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Participant._
 import xyz.kd5ujc.shared_test.TestFixture
@@ -61,10 +62,10 @@ object ProofValidationSuite extends SimpleIOSuite {
         }
         """
 
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("approved" -> BoolValue(false)))
 
-        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
         machineProof <- registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -72,12 +73,10 @@ object ProofValidationSuite extends SimpleIOSuite {
         )
 
         // Send approve event with proofs from both Alice and Bob
-        approveEvent = Updates.ProcessFiberEvent(
+        approveEvent = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("approve"),
-            MapValue(Map.empty)
-          )
+          EventType("approve"),
+          MapValue(Map.empty)
         )
         approveProof <- registry.generateProofs(approveEvent, Set(Alice, Bob))
         finalState   <- combiner.insert(stateAfterCreate, Signed(approveEvent, approveProof))
@@ -111,7 +110,7 @@ object ProofValidationSuite extends SimpleIOSuite {
         allSigners = Set(signer1, signer2).flatten
 
       } yield expect(machine.isDefined) and
-      expect(machine.map(_.currentState).contains(StateMachine.StateId("approved"))) and
+      expect(machine.map(_.currentState).contains(StateId("approved"))) and
       expect(approved.contains(true)) and
       expect(allSigners.contains(aliceAddress)) and
       expect(allSigners.contains(bobAddress))
@@ -160,10 +159,10 @@ object ProofValidationSuite extends SimpleIOSuite {
         }
         """
 
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("status" -> StrValue("pending")))
 
-        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
         machineProof <- registry.generateProofs(createMachine, Set(Bob))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -171,12 +170,10 @@ object ProofValidationSuite extends SimpleIOSuite {
         )
 
         // Test 1: Bob tries to approve (should fail guard)
-        approveBobEvent = Updates.ProcessFiberEvent(
+        approveBobEvent = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("approve"),
-            MapValue(Map.empty)
-          )
+          EventType("approve"),
+          MapValue(Map.empty)
         )
         bobProof      <- registry.generateProofs(approveBobEvent, Set(Bob))
         stateAfterBob <- combiner.insert(stateAfterCreate, Signed(approveBobEvent, bobProof))
@@ -186,12 +183,10 @@ object ProofValidationSuite extends SimpleIOSuite {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Test 2: Alice approves (should succeed)
-        approveAliceEvent = Updates.ProcessFiberEvent(
+        approveAliceEvent = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("approve"),
-            MapValue(Map.empty)
-          )
+          EventType("approve"),
+          MapValue(Map.empty)
         )
         aliceProof      <- registry.generateProofs(approveAliceEvent, Set(Alice))
         stateAfterAlice <- combiner.insert(stateAfterBob, Signed(approveAliceEvent, aliceProof))
@@ -208,9 +203,9 @@ object ProofValidationSuite extends SimpleIOSuite {
         }
 
       } yield expect(machineBob.isDefined) and
-      expect(machineBob.map(_.currentState).contains(StateMachine.StateId("pending"))) and
+      expect(machineBob.map(_.currentState).contains(StateId("pending"))) and
       expect(machineAlice.isDefined) and
-      expect(machineAlice.map(_.currentState).contains(StateMachine.StateId("approved"))) and
+      expect(machineAlice.map(_.currentState).contains(StateId("approved"))) and
       expect(statusAfterAlice.contains("approved"))
     }
   }
@@ -254,10 +249,10 @@ object ProofValidationSuite extends SimpleIOSuite {
         }
         """
 
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("status" -> StrValue("pending")))
 
-        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
         machineProof <- registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -265,12 +260,10 @@ object ProofValidationSuite extends SimpleIOSuite {
         )
 
         // Test 1: Only Alice signs (should fail - need 2 signatures)
-        approveAliceOnly = Updates.ProcessFiberEvent(
+        approveAliceOnly = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("approve"),
-            MapValue(Map.empty)
-          )
+          EventType("approve"),
+          MapValue(Map.empty)
         )
         aliceOnlyProof      <- registry.generateProofs(approveAliceOnly, Set(Alice))
         stateAfterAliceOnly <- combiner.insert(stateAfterCreate, Signed(approveAliceOnly, aliceOnlyProof))
@@ -280,12 +273,10 @@ object ProofValidationSuite extends SimpleIOSuite {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Test 2: Alice and Bob sign (should succeed)
-        approveAliceBob = Updates.ProcessFiberEvent(
+        approveAliceBob = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("approve"),
-            MapValue(Map.empty)
-          )
+          EventType("approve"),
+          MapValue(Map.empty)
         )
         aliceBobProof      <- registry.generateProofs(approveAliceBob, Set(Alice, Bob))
         stateAfterAliceBob <- combiner.insert(stateAfterAliceOnly, Signed(approveAliceBob, aliceBobProof))
@@ -302,9 +293,9 @@ object ProofValidationSuite extends SimpleIOSuite {
         }
 
       } yield expect(machineAfterAliceOnly.isDefined) and
-      expect(machineAfterAliceOnly.map(_.currentState).contains(StateMachine.StateId("pending"))) and
+      expect(machineAfterAliceOnly.map(_.currentState).contains(StateId("pending"))) and
       expect(machineAfterAliceBob.isDefined) and
-      expect(machineAfterAliceBob.map(_.currentState).contains(StateMachine.StateId("approved"))) and
+      expect(machineAfterAliceBob.map(_.currentState).contains(StateId("approved"))) and
       expect(statusAfterAliceBob.contains("approved"))
     }
   }
@@ -358,10 +349,10 @@ object ProofValidationSuite extends SimpleIOSuite {
         }
         """
 
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("status" -> StrValue("pending")))
 
-        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
         machineProof <- registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -369,12 +360,10 @@ object ProofValidationSuite extends SimpleIOSuite {
         )
 
         // Test: Alice and Bob sign (should succeed - 2 signatures and Alice is included)
-        approveEvent = Updates.ProcessFiberEvent(
+        approveEvent = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("approve"),
-            MapValue(Map.empty)
-          )
+          EventType("approve"),
+          MapValue(Map.empty)
         )
         approveProof <- registry.generateProofs(approveEvent, Set(Alice, Bob))
         finalState   <- combiner.insert(stateAfterCreate, Signed(approveEvent, approveProof))
@@ -400,7 +389,7 @@ object ProofValidationSuite extends SimpleIOSuite {
         approverCount = approvers.map(_.length)
 
       } yield expect(machine.isDefined) and
-      expect(machine.map(_.currentState).contains(StateMachine.StateId("approved"))) and
+      expect(machine.map(_.currentState).contains(StateId("approved"))) and
       expect(status.contains("approved")) and
       expect(approverCount.contains(2))
     }
@@ -442,10 +431,10 @@ object ProofValidationSuite extends SimpleIOSuite {
         }
         """
 
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map.empty[String, JsonLogicValue])
 
-        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
         machineProof <- registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -453,12 +442,10 @@ object ProofValidationSuite extends SimpleIOSuite {
         )
 
         // Send log event
-        logEvent = Updates.ProcessFiberEvent(
+        logEvent = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("log"),
-            MapValue(Map.empty)
-          )
+          EventType("log"),
+          MapValue(Map.empty)
         )
         logProof   <- registry.generateProofs(logEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterCreate, Signed(logEvent, logProof))
@@ -496,7 +483,7 @@ object ProofValidationSuite extends SimpleIOSuite {
         }
 
       } yield expect(machine.isDefined) and
-      expect(machine.map(_.currentState).contains(StateMachine.StateId("logged"))) and
+      expect(machine.map(_.currentState).contains(StateId("logged"))) and
       expect(hasProofs.contains(true)) and
       expect(firstProofId.isDefined) and
       expect(firstProofAddress.isDefined) and

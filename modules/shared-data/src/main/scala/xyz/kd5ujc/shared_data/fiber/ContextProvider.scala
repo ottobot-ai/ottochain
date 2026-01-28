@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber.engine
+package xyz.kd5ujc.shared_data.fiber
 
 import java.util.UUID
 
@@ -10,8 +10,8 @@ import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.signature.SignatureProof
 
+import xyz.kd5ujc.schema.fiber.{EventType, FiberInput, OracleInvocation, ReservedKeys}
 import xyz.kd5ujc.schema.{CalculatedState, Records}
-import xyz.kd5ujc.shared_data.fiber.domain.{FiberInput, ReservedKeys}
 
 /**
  * Builds evaluation context for JsonLogic expressions.
@@ -74,7 +74,7 @@ object ContextProvider {
       ): F[JsonLogicValue] = fiber match {
         case sm: Records.StateMachineFiberRecord =>
           input match {
-            case FiberInput.Transition(eventType, payload) =>
+            case FiberInput.Transition(eventType, payload, _) =>
               buildStateMachineContext(sm, eventType, payload, proofs, dependencies)
             case FiberInput.MethodCall(_, _, _, _) =>
               Async[F].raiseError(new RuntimeException("Cannot use MethodCall input with StateMachineFiberRecord"))
@@ -84,7 +84,7 @@ object ContextProvider {
           input match {
             case FiberInput.MethodCall(method, args, _, _) =>
               buildOracleContext(oracle, method, args)
-            case FiberInput.Transition(_, _) =>
+            case FiberInput.Transition(_, _, _) =>
               Async[F].raiseError(new RuntimeException("Cannot use Transition input with ScriptOracleFiberRecord"))
           }
       }
@@ -93,7 +93,7 @@ object ContextProvider {
 
       private def buildStateMachineContext(
         fiber:        Records.StateMachineFiberRecord,
-        eventType:    xyz.kd5ujc.schema.StateMachine.EventType,
+        eventType:    EventType,
         payload:      JsonLogicValue,
         proofs:       List[SignatureProof],
         dependencies: Set[UUID]
@@ -142,7 +142,7 @@ object ContextProvider {
         input: FiberInput
       ): F[JsonLogicValue] = {
         val (eventPayload, eventType) = input match {
-          case FiberInput.Transition(et, payload)        => (payload, et.value)
+          case FiberInput.Transition(et, payload, _)     => (payload, et.value)
           case FiberInput.MethodCall(method, args, _, _) => (args, method)
         }
 
@@ -178,16 +178,34 @@ object ContextProvider {
           }
         }
 
-      private def buildMachinesContext(dependencies: Set[UUID]): F[MapValue] =
-        dependencies.toList
-          .flatTraverse { machineId =>
+      /**
+       * Generic helper for resolving a collection of IDs to a MapValue of summaries.
+       *
+       * @param ids Collection of UUIDs to resolve
+       * @param lookup Function to look up records by ID
+       * @param summary Function to convert a record to a JsonLogicValue summary
+       * @return MapValue where keys are UUID strings and values are summaries
+       */
+      private def resolveFibers[A](
+        ids:     Iterable[UUID],
+        lookup:  UUID => Option[A],
+        summary: A => JsonLogicValue
+      ): F[MapValue] =
+        ids.toList
+          .flatTraverse { id =>
             OptionT
-              .fromOption[F](calculatedState.stateMachines.get(machineId))
-              .map(fiber => List(machineId.toString -> buildFiberSummary(fiber)))
+              .fromOption[F](lookup(id))
+              .map(a => List(id.toString -> summary(a)))
               .getOrElse(List.empty)
           }
-          .map(_.toMap)
-          .map(MapValue(_))
+          .map(pairs => MapValue(pairs.toMap))
+
+      private def buildMachinesContext(dependencies: Set[UUID]): F[MapValue] =
+        resolveFibers(
+          dependencies,
+          calculatedState.stateMachines.get,
+          (f: Records.StateMachineFiberRecord) => buildFiberSummary(f)
+        )
 
       private def buildParentContext(fiber: Records.StateMachineFiberRecord): F[JsonLogicValue] =
         OptionT
@@ -197,26 +215,14 @@ object ContextProvider {
           .getOrElse(NullValue: JsonLogicValue)
 
       private def buildChildrenContext(fiber: Records.StateMachineFiberRecord): F[MapValue] =
-        fiber.childFiberIds.toList
-          .flatTraverse { childId =>
-            OptionT
-              .fromOption[F](calculatedState.stateMachines.get(childId))
-              .map(childFiber => List(childId.toString -> buildFiberSummary(childFiber)))
-              .getOrElse(List.empty)
-          }
-          .map(_.toMap)
-          .map(MapValue(_))
+        resolveFibers(
+          fiber.childFiberIds,
+          calculatedState.stateMachines.get,
+          (f: Records.StateMachineFiberRecord) => buildFiberSummary(f)
+        )
 
       private def buildOraclesContext(dependencies: Set[UUID]): F[MapValue] =
-        dependencies.toList
-          .flatTraverse { oracleId =>
-            OptionT
-              .fromOption[F](calculatedState.scriptOracles.get(oracleId))
-              .map(oracle => List(oracleId.toString -> buildOracleSummary(oracle)))
-              .getOrElse(List.empty)
-          }
-          .map(_.toMap)
-          .map(MapValue(_))
+        resolveFibers(dependencies, calculatedState.scriptOracles.get, buildOracleSummary)
 
       // === Summary Builders (reused across contexts) ===
 
@@ -247,7 +253,7 @@ object ContextProvider {
         )
       }
 
-      private def buildInvocationSummary(inv: Records.OracleInvocation): MapValue =
+      private def buildInvocationSummary(inv: OracleInvocation): MapValue =
         MapValue(
           Map(
             ReservedKeys.METHOD     -> StrValue(inv.method),

@@ -65,11 +65,11 @@ object Validator {
             val oracleL1 = new OracleValidator.L1Validator[F](checkpoint.state)
 
             update match {
-              case u: CreateStateMachineFiber => fiberL1.createFiber(u)
-              case u: ProcessFiberEvent       => fiberL1.processEvent(u)
-              case u: ArchiveFiber            => fiberL1.archiveFiber(u)
-              case u: CreateScriptOracle      => oracleL1.createOracle(u)
-              case u: InvokeScriptOracle      => oracleL1.invokeOracle(u)
+              case u: CreateStateMachine     => fiberL1.createFiber(u)
+              case u: TransitionStateMachine => fiberL1.processEvent(u)
+              case u: ArchiveStateMachine    => fiberL1.archiveFiber(u)
+              case u: CreateScriptOracle     => oracleL1.createOracle(u)
+              case u: InvokeScriptOracle     => oracleL1.invokeOracle(u)
             }
           }
 
@@ -90,11 +90,11 @@ object Validator {
           val oracleCombined = new OracleValidator.CombinedValidator[F](current, signedUpdate.proofs)
 
           signedUpdate.value match {
-            case u: CreateStateMachineFiber => fiberCombined.createFiber(u)
-            case u: ProcessFiberEvent       => fiberCombined.processEvent(u)
-            case u: ArchiveFiber            => fiberCombined.archiveFiber(u)
-            case u: CreateScriptOracle      => oracleCombined.createOracle(u)
-            case u: InvokeScriptOracle      => oracleCombined.invokeOracle(u)
+            case u: CreateStateMachine     => fiberCombined.createFiber(u)
+            case u: TransitionStateMachine => fiberCombined.processEvent(u)
+            case u: ArchiveStateMachine    => fiberCombined.archiveFiber(u)
+            case u: CreateScriptOracle     => oracleCombined.createOracle(u)
+            case u: InvokeScriptOracle     => oracleCombined.invokeOracle(u)
           }
         }
 

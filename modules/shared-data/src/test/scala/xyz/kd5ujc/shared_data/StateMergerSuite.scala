@@ -4,8 +4,8 @@ import cats.effect.IO
 
 import io.constellationnetwork.metagraph_sdk.json_logic._
 
-import xyz.kd5ujc.schema.StateMachine
-import xyz.kd5ujc.shared_data.fiber.engine.StateMerger
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.shared_data.fiber.StateMerger
 
 import weaver.SimpleIOSuite
 
@@ -78,7 +78,7 @@ object StateMergerSuite extends SimpleIOSuite {
     }
   }
 
-  test("invalid ArrayValue format returns EffectEvaluationError") {
+  test("invalid ArrayValue format returns EvaluationError") {
     val currentState = MapValue(Map("x" -> IntValue(1)))
 
     // Invalid: array element is not [key, value] pair
@@ -93,10 +93,10 @@ object StateMergerSuite extends SimpleIOSuite {
     } yield result match {
       case Left(err) =>
         err match {
-          case StateMachine.FailureReason.EffectEvaluationError(msg) =>
+          case FailureReason.EvaluationError(_, msg) =>
             expect(msg.contains("Invalid effect update format"))
           case other =>
-            failure(s"Expected EffectEvaluationError, got: $other")
+            failure(s"Expected EvaluationError, got: $other")
         }
       case Right(_) =>
         failure("Expected error for invalid format, got success")
@@ -117,7 +117,7 @@ object StateMergerSuite extends SimpleIOSuite {
       result <- merger.mergeEffectIntoState(currentState, effectResult)
     } yield result match {
       case Left(err) =>
-        expect(err.isInstanceOf[StateMachine.FailureReason.EffectEvaluationError])
+        expect(err.isInstanceOf[FailureReason.EvaluationError])
       case Right(_) =>
         failure("Expected error for non-string key, got success")
     }
@@ -182,10 +182,10 @@ object StateMergerSuite extends SimpleIOSuite {
     } yield result match {
       case Left(err) =>
         err match {
-          case StateMachine.FailureReason.EffectEvaluationError(msg) =>
+          case FailureReason.EvaluationError(_, msg) =>
             expect(msg.contains("must return MapValue or ArrayValue"))
           case other =>
-            failure(s"Expected EffectEvaluationError, got: $other")
+            failure(s"Expected EvaluationError, got: $other")
         }
       case Right(_) =>
         failure("Expected error for invalid effect type, got success")

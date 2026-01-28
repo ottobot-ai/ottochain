@@ -11,9 +11,9 @@ import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluat
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 
-import xyz.kd5ujc.schema.{CalculatedState, Records, StateMachine}
-import xyz.kd5ujc.shared_data.fiber.domain._
-import xyz.kd5ujc.shared_data.fiber.engine._
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, Records}
+import xyz.kd5ujc.shared_data.fiber.FiberEngine
 import xyz.kd5ujc.shared_test.TestFixture
 
 import weaver.SimpleIOSuite
@@ -44,17 +44,17 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
         fiberId <- UUIDGen.randomUUID[IO]
 
         // Simple state machine
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("start") -> StateMachine.State(StateMachine.StateId("start")),
-            StateMachine.StateId("end")   -> StateMachine.State(StateMachine.StateId("end"))
+            StateId("start") -> State(StateId("start")),
+            StateId("end")   -> State(StateId("end"))
           ),
-          initialState = StateMachine.StateId("start"),
+          initialState = StateId("start"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("go"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("go"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("done" -> BoolValue(true))))
             )
@@ -70,30 +70,30 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("start"),
+          currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("go"),
+          EventType("go"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, fixture.ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Committed(machines, _, _, _, _, _) =>
-          expect(machines.get(fiberId).exists(_.currentState == StateMachine.StateId("end")))
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Committed(machines, _, _, _, _, _) =>
+          expect(machines.get(fiberId).exists(_.currentState == StateId("end")))
+        case TransactionResult.Aborted(reason, _, _) =>
           failure(s"Expected Committed but got Aborted: ${reason.toMessage}")
       }
     }
@@ -110,17 +110,17 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
         machine2Id <- UUIDGen.randomUUID[IO]
 
         // Machine 1 triggers Machine 2
-        machine1Definition = StateMachine.StateMachineDefinition(
+        machine1Definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("a") -> StateMachine.State(StateMachine.StateId("a")),
-            StateMachine.StateId("b") -> StateMachine.State(StateMachine.StateId("b"))
+            StateId("a") -> State(StateId("a")),
+            StateId("b") -> State(StateId("b"))
           ),
-          initialState = StateMachine.StateId("a"),
+          initialState = StateId("a"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("a"),
-              to = StateMachine.StateId("b"),
-              eventType = StateMachine.EventType("go"),
+            Transition(
+              from = StateId("a"),
+              to = StateId("b"),
+              eventType = EventType("go"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -144,17 +144,17 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           )
         )
 
-        machine2Definition = StateMachine.StateMachineDefinition(
+        machine2Definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("x") -> StateMachine.State(StateMachine.StateId("x")),
-            StateMachine.StateId("y") -> StateMachine.State(StateMachine.StateId("y"))
+            StateId("x") -> State(StateId("x")),
+            StateId("y") -> State(StateId("y"))
           ),
-          initialState = StateMachine.StateId("x"),
+          initialState = StateId("x"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("x"),
-              to = StateMachine.StateId("y"),
-              eventType = StateMachine.EventType("continue"),
+            Transition(
+              from = StateId("x"),
+              to = StateId("y"),
+              eventType = EventType("continue"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("step" -> IntValue(2))))
             )
@@ -172,13 +172,13 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = machine1Definition,
-          currentState = StateMachine.StateId("a"),
+          currentState = StateId("a"),
           stateData = data1,
           stateDataHash = hash1,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         fiber2 = Records.StateMachineFiberRecord(
@@ -187,32 +187,32 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = machine2Definition,
-          currentState = StateMachine.StateId("x"),
+          currentState = StateId("x"),
           stateData = data2,
           stateDataHash = hash2,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(machine1Id -> fiber1, machine2Id -> fiber2), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("go"),
+          EventType("go"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, fixture.ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
 
         result <- orchestrator.process(machine1Id, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Committed(machines, _, _, _, _, _) =>
+        case TransactionResult.Committed(machines, _, _, _, _, _) =>
           // Both machines should have transitioned
-          expect(machines.get(machine1Id).exists(_.currentState == StateMachine.StateId("b"))) and
-          expect(machines.get(machine2Id).exists(_.currentState == StateMachine.StateId("y")))
-        case TransactionOutcome.Aborted(reason, _, _) =>
+          expect(machines.get(machine1Id).exists(_.currentState == StateId("b"))) and
+          expect(machines.get(machine2Id).exists(_.currentState == StateId("y")))
+        case TransactionResult.Aborted(reason, _, _) =>
           failure(s"Expected Committed but got Aborted: ${reason.toMessage}")
       }
     }
@@ -228,34 +228,34 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
         fiberId <- UUIDGen.randomUUID[IO]
 
         // Multiple transitions with guards - first few fail, last succeeds
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("start") -> StateMachine.State(StateMachine.StateId("start")),
-            StateMachine.StateId("end")   -> StateMachine.State(StateMachine.StateId("end"))
+            StateId("start") -> State(StateId("start")),
+            StateId("end")   -> State(StateId("end"))
           ),
-          initialState = StateMachine.StateId("start"),
+          initialState = StateId("start"),
           transitions = List(
             // First guard: fails
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("go"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("go"),
               guard = ConstExpression(BoolValue(false)),
               effect = ConstExpression(MapValue(Map("path" -> StrValue("first"))))
             ),
             // Second guard: fails
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("go"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("go"),
               guard = ConstExpression(BoolValue(false)),
               effect = ConstExpression(MapValue(Map("path" -> StrValue("second"))))
             ),
             // Third guard: succeeds
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("go"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("go"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("path" -> StrValue("third"))))
             )
@@ -271,37 +271,37 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("start"),
+          currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("go"),
+          EventType("go"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, fixture.ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Committed(machines, _, _, _, _, _) =>
+        case TransactionResult.Committed(machines, _, _, _, _, _) =>
           val updated = machines.get(fiberId)
           expect(updated.isDefined) and
-          expect(updated.exists(_.currentState == StateMachine.StateId("end"))) and
+          expect(updated.exists(_.currentState == StateId("end"))) and
           // Third path should be taken
           expect(updated.exists(_.stateData match {
             case MapValue(m) => m.get("path").contains(StrValue("third"))
             case _           => false
           }))
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           failure(s"Expected Committed but got Aborted: ${reason.toMessage}")
       }
     }
@@ -317,17 +317,17 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
         fiberId <- UUIDGen.randomUUID[IO]
 
         // State machine with guard that accesses state (costs 2 gas for varAccess)
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("start") -> StateMachine.State(StateMachine.StateId("start")),
-            StateMachine.StateId("end")   -> StateMachine.State(StateMachine.StateId("end"))
+            StateId("start") -> State(StateId("start")),
+            StateId("end")   -> State(StateId("end"))
           ),
-          initialState = StateMachine.StateId("start"),
+          initialState = StateId("start"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("go"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("go"),
               // Guard that reads from state - varAccess costs 2 gas, !! (NOp) costs 1 gas
               guard = ApplyExpression(NOp, List(VarExpression(Left("_state")))),
               effect = ConstExpression(MapValue(Map("done" -> BoolValue(true))))
@@ -344,34 +344,34 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("start"),
+          currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("go"),
+          EventType("go"),
           MapValue(Map.empty)
         )
 
         // Zero gas limit - will fail because guard needs gas for varAccess
         limits = ExecutionLimits(maxDepth = 10, maxGas = 0L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, fixture.ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.GasExhaustedFailure],
+            reason.isInstanceOf[FailureReason.GasExhaustedFailure],
             s"Expected GasExhaustedFailure but got: ${reason.getClass.getSimpleName}"
           )
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected Aborted with GasExhaustedFailure for gas limit of 0")
       }
     }
@@ -393,17 +393,17 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           )
         )
 
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("start") -> StateMachine.State(StateMachine.StateId("start")),
-            StateMachine.StateId("end")   -> StateMachine.State(StateMachine.StateId("end"))
+            StateId("start") -> State(StateId("start")),
+            StateId("end")   -> State(StateId("end"))
           ),
-          initialState = StateMachine.StateId("start"),
+          initialState = StateId("start"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("go"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("go"),
               guard = ConstExpression(BoolValue(true)), // Simple guard passes
               effect = expensiveEffect // Expensive effect exhausts gas
             )
@@ -419,38 +419,38 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("start"),
+          currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("go"),
+          EventType("go"),
           MapValue(Map.empty)
         )
 
         // Limited gas - enough for guard but not effect
         limits = ExecutionLimits(maxDepth = 10, maxGas = 100L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, fixture.ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, gasUsed, _) =>
+        case TransactionResult.Aborted(reason, gasUsed, _) =>
           // Gas exhaustion should happen - any abort with limited gas is acceptable
           reason match {
-            case StateMachine.FailureReason.GasExhaustedFailure(_, _, _) =>
+            case FailureReason.GasExhaustedFailure(_, _, _) =>
               success
             case _ =>
               // Any abort with an expensive effect under low gas is expected behavior
               success
           }
-        case TransactionOutcome.Committed(_, _, _, gasUsed, _, _) =>
+        case TransactionResult.Committed(_, _, _, gasUsed, _, _) =>
           // If it somehow completes with 100 gas, document that behavior
           expect(gasUsed <= 100L)
       }
@@ -468,17 +468,17 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
         childId  <- UUIDGen.randomUUID[IO]
 
         // Parent that spawns a child
-        parentDefinition = StateMachine.StateMachineDefinition(
+        parentDefinition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("init")    -> StateMachine.State(StateMachine.StateId("init")),
-            StateMachine.StateId("spawned") -> StateMachine.State(StateMachine.StateId("spawned"))
+            StateId("init")    -> State(StateId("init")),
+            StateId("spawned") -> State(StateId("spawned"))
           ),
-          initialState = StateMachine.StateId("init"),
+          initialState = StateId("init"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("init"),
-              to = StateMachine.StateId("spawned"),
-              eventType = StateMachine.EventType("spawn"),
+            Transition(
+              from = StateId("init"),
+              to = StateId("spawned"),
+              eventType = EventType("spawn"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -526,42 +526,42 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = parentDefinition,
-          currentState = StateMachine.StateId("init"),
+          currentState = StateId("init"),
           stateData = parentData,
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(parentId -> parentFiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("spawn"),
+          EventType("spawn"),
           MapValue(Map.empty)
         )
 
         // Run with sufficient gas
         limitsHigh = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestratorHigh = FiberOrchestrator.make[IO](calculatedState, fixture.ordinal, limitsHigh)
+        orchestratorHigh = FiberEngine.make[IO](calculatedState, fixture.ordinal, limitsHigh)
         resultHigh <- orchestratorHigh.process(parentId, input, List.empty)
 
         // Run with very low gas - spawn overhead should cause failure
         limitsLow = ExecutionLimits(maxDepth = 10, maxGas = 10L)
-        orchestratorLow = FiberOrchestrator.make[IO](calculatedState, fixture.ordinal, limitsLow)
+        orchestratorLow = FiberEngine.make[IO](calculatedState, fixture.ordinal, limitsLow)
         resultLow <- orchestratorLow.process(parentId, input, List.empty)
 
       } yield {
         val highSuccess = resultHigh match {
-          case TransactionOutcome.Committed(machines, _, _, _, _, _) =>
+          case TransactionResult.Committed(machines, _, _, _, _, _) =>
             machines.contains(childId) // Child was created
           case _ => false
         }
 
         val lowFailed = resultLow match {
-          case TransactionOutcome.Aborted(reason, _, _) =>
-            reason.isInstanceOf[StateMachine.FailureReason.GasExhaustedFailure]
-          case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+          case TransactionResult.Aborted(reason, _, _) =>
+            reason.isInstanceOf[FailureReason.GasExhaustedFailure]
+          case TransactionResult.Committed(_, _, _, _, _, _) =>
             false // Unexpectedly succeeded
         }
 
@@ -582,17 +582,17 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
         machine2Id <- UUIDGen.randomUUID[IO]
 
         // Machine 1 triggers Machine 2 with expensive computations
-        machine1Definition = StateMachine.StateMachineDefinition(
+        machine1Definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("a") -> StateMachine.State(StateMachine.StateId("a")),
-            StateMachine.StateId("b") -> StateMachine.State(StateMachine.StateId("b"))
+            StateId("a") -> State(StateId("a")),
+            StateId("b") -> State(StateId("b"))
           ),
-          initialState = StateMachine.StateId("a"),
+          initialState = StateId("a"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("a"),
-              to = StateMachine.StateId("b"),
-              eventType = StateMachine.EventType("compute"),
+            Transition(
+              from = StateId("a"),
+              to = StateId("b"),
+              eventType = EventType("compute"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -616,17 +616,17 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           )
         )
 
-        machine2Definition = StateMachine.StateMachineDefinition(
+        machine2Definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("x") -> StateMachine.State(StateMachine.StateId("x")),
-            StateMachine.StateId("y") -> StateMachine.State(StateMachine.StateId("y"))
+            StateId("x") -> State(StateId("x")),
+            StateId("y") -> State(StateId("y"))
           ),
-          initialState = StateMachine.StateId("x"),
+          initialState = StateId("x"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("x"),
-              to = StateMachine.StateId("y"),
-              eventType = StateMachine.EventType("compute2"),
+            Transition(
+              from = StateId("x"),
+              to = StateId("y"),
+              eventType = EventType("compute2"),
               guard = ConstExpression(BoolValue(true)),
               // Effect with multiple operations to accumulate gas
               effect = MapExpression(
@@ -654,13 +654,13 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = machine1Definition,
-          currentState = StateMachine.StateId("a"),
+          currentState = StateId("a"),
           stateData = data1,
           stateDataHash = hash1,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         fiber2 = Records.StateMachineFiberRecord(
@@ -669,42 +669,42 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = machine2Definition,
-          currentState = StateMachine.StateId("x"),
+          currentState = StateId("x"),
           stateData = data2,
           stateDataHash = hash2,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(machine1Id -> fiber1, machine2Id -> fiber2), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("compute"),
+          EventType("compute"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, fixture.ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
 
         result <- orchestrator.process(machine1Id, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Committed(machines, _, _, gasUsed, _, _) =>
+        case TransactionResult.Committed(machines, _, _, gasUsed, _, _) =>
           // Both machines transitioned
           // Gas includes: guard eval + effect eval + trigger overhead for both machines
           // Actual gas depends on FiberGasConfig and VM gas costs
           val expectedMinGas = 5L
           expect(
-            machines.get(machine1Id).exists(_.currentState == StateMachine.StateId("b")),
+            machines.get(machine1Id).exists(_.currentState == StateId("b")),
             s"Expected machine1 in state 'b', got ${machines.get(machine1Id).map(_.currentState)}"
           ) and
           expect(
-            machines.get(machine2Id).exists(_.currentState == StateMachine.StateId("y")),
+            machines.get(machine2Id).exists(_.currentState == StateId("y")),
             s"Expected machine2 in state 'y', got ${machines.get(machine2Id).map(_.currentState)}"
           ) and
           expect(gasUsed >= expectedMinGas, s"Expected at least $expectedMinGas gas for trigger chain, got $gasUsed")
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           failure(s"Expected Committed but got Aborted: ${reason.toMessage}")
       }
     }
@@ -721,17 +721,17 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
         machine2Id <- UUIDGen.randomUUID[IO]
 
         // Machine 1 triggers Machine 2
-        machine1Definition = StateMachine.StateMachineDefinition(
+        machine1Definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("a") -> StateMachine.State(StateMachine.StateId("a")),
-            StateMachine.StateId("b") -> StateMachine.State(StateMachine.StateId("b"))
+            StateId("a") -> State(StateId("a")),
+            StateId("b") -> State(StateId("b"))
           ),
-          initialState = StateMachine.StateId("a"),
+          initialState = StateId("a"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("a"),
-              to = StateMachine.StateId("b"),
-              eventType = StateMachine.EventType("trigger"),
+            Transition(
+              from = StateId("a"),
+              to = StateId("b"),
+              eventType = EventType("trigger"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -755,17 +755,17 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           )
         )
 
-        machine2Definition = StateMachine.StateMachineDefinition(
+        machine2Definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("x") -> StateMachine.State(StateMachine.StateId("x")),
-            StateMachine.StateId("y") -> StateMachine.State(StateMachine.StateId("y"))
+            StateId("x") -> State(StateId("x")),
+            StateId("y") -> State(StateId("y"))
           ),
-          initialState = StateMachine.StateId("x"),
+          initialState = StateId("x"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("x"),
-              to = StateMachine.StateId("y"),
-              eventType = StateMachine.EventType("respond"),
+            Transition(
+              from = StateId("x"),
+              to = StateId("y"),
+              eventType = EventType("respond"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("step" -> IntValue(2))))
             )
@@ -783,13 +783,13 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = machine1Definition,
-          currentState = StateMachine.StateId("a"),
+          currentState = StateId("a"),
           stateData = data1,
           stateDataHash = hash1,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         fiber2 = Records.StateMachineFiberRecord(
@@ -798,18 +798,18 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = machine2Definition,
-          currentState = StateMachine.StateId("x"),
+          currentState = StateId("x"),
           stateData = data2,
           stateDataHash = hash2,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(machine1Id -> fiber1, machine2Id -> fiber2), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("trigger"),
+          EventType("trigger"),
           MapValue(Map.empty)
         )
 
@@ -817,24 +817,24 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
 
         // Run with default FiberGasConfig
         orchestratorDefault =
-          FiberOrchestrator.make[IO](calculatedState, fixture.ordinal, limits, fiberGasConfig = FiberGasConfig.Default)
+          FiberEngine.make[IO](calculatedState, fixture.ordinal, limits, fiberGasConfig = FiberGasConfig.Default)
         resultDefault <- orchestratorDefault.process(machine1Id, input, List.empty)
 
         // Run with Mainnet FiberGasConfig (higher costs)
         orchestratorMainnet =
-          FiberOrchestrator.make[IO](calculatedState, fixture.ordinal, limits, fiberGasConfig = FiberGasConfig.Mainnet)
+          FiberEngine.make[IO](calculatedState, fixture.ordinal, limits, fiberGasConfig = FiberGasConfig.Mainnet)
         resultMainnet <- orchestratorMainnet.process(machine1Id, input, List.empty)
 
         // Run with Minimal FiberGasConfig (lower costs)
         orchestratorMinimal =
-          FiberOrchestrator.make[IO](calculatedState, fixture.ordinal, limits, fiberGasConfig = FiberGasConfig.Minimal)
+          FiberEngine.make[IO](calculatedState, fixture.ordinal, limits, fiberGasConfig = FiberGasConfig.Minimal)
         resultMinimal <- orchestratorMinimal.process(machine1Id, input, List.empty)
 
       } yield (resultDefault, resultMainnet, resultMinimal) match {
         case (
-              TransactionOutcome.Committed(_, _, _, defaultGas, _, _),
-              TransactionOutcome.Committed(_, _, _, mainnetGas, _, _),
-              TransactionOutcome.Committed(_, _, _, minimalGas, _, _)
+              TransactionResult.Committed(_, _, _, defaultGas, _, _),
+              TransactionResult.Committed(_, _, _, mainnetGas, _, _),
+              TransactionResult.Committed(_, _, _, minimalGas, _, _)
             ) =>
           // Verify gas was actually consumed (trigger chain has overhead)
           // Each config: trigger overhead + guard + effect for 2 machines
@@ -846,11 +846,11 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           expect(mainnetGas >= defaultGas, s"Mainnet ($mainnetGas) should cost >= default ($defaultGas)") and
           // Minimal costs less than or equal to default (triggerEvent: 1 vs 5, etc.)
           expect(minimalGas <= defaultGas, s"Minimal ($minimalGas) should cost <= default ($defaultGas)")
-        case (TransactionOutcome.Aborted(reason, _, _), _, _) =>
+        case (TransactionResult.Aborted(reason, _, _), _, _) =>
           failure(s"Default config transaction aborted: ${reason.toMessage}")
-        case (_, TransactionOutcome.Aborted(reason, _, _), _) =>
+        case (_, TransactionResult.Aborted(reason, _, _), _) =>
           failure(s"Mainnet config transaction aborted: ${reason.toMessage}")
-        case (_, _, TransactionOutcome.Aborted(reason, _, _)) =>
+        case (_, _, TransactionResult.Aborted(reason, _, _)) =>
           failure(s"Minimal config transaction aborted: ${reason.toMessage}")
       }
     }

@@ -3,7 +3,6 @@ package xyz.kd5ujc.shared_data.lifecycle
 import cats.effect.Async
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
-import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluator
 import io.constellationnetwork.metagraph_sdk.lifecycle.CombinerService
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
@@ -41,7 +40,6 @@ object Combiner {
    */
   def make[F[_]: Async: SecurityProvider]: CombinerService[F, OttochainMessage, OnChain, CalculatedState] =
     new CombinerService[F, OttochainMessage, OnChain, CalculatedState] {
-      implicit val jsonLogicEvaluator: JsonLogicEvaluator[F] = JsonLogicEvaluator.tailRecursive[F]
 
       override def insert(
         previous: DataState[OnChain, CalculatedState],
@@ -51,11 +49,11 @@ object Combiner {
         val oracleCombiner = OracleCombiner[F](previous, ctx)
 
         update.value match {
-          case u: Updates.CreateStateMachineFiber => fiberCombiner.createStateMachineFiber(Signed(u, update.proofs))
-          case u: Updates.ProcessFiberEvent       => fiberCombiner.processFiberEvent(Signed(u, update.proofs))
-          case u: Updates.ArchiveFiber            => fiberCombiner.archiveFiber(Signed(u, update.proofs))
-          case u: Updates.CreateScriptOracle      => oracleCombiner.createScriptOracle(Signed(u, update.proofs))
-          case u: Updates.InvokeScriptOracle      => oracleCombiner.invokeScriptOracle(Signed(u, update.proofs))
+          case u: Updates.CreateStateMachine     => fiberCombiner.createStateMachineFiber(Signed(u, update.proofs))
+          case u: Updates.TransitionStateMachine => fiberCombiner.processFiberEvent(Signed(u, update.proofs))
+          case u: Updates.ArchiveStateMachine    => fiberCombiner.archiveFiber(Signed(u, update.proofs))
+          case u: Updates.CreateScriptOracle     => oracleCombiner.createScriptOracle(Signed(u, update.proofs))
+          case u: Updates.InvokeScriptOracle     => oracleCombiner.invokeScriptOracle(Signed(u, update.proofs))
         }
       }
     }

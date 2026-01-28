@@ -1,23 +1,16 @@
 package xyz.kd5ujc.shared_data.lifecycle.combine
 
-import java.util.UUID
-
 import cats.effect.Async
 import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
-import io.constellationnetwork.metagraph_sdk.json_logic.JsonLogicValue
-import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluator
-import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
-import io.constellationnetwork.schema.SnapshotOrdinal
 import io.constellationnetwork.schema.address.Address
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
-import xyz.kd5ujc.shared_data.fiber.engine.OracleProcessor
-import xyz.kd5ujc.shared_data.lifecycle.validate.ValidationException
-import xyz.kd5ujc.shared_data.lifecycle.validate.rules.OracleRules
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
+import xyz.kd5ujc.shared_data.fiber.{FiberEngine, OracleProcessor}
 import xyz.kd5ujc.shared_data.syntax.all._
 
 /**
@@ -29,7 +22,7 @@ import xyz.kd5ujc.shared_data.syntax.all._
  * @param current The current DataState to operate on
  * @param ctx     The L0NodeContext for accessing snapshot ordinals
  */
-class OracleCombiner[F[_]: Async: SecurityProvider: JsonLogicEvaluator](
+class OracleCombiner[F[_]: Async: SecurityProvider](
   current: DataState[OnChain, CalculatedState],
   ctx:     L0NodeContext[F]
 ) {
@@ -49,17 +42,16 @@ class OracleCombiner[F[_]: Async: SecurityProvider: JsonLogicEvaluator](
   /**
    * Invokes a script oracle method.
    *
-   * Handles the result from OracleProcessor:
-   * - OracleSuccess: Updates oracle state and logs invocation
-   * - Failure (AccessDenied): Raises ValidationException
-   * - Other failures: Raises RuntimeException
+   * Delegates to FiberOrchestrator for consistent gas metering and
+   * unified processing semantics with state machine transitions.
    */
   def invokeScriptOracle(
     update: Signed[Updates.InvokeScriptOracle]
   ): CombineResult[F] = for {
     currentOrdinal <- ctx.getCurrentOrdinal
 
-    oracleRecord <- current.calculated.scriptOracles
+    // Verify oracle exists before processing
+    _ <- current.calculated.scriptOracles
       .get(update.cid)
       .fold(
         Async[F].raiseError[Records.ScriptOracleFiberRecord](
@@ -72,79 +64,40 @@ class OracleCombiner[F[_]: Async: SecurityProvider: JsonLogicEvaluator](
         _.id.toAddress
       )
 
-    processingResult <- OracleProcessor.invokeScriptOracle(current, update, currentOrdinal)
+    // Delegate to FiberOrchestrator for consistent gas metering
+    orchestrator = FiberEngine.make[F](
+      current.calculated,
+      currentOrdinal,
+      ExecutionLimits()
+    )
 
-    newState <- processingResult match {
-      case StateMachine.OracleSuccess(newStateData, returnValue, gasUsed) =>
-        handleOracleSuccess(update, oracleRecord, newStateData, returnValue, gasUsed, currentOrdinal, caller)
+    input = FiberInput.MethodCall(
+      method = update.method,
+      args = update.args,
+      caller = caller,
+      idempotencyKey = None
+    )
 
-      case StateMachine.Failure(reason) =>
-        handleOracleFailure(update.cid, oracleRecord.accessControl, reason)
+    outcome <- orchestrator.process(update.cid, input, update.proofs.toList)
 
-      case other =>
-        Async[F].raiseError(new RuntimeException(s"Unexpected oracle result: $other"))
+    newState <- outcome match {
+      case TransactionResult.Committed(_, updatedOracles, _, _, _, _) =>
+        // The orchestrator now adds the invocation log entry with the actual return value
+        updatedOracles.get(update.cid) match {
+          case Some(updatedOracle) =>
+            // Oracle was updated by orchestrator - use it directly
+            current.withOracle(update.cid, updatedOracle, updatedOracle.stateDataHash).pure[F]
+
+          case None =>
+            // Oracle didn't update state - shouldn't happen for successful invocations
+            Async[F].raiseError(new RuntimeException(s"Oracle ${update.cid} not found in orchestrator result"))
+        }
+
+      case TransactionResult.Aborted(reason, _, _) =>
+        Async[F].raiseError(new RuntimeException(s"Oracle invocation failed: ${reason.toMessage}"))
     }
   } yield newState
 
-  // ============================================================================
-  // Private Helpers
-  // ============================================================================
-
-  /**
-   * Handles a successful oracle invocation.
-   *
-   * Updates the oracle record with new state and logs the invocation.
-   */
-  private def handleOracleSuccess(
-    update:         Signed[Updates.InvokeScriptOracle],
-    oracleRecord:   Records.ScriptOracleFiberRecord,
-    newStateData:   Option[JsonLogicValue],
-    returnValue:    JsonLogicValue,
-    gasUsed:        Long,
-    currentOrdinal: SnapshotOrdinal,
-    caller:         Address
-  ): F[DataState[OnChain, CalculatedState]] = for {
-    newStateHash <- newStateData.traverse(_.computeDigest)
-
-    invocation = Records.OracleInvocation(
-      method = update.method,
-      args = update.args,
-      result = returnValue,
-      gasUsed = gasUsed,
-      invokedAt = currentOrdinal,
-      invokedBy = caller
-    )
-
-    updatedLog = (invocation :: oracleRecord.invocationLog).take(oracleRecord.maxLogSize)
-
-    updatedOracle = oracleRecord.copy(
-      stateData = newStateData,
-      stateDataHash = newStateHash,
-      latestUpdateOrdinal = currentOrdinal,
-      invocationCount = oracleRecord.invocationCount + 1,
-      invocationLog = updatedLog
-    )
-  } yield current.withOracle(update.cid, updatedOracle, newStateHash)
-
-  /**
-   * Handles oracle invocation failure.
-   *
-   * Raises appropriate exceptions based on failure type.
-   */
-  private def handleOracleFailure(
-    oracleId:      UUID,
-    accessControl: Records.AccessControlPolicy,
-    reason:        StateMachine.FailureReason
-  ): F[DataState[OnChain, CalculatedState]] =
-    reason match {
-      case StateMachine.FailureReason.AccessDenied(_, _, _, _) =>
-        Async[F].raiseError(
-          ValidationException(OracleRules.Errors.OracleAccessDenied(oracleId, accessControl))
-        )
-
-      case other =>
-        Async[F].raiseError(new RuntimeException(s"Oracle invocation failed: ${other.toMessage}"))
-    }
 }
 
 object OracleCombiner {
@@ -152,7 +105,7 @@ object OracleCombiner {
   /**
    * Creates a new OracleCombiner instance.
    */
-  def apply[F[_]: Async: SecurityProvider: JsonLogicEvaluator](
+  def apply[F[_]: Async: SecurityProvider](
     current: DataState[OnChain, CalculatedState],
     ctx:     L0NodeContext[F]
   ): OracleCombiner[F] =

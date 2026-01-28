@@ -11,7 +11,8 @@ import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
 import xyz.kd5ujc.shared_test.Participant._
@@ -96,9 +97,9 @@ object NftMarketplaceSuite extends SimpleIOSuite {
           scriptProgram = royaltyProgramExpr,
           stateData = Some(royaltyOracleData),
           stateDataHash = Some(royaltyHash),
-          accessControl = Records.AccessControlPolicy.Public,
+          accessControl = AccessControlPolicy.Public,
           owners = Set(registry.addresses(Alice)),
-          status = Records.FiberStatus.Active
+          status = FiberStatus.Active
         )
 
         // JSON-encoded NFT listing state machine with oracle trigger on sale
@@ -182,7 +183,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
         }"""
 
         nftListingDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](nftListingJson).left.map(err =>
+          decode[StateMachineDefinition](nftListingJson).left.map(err =>
             new RuntimeException(s"Failed to decode NFT listing JSON: $err")
           )
         )
@@ -314,7 +315,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
         }"""
 
         marketplaceDef <- IO.fromEither(
-          decode[StateMachine.StateMachineDefinition](marketplaceJson).left.map(err =>
+          decode[StateMachineDefinition](marketplaceJson).left.map(err =>
             new RuntimeException(s"Failed to decode marketplace JSON: $err")
           )
         )
@@ -335,13 +336,13 @@ object NftMarketplaceSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = marketplaceDef,
-          currentState = StateMachine.StateId("active"),
+          currentState = StateId("active"),
           stateData = marketplaceData,
           stateDataHash = marketplaceHash,
           sequenceNumber = 0,
           owners = Set(registry.addresses(Alice)),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         inState = DataState(
@@ -351,9 +352,10 @@ object NftMarketplaceSuite extends SimpleIOSuite {
 
         // Alice creates an NFT listing (spawns child)
         nftListingId1 <- UUIDGen.randomUUID[IO]
-        createListing1Event = StateMachine.Event(
-          eventType = StateMachine.EventType("createListing"),
-          payload = MapValue(
+        createListing1Update = Updates.TransitionStateMachine(
+          marketplaceCid,
+          EventType("createListing"),
+          MapValue(
             Map(
               "listingId" -> StrValue(nftListingId1.toString),
               "nftId"     -> StrValue("nft-001"),
@@ -370,7 +372,6 @@ object NftMarketplaceSuite extends SimpleIOSuite {
             )
           )
         )
-        createListing1Update = Updates.ProcessFiberEvent(marketplaceCid, createListing1Event)
         createListing1Proof <- registry.generateProofs(createListing1Update, Set(Alice))
         state1              <- combiner.insert(inState, Signed(createListing1Update, createListing1Proof))
 
@@ -394,9 +395,10 @@ object NftMarketplaceSuite extends SimpleIOSuite {
 
         // Charlie creates another NFT listing
         nftListingId2 <- UUIDGen.randomUUID[IO]
-        createListing2Event = StateMachine.Event(
-          eventType = StateMachine.EventType("createListing"),
-          payload = MapValue(
+        createListing2Update = Updates.TransitionStateMachine(
+          marketplaceCid,
+          EventType("createListing"),
+          MapValue(
             Map(
               "listingId" -> StrValue(nftListingId2.toString),
               "nftId"     -> StrValue("nft-002"),
@@ -413,16 +415,16 @@ object NftMarketplaceSuite extends SimpleIOSuite {
             )
           )
         )
-        createListing2Update = Updates.ProcessFiberEvent(marketplaceCid, createListing2Event)
         createListing2Proof <- registry.generateProofs(createListing2Update, Set(Charlie))
         state2              <- combiner.insert(state1, Signed(createListing2Update, createListing2Proof))
 
         nftListing2 = state2.calculated.stateMachines.get(nftListingId2)
 
         // Bob purchases Alice's NFT (should trigger royalty oracle)
-        purchaseNft1Event = StateMachine.Event(
-          eventType = StateMachine.EventType("purchase"),
-          payload = MapValue(
+        purchaseNft1Update = Updates.TransitionStateMachine(
+          nftListingId1,
+          EventType("purchase"),
+          MapValue(
             Map(
               "buyer"      -> StrValue(registry.addresses(Bob).toString),
               "offerPrice" -> IntValue(1200),
@@ -430,7 +432,6 @@ object NftMarketplaceSuite extends SimpleIOSuite {
             )
           )
         )
-        purchaseNft1Update = Updates.ProcessFiberEvent(nftListingId1, purchaseNft1Event)
         purchaseNft1Proof <- registry.generateProofs(purchaseNft1Update, Set(Bob))
         state3            <- combiner.insert(state2, Signed(purchaseNft1Update, purchaseNft1Proof))
 
@@ -485,9 +486,10 @@ object NftMarketplaceSuite extends SimpleIOSuite {
         }
 
         // Bob purchases Charlie's NFT at a lower price
-        purchaseNft2Event = StateMachine.Event(
-          eventType = StateMachine.EventType("purchase"),
-          payload = MapValue(
+        purchaseNft2Update = Updates.TransitionStateMachine(
+          nftListingId2,
+          EventType("purchase"),
+          MapValue(
             Map(
               "buyer"      -> StrValue(registry.addresses(Bob).toString),
               "offerPrice" -> IntValue(600),
@@ -495,7 +497,6 @@ object NftMarketplaceSuite extends SimpleIOSuite {
             )
           )
         )
-        purchaseNft2Update = Updates.ProcessFiberEvent(nftListingId2, purchaseNft2Event)
         purchaseNft2Proof <- registry.generateProofs(purchaseNft2Update, Set(Bob))
         finalState        <- combiner.insert(state3, Signed(purchaseNft2Update, purchaseNft2Proof))
 
@@ -537,14 +538,14 @@ object NftMarketplaceSuite extends SimpleIOSuite {
         listingCount1.contains(BigInt(1)),
         // Verify first NFT listing was spawned correctly
         nftListing1.isDefined,
-        nftListing1.map(_.currentState).contains(StateMachine.StateId("listed")),
+        nftListing1.map(_.currentState).contains(StateId("listed")),
         nftPrice1.contains(BigInt(1000)),
         // Verify second listing was spawned
         nftListing2.isDefined,
-        nftListing2.map(_.currentState).contains(StateMachine.StateId("listed")),
+        nftListing2.map(_.currentState).contains(StateId("listed")),
         // Verify first NFT sale
         nftListing1AfterSale.isDefined,
-        nftListing1AfterSale.map(_.currentState).contains(StateMachine.StateId("sold")),
+        nftListing1AfterSale.map(_.currentState).contains(StateId("sold")),
         buyer1.contains(registry.addresses(Bob).toString),
         salePrice1.contains(BigInt(1200)),
         royaltyAmount1.contains(BigInt(6000)), // 1200 * 5
@@ -562,8 +563,8 @@ object NftMarketplaceSuite extends SimpleIOSuite {
         // Verify marketplace final state
         listingCountFinal.contains(BigInt(2)),
         // Verify both listings are sold
-        nftListing1Final.map(_.currentState).contains(StateMachine.StateId("sold")),
-        nftListing2Final.map(_.currentState).contains(StateMachine.StateId("sold"))
+        nftListing1Final.map(_.currentState).contains(StateId("sold")),
+        nftListing2Final.map(_.currentState).contains(StateId("sold"))
       )
     }
   }

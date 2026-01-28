@@ -7,16 +7,13 @@ import io.constellationnetwork.schema.SnapshotOrdinal
 import io.constellationnetwork.schema.address.Address
 import io.constellationnetwork.security.hash.Hash
 
+import xyz.kd5ujc.schema.fiber._
+
 import derevo.circe.magnolia.{decoder, encoder}
 import derevo.derive
-import enumeratum._
 
 object Records {
 
-  /**
-   * Unified trait for all fiber types.
-   * Allows uniform handling of state machines and oracles.
-   */
   sealed trait FiberRecord {
     def cid: UUID
     def status: FiberStatus
@@ -25,92 +22,14 @@ object Records {
     def latestUpdateOrdinal: SnapshotOrdinal
   }
 
-  sealed trait FiberStatus extends EnumEntry
-
-  @derive(encoder, decoder)
-  sealed trait AccessControlPolicy
-
-  object AccessControlPolicy {
-    case object Public extends AccessControlPolicy
-    final case class Whitelist(addresses: Set[Address]) extends AccessControlPolicy
-    final case class FiberOwned(fiberId: UUID) extends AccessControlPolicy
-  }
-
-  @derive(encoder, decoder)
-  final case class StructuredOutput(
-    outputType:  String,
-    data:        JsonLogicValue,
-    destination: Option[String] = None
-  )
-
-  @derive(encoder, decoder)
-  sealed trait EventProcessingStatus
-
-  object EventProcessingStatus {
-
-    final case class Success(
-      sequenceNumber: Long,
-      processedAt:    SnapshotOrdinal
-    ) extends EventProcessingStatus
-
-    final case class GuardFailed(
-      reason:             String,
-      attemptedAt:        SnapshotOrdinal,
-      attemptedEventType: StateMachine.EventType
-    ) extends EventProcessingStatus
-
-    final case class ExecutionFailed(
-      reason:             String,
-      attemptedAt:        SnapshotOrdinal,
-      attemptedEventType: StateMachine.EventType,
-      gasUsed:            Long,
-      depth:              Int
-    ) extends EventProcessingStatus
-
-    final case class ValidationFailed(
-      reason:      String,
-      attemptedAt: SnapshotOrdinal
-    ) extends EventProcessingStatus
-
-    final case class DepthExceeded(
-      attemptedAt: SnapshotOrdinal,
-      depth:       Int,
-      maxDepth:    Int,
-      gasUsed:     Long
-    ) extends EventProcessingStatus
-
-    final case class GasExhausted(
-      attemptedAt: SnapshotOrdinal,
-      gasUsed:     Long,
-      gasLimit:    Long,
-      depth:       Int
-    ) extends EventProcessingStatus
-
-    final case object Initialized extends EventProcessingStatus
-  }
-
-  @derive(encoder, decoder)
-  final case class EventReceipt(
-    sequenceNumber: Long,
-    eventType:      StateMachine.EventType,
-    ordinal:        SnapshotOrdinal,
-    fromState:      StateMachine.StateId,
-    toState:        StateMachine.StateId,
-    success:        Boolean,
-    gasUsed:        Long,
-    triggersFired:  Int,
-    outputs:        List[StructuredOutput] = List.empty,
-    errorMessage:   Option[String] = None
-  )
-
   @derive(encoder, decoder)
   final case class StateMachineFiberRecord(
     cid:                   UUID,
     creationOrdinal:       SnapshotOrdinal,
     previousUpdateOrdinal: SnapshotOrdinal,
     latestUpdateOrdinal:   SnapshotOrdinal,
-    definition:            StateMachine.StateMachineDefinition,
-    currentState:          StateMachine.StateId,
+    definition:            StateMachineDefinition,
+    currentState:          StateId,
     stateData:             JsonLogicValue,
     stateDataHash:         Hash,
     sequenceNumber:        Long,
@@ -124,16 +43,6 @@ object Records {
     eventLog:              List[EventReceipt] = List.empty,
     maxLogSize:            Int = 100
   ) extends FiberRecord
-
-  @derive(encoder, decoder)
-  final case class OracleInvocation(
-    method:    String,
-    args:      JsonLogicValue,
-    result:    JsonLogicValue,
-    gasUsed:   Long,
-    invokedAt: SnapshotOrdinal,
-    invokedBy: Address
-  )
 
   @derive(encoder, decoder)
   final case class ScriptOracleFiberRecord(
@@ -150,12 +59,4 @@ object Records {
     invocationLog:       List[OracleInvocation] = List.empty,
     maxLogSize:          Int = 100
   ) extends FiberRecord
-
-  object FiberStatus extends Enum[FiberStatus] with CirceEnum[FiberStatus] {
-    val values: IndexedSeq[FiberStatus] = findValues
-
-    case object Active extends FiberStatus
-    case object Archived extends FiberStatus
-    case object Failed extends FiberStatus
-  }
 }

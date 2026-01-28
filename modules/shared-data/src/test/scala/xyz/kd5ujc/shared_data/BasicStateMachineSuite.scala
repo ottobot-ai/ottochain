@@ -11,10 +11,9 @@ import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
-import xyz.kd5ujc.shared_data.lifecycle.validate.ValidationException
-import xyz.kd5ujc.shared_data.lifecycle.validate.rules.FiberRules
 import xyz.kd5ujc.shared_test.Participant._
 import xyz.kd5ujc.shared_test.TestFixture
 
@@ -24,23 +23,23 @@ import weaver.scalacheck.Checkers
 
 object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
-  def createCounterStateMachine(): StateMachine.StateMachineDefinition = {
-    val waitingState = StateMachine.StateId("waiting")
-    val countingState = StateMachine.StateId("counting")
-    val doneState = StateMachine.StateId("done")
+  def createCounterStateMachine(): StateMachineDefinition = {
+    val waitingState = StateId("waiting")
+    val countingState = StateId("counting")
+    val doneState = StateId("done")
 
-    StateMachine.StateMachineDefinition(
+    StateMachineDefinition(
       states = Map(
-        waitingState  -> StateMachine.State(waitingState, isFinal = false),
-        countingState -> StateMachine.State(countingState, isFinal = false),
-        doneState     -> StateMachine.State(doneState, isFinal = true)
+        waitingState  -> State(waitingState, isFinal = false),
+        countingState -> State(countingState, isFinal = false),
+        doneState     -> State(doneState, isFinal = true)
       ),
       initialState = waitingState,
       transitions = List(
-        StateMachine.Transition(
+        Transition(
           from = waitingState,
           to = countingState,
-          eventType = StateMachine.EventType("start"),
+          eventType = EventType("start"),
           guard = ConstExpression(BoolValue(true)),
           effect = ConstExpression(
             MapValue(
@@ -51,10 +50,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
             )
           )
         ),
-        StateMachine.Transition(
+        Transition(
           from = countingState,
           to = countingState,
-          eventType = StateMachine.EventType("increment"),
+          eventType = EventType("increment"),
           guard = ApplyExpression(
             Lt,
             List(
@@ -85,10 +84,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
             )
           )
         ),
-        StateMachine.Transition(
+        Transition(
           from = countingState,
           to = doneState,
-          eventType = StateMachine.EventType("finish"),
+          eventType = EventType("finish"),
           guard = ConstExpression(BoolValue(true)),
           effect = ConstExpression(
             ArrayValue(
@@ -124,7 +123,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         definition = createCounterStateMachine()
         initialData = MapValue(Map.empty[String, JsonLogicValue])
 
-        update = Updates.CreateStateMachineFiber(cid, definition, initialData)
+        update = Updates.CreateStateMachine(cid, definition, initialData)
         updateProof <- fixture.registry.generateProofs(update, Set(Alice, Bob))
 
         inState = DataState(OnChain.genesis, CalculatedState.genesis)
@@ -135,9 +134,9 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
       } yield expect(fiber.isDefined) and
-      expect(fiber.map(_.currentState).contains(StateMachine.StateId("waiting"))) and
+      expect(fiber.map(_.currentState).contains(StateId("waiting"))) and
       expect(fiber.map(_.sequenceNumber).contains(0L)) and
-      expect(fiber.map(_.status).contains(Records.FiberStatus.Active))
+      expect(fiber.map(_.status).contains(FiberStatus.Active))
     }
   }
 
@@ -152,18 +151,18 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         definition = createCounterStateMachine()
         initialData = MapValue(Map.empty[String, JsonLogicValue])
 
-        createUpdate = Updates.CreateStateMachineFiber(cid, definition, initialData)
+        createUpdate = Updates.CreateStateMachine(cid, definition, initialData)
         createProof <- fixture.registry.generateProofs(createUpdate, Set(Alice, Bob))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createUpdate, createProof)
         )
 
-        startEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("start"),
-          payload = MapValue(Map.empty[String, JsonLogicValue])
+        processUpdate = Updates.TransitionStateMachine(
+          cid,
+          EventType("start"),
+          MapValue(Map.empty[String, JsonLogicValue])
         )
-        processUpdate = Updates.ProcessFiberEvent(cid, startEvent)
         processProof    <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         stateAfterStart <- combiner.insert(stateAfterCreate, Signed(processUpdate, processProof))
 
@@ -178,7 +177,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           }
         }
       } yield expect(fiber.isDefined) and
-      expect(fiber.map(_.currentState).contains(StateMachine.StateId("counting"))) and
+      expect(fiber.map(_.currentState).contains(StateId("counting"))) and
       expect(fiber.map(_.sequenceNumber).contains(1L)) and
       expect(counterValue.contains(BigInt(0)))
     }
@@ -208,13 +207,13 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("counting"),
+          currentState = StateId("counting"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(fixture.registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         inState = DataState(
@@ -222,11 +221,11 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           CalculatedState(Map(cid -> fiber), Map.empty)
         )
 
-        incrementEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("increment"),
-          payload = MapValue(Map.empty[String, JsonLogicValue])
+        processUpdate = Updates.TransitionStateMachine(
+          cid,
+          EventType("increment"),
+          MapValue(Map.empty[String, JsonLogicValue])
         )
-        processUpdate = Updates.ProcessFiberEvent(cid, incrementEvent)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         outState     <- combiner.insert(inState, Signed(processUpdate, processProof))
 
@@ -247,7 +246,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           }
         }
       } yield expect(updatedFiber.isDefined) and
-      expect(updatedFiber.map(_.currentState).contains(StateMachine.StateId("counting"))) and
+      expect(updatedFiber.map(_.currentState).contains(StateId("counting"))) and
       expect(updatedFiber.map(_.sequenceNumber).contains(1L)) and
       expect(counterValue.contains(BigInt(6))) and
       expect(activeValue.contains(true))
@@ -278,13 +277,13 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("counting"),
+          currentState = StateId("counting"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(fixture.registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         inState = DataState(
@@ -292,11 +291,11 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           CalculatedState(Map(cid -> fiber), Map.empty)
         )
 
-        finishEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("finish"),
-          payload = MapValue(Map.empty[String, JsonLogicValue])
+        processUpdate = Updates.TransitionStateMachine(
+          cid,
+          EventType("finish"),
+          MapValue(Map.empty[String, JsonLogicValue])
         )
-        processUpdate = Updates.ProcessFiberEvent(cid, finishEvent)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         outState     <- combiner.insert(inState, Signed(processUpdate, processProof))
 
@@ -317,7 +316,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           }
         }
       } yield expect(updatedFiber.isDefined) and
-      expect(updatedFiber.map(_.currentState).contains(StateMachine.StateId("done"))) and
+      expect(updatedFiber.map(_.currentState).contains(StateId("done"))) and
       expect(updatedFiber.map(_.sequenceNumber).contains(1L)) and
       expect(activeValue.contains(false)) and
       expect(counterValue.contains(BigInt(99)))
@@ -348,13 +347,13 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("counting"),
+          currentState = StateId("counting"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(fixture.registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         inState = DataState(
@@ -362,11 +361,11 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           CalculatedState(Map(cid -> fiber), Map.empty)
         )
 
-        incrementEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("increment"),
-          payload = MapValue(Map.empty[String, JsonLogicValue])
+        processUpdate = Updates.TransitionStateMachine(
+          cid,
+          EventType("increment"),
+          MapValue(Map.empty[String, JsonLogicValue])
         )
-        processUpdate = Updates.ProcessFiberEvent(cid, incrementEvent)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
 
         result <- combiner.insert(inState, Signed(processUpdate, processProof))
@@ -376,11 +375,11 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
       } yield expect(updatedFiber.isDefined) and
-      expect(updatedFiber.map(_.currentState).contains(StateMachine.StateId("counting"))) and // State unchanged
+      expect(updatedFiber.map(_.currentState).contains(StateId("counting"))) and // State unchanged
       expect(updatedFiber.map(_.sequenceNumber).contains(0L)) and // Sequence not incremented
       expect(updatedFiber.map(_.lastEventStatus).exists {
-        case Records.EventProcessingStatus.GuardFailed(_, _, _) => true
-        case _                                                  => false
+        case EventProcessingStatus.GuardFailed(_, _, _) => true
+        case _                                          => false
       })
     }
   }
@@ -403,13 +402,13 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("waiting"),
+          currentState = StateId("waiting"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(fixture.registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         inState = DataState(
@@ -417,7 +416,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           CalculatedState(Map(cid -> fiber), Map.empty)
         )
 
-        archiveUpdate = Updates.ArchiveFiber(cid)
+        archiveUpdate = Updates.ArchiveStateMachine(cid)
         archiveProof <- fixture.registry.generateProofs(archiveUpdate, Set(Alice))
         outState     <- combiner.insert(inState, Signed(archiveUpdate, archiveProof))
 
@@ -426,7 +425,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
       } yield expect(archivedFiber.isDefined) and
-      expect(archivedFiber.map(_.status).contains(Records.FiberStatus.Archived))
+      expect(archivedFiber.map(_.status).contains(FiberStatus.Archived))
     }
   }
 
@@ -448,13 +447,13 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("waiting"),
+          currentState = StateId("waiting"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(fixture.registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         inState = DataState(
@@ -463,30 +462,35 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         )
 
         // Archive the fiber first
-        archiveUpdate = Updates.ArchiveFiber(cid)
+        archiveUpdate = Updates.ArchiveStateMachine(cid)
         archiveProof  <- fixture.registry.generateProofs(archiveUpdate, Set(Alice))
         archivedState <- combiner.insert(inState, Signed(archiveUpdate, archiveProof))
 
         // Attempt to process an event on the archived fiber
-        startEvent = Updates.ProcessFiberEvent(
+        processUpdate = Updates.TransitionStateMachine(
           cid,
-          StateMachine.Event(StateMachine.EventType("start"), MapValue(Map.empty))
+          EventType("start"),
+          MapValue(Map.empty)
         )
-        eventProof <- fixture.registry.generateProofs(startEvent, Set(Alice))
+        eventProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
 
-        // The event should fail because fiber is archived
-        eventResult <- combiner.insert(archivedState, Signed(startEvent, eventProof)).attempt
+        // The event should record failure because fiber is archived
+        eventResult <- combiner.insert(archivedState, Signed(processUpdate, eventProof))
 
-      } yield eventResult match {
-        case Left(ValidationException(err: FiberRules.Errors.FiberNotActive)) =>
-          // Archived fiber should fail with FiberNotActive validation error
-          expect(err.cid == cid, s"Expected FiberNotActive for $cid, got ${err.cid}")
-        case Left(other) =>
-          failure(
-            s"Expected FiberNotActive validation error, got: ${other.getClass.getSimpleName}: ${other.getMessage}"
-          )
-        case Right(_) =>
-          failure("Expected error when processing event on archived fiber, but transaction succeeded")
+        // Get the updated fiber to check its status
+        updatedFiber = eventResult.calculated.stateMachines.get(cid)
+
+      } yield updatedFiber match {
+        case Some(fiber) =>
+          // Archived fiber should have ExecutionFailed status recorded
+          fiber.lastEventStatus match {
+            case EventProcessingStatus.ExecutionFailed(reason, _, _, _, _) =>
+              expect(reason.toLowerCase.contains("not active"), s"Expected 'not active' in reason, got: $reason")
+            case other =>
+              failure(s"Expected ExecutionFailed status, got: $other")
+          }
+        case None =>
+          failure(s"Fiber $cid not found in result state")
       }
     }
   }
@@ -515,13 +519,13 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("counting"),
+          currentState = StateId("counting"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(fixture.registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         inState = DataState(
@@ -529,12 +533,11 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           CalculatedState(Map(cid -> fiber), Map.empty)
         )
 
-        incrementEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("increment"),
-          payload = MapValue(Map.empty[String, JsonLogicValue])
+        processUpdate = Updates.TransitionStateMachine(
+          cid,
+          EventType("increment"),
+          MapValue(Map.empty[String, JsonLogicValue])
         )
-
-        processUpdate = Updates.ProcessFiberEvent(cid, incrementEvent)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         finalState   <- combiner.insert(inState, Signed(processUpdate, processProof))
 
@@ -563,17 +566,17 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
         cid <- UUIDGen.randomUUID[IO]
 
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("open")   -> StateMachine.State(StateMachine.StateId("open")),
-            StateMachine.StateId("locked") -> StateMachine.State(StateMachine.StateId("locked"))
+            StateId("open")   -> State(StateId("open")),
+            StateId("locked") -> State(StateId("locked"))
           ),
-          initialState = StateMachine.StateId("open"),
+          initialState = StateId("open"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("open"),
-              to = StateMachine.StateId("locked"),
-              eventType = StateMachine.EventType("lock"),
+            Transition(
+              from = StateId("open"),
+              to = StateId("locked"),
+              eventType = EventType("lock"),
               guard = ApplyExpression(
                 EqStrictOp,
                 List(
@@ -601,13 +604,13 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("open"),
+          currentState = StateId("open"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set(Alice).map(fixture.registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         inState = DataState(
@@ -615,11 +618,11 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           CalculatedState(Map(cid -> fiber), Map.empty)
         )
 
-        lockEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("lock"),
-          payload = MapValue(Map("authorized" -> BoolValue(true)))
+        processUpdate = Updates.TransitionStateMachine(
+          cid,
+          EventType("lock"),
+          MapValue(Map("authorized" -> BoolValue(true)))
         )
-        processUpdate = Updates.ProcessFiberEvent(cid, lockEvent)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         outState     <- combiner.insert(inState, Signed(processUpdate, processProof))
 
@@ -628,7 +631,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
       } yield expect(updatedFiber.isDefined) and
-      expect(updatedFiber.map(_.currentState).contains(StateMachine.StateId("locked")))
+      expect(updatedFiber.map(_.currentState).contains(StateId("locked")))
     }
   }
 
@@ -641,17 +644,17 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
         cid <- UUIDGen.randomUUID[IO]
 
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("open")   -> StateMachine.State(StateMachine.StateId("open")),
-            StateMachine.StateId("locked") -> StateMachine.State(StateMachine.StateId("locked"))
+            StateId("open")   -> State(StateId("open")),
+            StateId("locked") -> State(StateId("locked"))
           ),
-          initialState = StateMachine.StateId("open"),
+          initialState = StateId("open"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("open"),
-              to = StateMachine.StateId("locked"),
-              eventType = StateMachine.EventType("lock"),
+            Transition(
+              from = StateId("open"),
+              to = StateId("locked"),
+              eventType = EventType("lock"),
               guard = ApplyExpression(
                 EqStrictOp,
                 List(
@@ -673,13 +676,13 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("open"),
+          currentState = StateId("open"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set(Alice).map(fixture.registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         inState = DataState(
@@ -687,11 +690,11 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           CalculatedState(Map(cid -> fiber), Map.empty)
         )
 
-        lockEvent = StateMachine.Event(
-          eventType = StateMachine.EventType("lock"),
-          payload = MapValue(Map("authorized" -> BoolValue(false)))
+        processUpdate = Updates.TransitionStateMachine(
+          cid,
+          EventType("lock"),
+          MapValue(Map("authorized" -> BoolValue(false)))
         )
-        processUpdate = Updates.ProcessFiberEvent(cid, lockEvent)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- combiner.insert(inState, Signed(processUpdate, processProof))
 
@@ -700,11 +703,11 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
       } yield expect(updatedFiber.isDefined) and
-      expect(updatedFiber.map(_.currentState).contains(StateMachine.StateId("open"))) and // State unchanged
+      expect(updatedFiber.map(_.currentState).contains(StateId("open"))) and // State unchanged
       expect(updatedFiber.map(_.sequenceNumber).contains(0L)) and // Sequence not incremented
       expect(updatedFiber.map(_.lastEventStatus).exists {
-        case Records.EventProcessingStatus.GuardFailed(_, _, _) => true
-        case _                                                  => false
+        case EventProcessingStatus.GuardFailed(_, _, _) => true
+        case _                                          => false
       })
     }
   }
@@ -734,13 +737,13 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
             previousUpdateOrdinal = fixture.ordinal,
             latestUpdateOrdinal = fixture.ordinal,
             definition = definition,
-            currentState = StateMachine.StateId("counting"),
+            currentState = StateId("counting"),
             stateData = initialData,
             stateDataHash = initialHash,
             sequenceNumber = 0,
             owners = Set(Alice, Bob).map(fixture.registry.addresses),
-            status = Records.FiberStatus.Active,
-            lastEventStatus = Records.EventProcessingStatus.Initialized
+            status = FiberStatus.Active,
+            lastEventStatus = EventProcessingStatus.Initialized
           )
 
           inState = DataState(
@@ -748,13 +751,12 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
             CalculatedState(Map(cid -> fiber), Map.empty)
           )
 
-          incrementEvent = StateMachine.Event(
-            eventType = StateMachine.EventType("increment"),
-            payload = MapValue(Map.empty[String, JsonLogicValue])
-          )
-
           finalState <- (1 to increments).toList.foldLeftM(inState) { (state, _) =>
-            val processUpdate = Updates.ProcessFiberEvent(cid, incrementEvent)
+            val processUpdate = Updates.TransitionStateMachine(
+              cid,
+              EventType("increment"),
+              MapValue(Map.empty[String, JsonLogicValue])
+            )
             for {
               processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
               newState     <- combiner.insert(state, Signed(processUpdate, processProof))

@@ -12,7 +12,8 @@ import io.constellationnetwork.metagraph_sdk.json_logic.{BoolValue, ConstExpress
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.signature.SignatureProof
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine}
+import xyz.kd5ujc.schema.fiber.{EventType, FiberStatus, StateId, StateMachineDefinition}
+import xyz.kd5ujc.schema.{CalculatedState, OnChain}
 import xyz.kd5ujc.shared_data.lifecycle.validate.{Limits, ValidationResult}
 import xyz.kd5ujc.shared_data.syntax.calculatedState._
 
@@ -33,7 +34,7 @@ object FiberRules {
 
     /** Validates a state machine definition is structurally valid */
     def validStateMachineDefinition[F[_]: Applicative](
-      definition: StateMachine.StateMachineDefinition
+      definition: StateMachineDefinition
     ): F[ValidationResult] = {
       val validations: List[ValidationResult] = List(
         // Must have at least one state
@@ -91,7 +92,7 @@ object FiberRules {
 
     /** Validates definition size limits (states, transitions) */
     def definitionWithinLimits[F[_]: Applicative](
-      definition: StateMachine.StateMachineDefinition
+      definition: StateMachineDefinition
     ): F[ValidationResult] = {
       val maxPerState = definition.transitions
         .groupBy(_.from)
@@ -123,7 +124,7 @@ object FiberRules {
 
     /** Validates all guard and effect expressions in a definition are within depth limits */
     def definitionExpressionsWithinDepthLimits[F[_]: Applicative](
-      definition: StateMachine.StateMachineDefinition
+      definition: StateMachineDefinition
     ): F[ValidationResult] = {
       val guardValidations = definition.transitions.zipWithIndex.map { case (t, idx) =>
         CommonRules.expressionWithinDepthLimit(t.guard, s"transition[$idx].guard")
@@ -177,7 +178,7 @@ object FiberRules {
     ): F[ValidationResult] = (for {
       record <- state.getFiberRecord(cid)
       result <- EitherT.cond[F](
-        record.status == Records.FiberStatus.Active,
+        record.status == FiberStatus.Active,
         (),
         Errors.FiberNotActive(cid): DataApplicationValidationError
       )
@@ -208,7 +209,7 @@ object FiberRules {
     /** Validates that a transition exists for the given state+event combination */
     def transitionExists[F[_]: Monad](
       cid:       UUID,
-      eventType: StateMachine.EventType,
+      eventType: EventType,
       state:     CalculatedState
     ): F[ValidationResult] = (for {
       record <- state.getFiberRecord(cid)
@@ -236,7 +237,7 @@ object FiberRules {
           ) { fiber =>
             Validated
               .condNec(
-                fiber.status == Records.FiberStatus.Active,
+                fiber.status == FiberStatus.Active,
                 (),
                 Errors.ParentFiberNotActive(parentId): DataApplicationValidationError
               )
@@ -257,15 +258,15 @@ object FiberRules {
       override val message: String = "State machine definition has no states"
     }
 
-    final case class InitialStateNotFound(state: StateMachine.StateId) extends DataApplicationValidationError {
+    final case class InitialStateNotFound(state: StateId) extends DataApplicationValidationError {
       override val message: String = s"Initial state ${state.value} not found in states"
     }
 
-    final case class TransitionFromInvalidState(state: StateMachine.StateId) extends DataApplicationValidationError {
+    final case class TransitionFromInvalidState(state: StateId) extends DataApplicationValidationError {
       override val message: String = s"Transition references invalid from state: ${state.value}"
     }
 
-    final case class TransitionToInvalidState(state: StateMachine.StateId) extends DataApplicationValidationError {
+    final case class TransitionToInvalidState(state: StateId) extends DataApplicationValidationError {
       override val message: String = s"Transition references invalid to state: ${state.value}"
     }
 
@@ -332,8 +333,8 @@ object FiberRules {
     // --- Transition errors ---
 
     final case class NoTransitionForEvent(
-      state:     StateMachine.StateId,
-      eventType: StateMachine.EventType
+      state:     StateId,
+      eventType: EventType
     ) extends DataApplicationValidationError {
       override val message: String = s"No transition from state ${state.value} for event ${eventType.value}"
     }

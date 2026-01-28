@@ -9,7 +9,8 @@ import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Participant._
 import xyz.kd5ujc.shared_test.TestFixture
@@ -87,31 +88,25 @@ object TriggerEventsSuite extends SimpleIOSuite {
         }
         """
 
-        initiatorDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](initiatorJson))
-        targetDef    <- IO.fromEither(decode[StateMachine.StateMachineDefinition](targetJson))
+        initiatorDef <- IO.fromEither(decode[StateMachineDefinition](initiatorJson))
+        targetDef    <- IO.fromEither(decode[StateMachineDefinition](targetJson))
 
         initiatorData = MapValue(Map("status" -> StrValue("idle")))
         targetData = MapValue(Map("status" -> StrValue("inactive")))
 
-        createInitiator = Updates.CreateStateMachineFiber(initiatorCid, initiatorDef, initiatorData)
+        createInitiator = Updates.CreateStateMachine(initiatorCid, initiatorDef, initiatorData)
         initiatorProof <- fixture.registry.generateProofs(createInitiator, Set(Alice))
         stateAfterInitiator <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createInitiator, initiatorProof)
         )
 
-        createTarget = Updates.CreateStateMachineFiber(targetCid, targetDef, targetData)
+        createTarget = Updates.CreateStateMachine(targetCid, targetDef, targetData)
         targetProof      <- fixture.registry.generateProofs(createTarget, Set(Bob))
         stateAfterTarget <- combiner.insert(stateAfterInitiator, Signed(createTarget, targetProof))
 
         // Send start event to initiator - should trigger target
-        startEvent = Updates.ProcessFiberEvent(
-          initiatorCid,
-          StateMachine.Event(
-            StateMachine.EventType("start"),
-            MapValue(Map.empty)
-          )
-        )
+        startEvent = Updates.TransitionStateMachine(initiatorCid, EventType("start"), MapValue(Map.empty))
         startProof <- fixture.registry.generateProofs(startEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterTarget, Signed(startEvent, startProof))
 
@@ -145,9 +140,9 @@ object TriggerEventsSuite extends SimpleIOSuite {
         }
 
       } yield expect(initiator.isDefined) and
-      expect(initiator.map(_.currentState).contains(StateMachine.StateId("triggered"))) and
+      expect(initiator.map(_.currentState).contains(StateId("triggered"))) and
       expect(target.isDefined) and
-      expect(target.map(_.currentState).contains(StateMachine.StateId("active"))) and
+      expect(target.map(_.currentState).contains(StateId("active"))) and
       expect(targetStatus.contains("active")) and
       expect(targetActivatedBy.contains(initiatorCid.toString)) and
       expect(targetActivatedAt.contains(BigInt(12345)))
@@ -252,35 +247,29 @@ object TriggerEventsSuite extends SimpleIOSuite {
         }
         """
 
-        machineADef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineAJson))
-        machineBDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineBJson))
-        machineCDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineCJson))
+        machineADef <- IO.fromEither(decode[StateMachineDefinition](machineAJson))
+        machineBDef <- IO.fromEither(decode[StateMachineDefinition](machineBJson))
+        machineCDef <- IO.fromEither(decode[StateMachineDefinition](machineCJson))
 
         initialData = MapValue(Map("step" -> IntValue(0)))
 
-        createA = Updates.CreateStateMachineFiber(machineCid, machineADef, initialData)
+        createA = Updates.CreateStateMachine(machineCid, machineADef, initialData)
         aProof <- fixture.registry.generateProofs(createA, Set(Alice))
         stateAfterA <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createA, aProof)
         )
 
-        createB = Updates.CreateStateMachineFiber(machine2Cid, machineBDef, initialData)
+        createB = Updates.CreateStateMachine(machine2Cid, machineBDef, initialData)
         bProof      <- fixture.registry.generateProofs(createB, Set(Alice))
         stateAfterB <- combiner.insert(stateAfterA, Signed(createB, bProof))
 
-        createC = Updates.CreateStateMachineFiber(machine3Cid, machineCDef, initialData)
+        createC = Updates.CreateStateMachine(machine3Cid, machineCDef, initialData)
         cProof      <- fixture.registry.generateProofs(createC, Set(Alice))
         stateAfterC <- combiner.insert(stateAfterB, Signed(createC, cProof))
 
         // Send start to A - should cascade to B then C
-        startEvent = Updates.ProcessFiberEvent(
-          machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("start"),
-            MapValue(Map.empty)
-          )
-        )
+        startEvent = Updates.TransitionStateMachine(machineCid, EventType("start"), MapValue(Map.empty))
         startProof <- fixture.registry.generateProofs(startEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterC, Signed(startEvent, startProof))
 
@@ -318,13 +307,13 @@ object TriggerEventsSuite extends SimpleIOSuite {
         }
 
       } yield expect(machineA.isDefined) and
-      expect(machineA.map(_.currentState).contains(StateMachine.StateId("done"))) and
+      expect(machineA.map(_.currentState).contains(StateId("done"))) and
       expect(stepA.contains(BigInt(1))) and
       expect(machineB.isDefined) and
-      expect(machineB.map(_.currentState).contains(StateMachine.StateId("done"))) and
+      expect(machineB.map(_.currentState).contains(StateId("done"))) and
       expect(stepB.contains(BigInt(2))) and
       expect(machineC.isDefined) and
-      expect(machineC.map(_.currentState).contains(StateMachine.StateId("done"))) and
+      expect(machineC.map(_.currentState).contains(StateId("done"))) and
       expect(stepC.contains(BigInt(3)))
     }
   }
@@ -398,33 +387,31 @@ object TriggerEventsSuite extends SimpleIOSuite {
         }
         """
 
-        sourceDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](sourceJson))
-        targetDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](targetJson))
+        sourceDef <- IO.fromEither(decode[StateMachineDefinition](sourceJson))
+        targetDef <- IO.fromEither(decode[StateMachineDefinition](targetJson))
 
         sourceData = MapValue(Map("balance" -> IntValue(1000)))
         targetData = MapValue(Map.empty[String, JsonLogicValue])
 
-        createSource = Updates.CreateStateMachineFiber(sourceCid, sourceDef, sourceData)
+        createSource = Updates.CreateStateMachine(sourceCid, sourceDef, sourceData)
         sourceProof <- fixture.registry.generateProofs(createSource, Set(Alice))
         stateAfterSource <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createSource, sourceProof)
         )
 
-        createTarget = Updates.CreateStateMachineFiber(targetCid, targetDef, targetData)
+        createTarget = Updates.CreateStateMachine(targetCid, targetDef, targetData)
         targetProof      <- fixture.registry.generateProofs(createTarget, Set(Alice))
         stateAfterTarget <- combiner.insert(stateAfterSource, Signed(createTarget, targetProof))
 
         // Send event with payload - should compute and pass to target
-        sendEvent = Updates.ProcessFiberEvent(
+        sendEvent = Updates.TransitionStateMachine(
           sourceCid,
-          StateMachine.Event(
-            StateMachine.EventType("send"),
-            MapValue(
-              Map(
-                "amount"  -> IntValue(250),
-                "message" -> StrValue("Hello from source")
-              )
+          EventType("send"),
+          MapValue(
+            Map(
+              "amount"  -> IntValue(250),
+              "message" -> StrValue("Hello from source")
             )
           )
         )
@@ -468,10 +455,10 @@ object TriggerEventsSuite extends SimpleIOSuite {
         }
 
       } yield expect(source.isDefined) and
-      expect(source.map(_.currentState).contains(StateMachine.StateId("sent"))) and
+      expect(source.map(_.currentState).contains(StateId("sent"))) and
       expect(sourceBalance.contains(BigInt(750))) and // 1000 - 250
       expect(target.isDefined) and
-      expect(target.map(_.currentState).contains(StateMachine.StateId("received"))) and
+      expect(target.map(_.currentState).contains(StateId("received"))) and
       expect(targetAmount.contains(BigInt(1250))) and // 1000 + 250 (computed in payload)
       expect(targetSender.contains(sourceCid.toString)) and
       expect(targetMessage.contains("Hello from source"))
@@ -518,10 +505,10 @@ object TriggerEventsSuite extends SimpleIOSuite {
         }
         """
 
-        sourceDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](sourceJson))
+        sourceDef <- IO.fromEither(decode[StateMachineDefinition](sourceJson))
         sourceData = MapValue(Map("status" -> StrValue("idle")))
 
-        createSource = Updates.CreateStateMachineFiber(sourceCid, sourceDef, sourceData)
+        createSource = Updates.CreateStateMachine(sourceCid, sourceDef, sourceData)
         sourceProof <- fixture.registry.generateProofs(createSource, Set(Alice))
         stateAfterSource <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -529,13 +516,7 @@ object TriggerEventsSuite extends SimpleIOSuite {
         )
 
         // Send event - should fail because trigger target doesn't exist
-        triggerEvent = Updates.ProcessFiberEvent(
-          sourceCid,
-          StateMachine.Event(
-            StateMachine.EventType("try_trigger"),
-            MapValue(Map.empty)
-          )
-        )
+        triggerEvent = Updates.TransitionStateMachine(sourceCid, EventType("try_trigger"), MapValue(Map.empty))
         triggerProof <- fixture.registry.generateProofs(triggerEvent, Set(Alice))
         finalState   <- combiner.insert(stateAfterSource, Signed(triggerEvent, triggerProof))
 
@@ -546,13 +527,13 @@ object TriggerEventsSuite extends SimpleIOSuite {
 
         // Event should be recorded with ExecutionFailed status in the fiber's lastEventStatus
         isTriggerTargetNotFound = source.map(_.lastEventStatus).exists {
-          case Records.EventProcessingStatus.ExecutionFailed(reason, _, _, _, _) =>
+          case EventProcessingStatus.ExecutionFailed(reason, _, _, _, _) =>
             reason.contains("Trigger target fiber") && reason.contains(nonExistentCid.toString)
           case _ => false
         }
 
       } yield expect(source.isDefined) and
-      expect(source.map(_.currentState).contains(StateMachine.StateId("idle"))) and // Stayed in idle
+      expect(source.map(_.currentState).contains(StateId("idle"))) and // Stayed in idle
       expect(isTriggerTargetNotFound)
     }
   }
@@ -661,30 +642,24 @@ object TriggerEventsSuite extends SimpleIOSuite {
         }
         """
 
-        machineADef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineAJson))
-        machineBDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineBJson))
+        machineADef <- IO.fromEither(decode[StateMachineDefinition](machineAJson))
+        machineBDef <- IO.fromEither(decode[StateMachineDefinition](machineBJson))
 
         initialData = MapValue(Map("count" -> IntValue(0)))
 
-        createA = Updates.CreateStateMachineFiber(machineACid, machineADef, initialData)
+        createA = Updates.CreateStateMachine(machineACid, machineADef, initialData)
         aProof <- fixture.registry.generateProofs(createA, Set(Alice))
         stateAfterA <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createA, aProof)
         )
 
-        createB = Updates.CreateStateMachineFiber(machineBCid, machineBDef, initialData)
+        createB = Updates.CreateStateMachine(machineBCid, machineBDef, initialData)
         bProof      <- fixture.registry.generateProofs(createB, Set(Alice))
         stateAfterB <- combiner.insert(stateAfterA, Signed(createB, bProof))
 
         // Send ping to A - should trigger B which tries to trigger A again (cycle)
-        pingEvent = Updates.ProcessFiberEvent(
-          machineACid,
-          StateMachine.Event(
-            StateMachine.EventType("ping"),
-            MapValue(Map.empty)
-          )
-        )
+        pingEvent = Updates.TransitionStateMachine(machineACid, EventType("ping"), MapValue(Map.empty))
         pingProof  <- fixture.registry.generateProofs(pingEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterB, Signed(pingEvent, pingProof))
 
@@ -715,12 +690,12 @@ object TriggerEventsSuite extends SimpleIOSuite {
       // Atomic rollback - cycle detected, transaction aborted
       expect(countA.contains(BigInt(0))) and // No state changes
       expect(countB.contains(BigInt(0))) and
-      expect(machineA.map(_.currentState).contains(StateMachine.StateId("idle"))) and // Original states
-      expect(machineB.map(_.currentState).contains(StateMachine.StateId("idle"))) and
+      expect(machineA.map(_.currentState).contains(StateId("idle"))) and // Original states
+      expect(machineB.map(_.currentState).contains(StateId("idle"))) and
       // Parent fiber should have ExecutionFailed status
       expect(machineA.map(_.lastEventStatus).exists {
-        case Records.EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
-        case _                                                            => false
+        case EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
+        case _                                                    => false
       })
     }
   }

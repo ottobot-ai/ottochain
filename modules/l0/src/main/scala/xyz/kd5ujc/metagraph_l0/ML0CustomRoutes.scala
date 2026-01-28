@@ -12,8 +12,8 @@ import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.metagraph_sdk.syntax.all.L0ContextOps
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.Records.FiberStatus
 import xyz.kd5ujc.schema.Updates.OttochainMessage
+import xyz.kd5ujc.schema.fiber.FiberStatus
 import xyz.kd5ujc.schema.{CalculatedState, OnChain}
 
 import io.circe.Json

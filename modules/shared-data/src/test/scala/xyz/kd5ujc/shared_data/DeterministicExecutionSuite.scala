@@ -12,9 +12,10 @@ import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluat
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 
-import xyz.kd5ujc.schema.{CalculatedState, Records, StateMachine}
-import xyz.kd5ujc.shared_data.fiber.domain._
-import xyz.kd5ujc.shared_data.fiber.engine._
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, Records}
+import xyz.kd5ujc.shared_data.fiber.FiberTInstances._
+import xyz.kd5ujc.shared_data.fiber.{ExecutionState, FiberEngine, FiberT, TriggerDispatcher}
 import xyz.kd5ujc.shared_data.lifecycle.validate.rules.CommonRules
 import xyz.kd5ujc.shared_test.{Participant, TestFixture}
 
@@ -34,17 +35,17 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         ordinal = fixture.ordinal
 
         // Create a simple state machine
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("idle")   -> StateMachine.State(StateMachine.StateId("idle")),
-            StateMachine.StateId("active") -> StateMachine.State(StateMachine.StateId("active"))
+            StateId("idle")   -> State(StateId("idle")),
+            StateId("active") -> State(StateId("active"))
           ),
-          initialState = StateMachine.StateId("idle"),
+          initialState = StateId("idle"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("idle"),
-              to = StateMachine.StateId("active"),
-              eventType = StateMachine.EventType("activate"),
+            Transition(
+              from = StateId("idle"),
+              to = StateId("active"),
+              eventType = EventType("activate"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("activated" -> BoolValue(true))))
             )
@@ -60,40 +61,40 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("idle"),
+          currentState = StateId("idle"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("activate"),
+          EventType("activate"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
 
         // Execute the same input multiple times
-        orchestrator1 = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator1 = FiberEngine.make[IO](calculatedState, ordinal, limits)
         result1 <- orchestrator1.process(fiberId, input, List.empty)
 
-        orchestrator2 = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator2 = FiberEngine.make[IO](calculatedState, ordinal, limits)
         result2 <- orchestrator2.process(fiberId, input, List.empty)
 
-        orchestrator3 = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator3 = FiberEngine.make[IO](calculatedState, ordinal, limits)
         result3 <- orchestrator3.process(fiberId, input, List.empty)
 
       } yield expect(result1 == result2) and // All results should be identical
       expect(result2 == result3) and
-      expect(result1.isInstanceOf[TransactionOutcome.Committed]) and
+      expect(result1.isInstanceOf[TransactionResult.Committed]) and
       expect(
         result1 match {
-          case TransactionOutcome.Committed(updatedSMs, _, _, _, _, _) =>
-            updatedSMs.get(fiberId).exists(_.currentState == StateMachine.StateId("active"))
+          case TransactionResult.Committed(updatedSMs, _, _, _, _, _) =>
+            updatedSMs.get(fiberId).exists(_.currentState == StateId("active"))
           case _ => false
         }
       )
@@ -124,16 +125,16 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           List(expensiveExpr, ConstExpression(IntValue(51))) // Will be true
         )
 
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("idle") -> StateMachine.State(StateMachine.StateId("idle"))
+            StateId("idle") -> State(StateId("idle"))
           ),
-          initialState = StateMachine.StateId("idle"),
+          initialState = StateId("idle"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("idle"),
-              to = StateMachine.StateId("idle"),
-              eventType = StateMachine.EventType("process"),
+            Transition(
+              from = StateId("idle"),
+              to = StateId("idle"),
+              eventType = EventType("process"),
               guard = guardExpr,
               effect = ConstExpression(MapValue(Map("processed" -> BoolValue(true))))
             )
@@ -149,31 +150,31 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("idle"),
+          currentState = StateId("idle"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("process"),
+          EventType("process"),
           MapValue(Map.empty)
         )
 
         // Use a very low gas limit (1) so evaluation should exceed it
         limits = ExecutionLimits(maxDepth = 10, maxGas = 1L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
-          expect(reason.isInstanceOf[StateMachine.FailureReason.GasExhaustedFailure])
+        case TransactionResult.Aborted(reason, _, _) =>
+          expect(reason.isInstanceOf[FailureReason.GasExhaustedFailure])
             .or(failure(s"Expected GasExhaustedFailure but got: ${reason.getClass.getSimpleName}"))
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected Aborted with GasExhaustedFailure, but transaction was committed")
       }
     }
@@ -230,17 +231,17 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         ordinal = fixture.ordinal
 
         // Create a state machine that triggers itself with the same event type
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("loop1") -> StateMachine.State(StateMachine.StateId("loop1")),
-            StateMachine.StateId("loop2") -> StateMachine.State(StateMachine.StateId("loop2"))
+            StateId("loop1") -> State(StateId("loop1")),
+            StateId("loop2") -> State(StateId("loop2"))
           ),
-          initialState = StateMachine.StateId("loop1"),
+          initialState = StateId("loop1"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("loop1"),
-              to = StateMachine.StateId("loop2"),
-              eventType = StateMachine.EventType("loop"),
+            Transition(
+              from = StateId("loop1"),
+              to = StateId("loop2"),
+              eventType = EventType("loop"),
               guard = ConstExpression(BoolValue(true)),
               // Effect triggers the same fiber with the same event type (creates cycle)
               effect = ConstExpression(
@@ -262,10 +263,10 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                 )
               )
             ),
-            StateMachine.Transition(
-              from = StateMachine.StateId("loop2"),
-              to = StateMachine.StateId("loop1"),
-              eventType = StateMachine.EventType("loop"),
+            Transition(
+              from = StateId("loop2"),
+              to = StateId("loop1"),
+              eventType = EventType("loop"),
               guard = ConstExpression(BoolValue(true)),
               // This transition ALSO triggers, creating an infinite loop
               effect = ConstExpression(
@@ -299,30 +300,30 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("loop1"),
+          currentState = StateId("loop1"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("loop"),
+          EventType("loop"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 100_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
-          expect(reason.isInstanceOf[StateMachine.FailureReason.CycleDetected])
+        case TransactionResult.Aborted(reason, _, _) =>
+          expect(reason.isInstanceOf[FailureReason.CycleDetected])
             .or(failure(s"Expected CycleDetected, got $reason"))
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure(s"Expected Aborted, got Committed")
       }
     }
@@ -342,17 +343,17 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
 
         // Each fiber triggers the other, creating depth
         makeDef = (targetId: java.util.UUID) =>
-          StateMachine.StateMachineDefinition(
+          StateMachineDefinition(
             states = Map(
-              StateMachine.StateId("s1") -> StateMachine.State(StateMachine.StateId("s1")),
-              StateMachine.StateId("s2") -> StateMachine.State(StateMachine.StateId("s2"))
+              StateId("s1") -> State(StateId("s1")),
+              StateId("s2") -> State(StateId("s2"))
             ),
-            initialState = StateMachine.StateId("s1"),
+            initialState = StateId("s1"),
             transitions = List(
-              StateMachine.Transition(
-                from = StateMachine.StateId("s1"),
-                to = StateMachine.StateId("s2"),
-                eventType = StateMachine.EventType("ping"),
+              Transition(
+                from = StateId("s1"),
+                to = StateId("s2"),
+                eventType = EventType("ping"),
                 guard = ConstExpression(BoolValue(true)),
                 effect = ConstExpression(
                   MapValue(
@@ -373,10 +374,10 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                   )
                 )
               ),
-              StateMachine.Transition(
-                from = StateMachine.StateId("s2"),
-                to = StateMachine.StateId("s1"),
-                eventType = StateMachine.EventType("ping"),
+              Transition(
+                from = StateId("s2"),
+                to = StateId("s1"),
+                eventType = EventType("ping"),
                 guard = ConstExpression(BoolValue(true)),
                 effect = ConstExpression(
                   MapValue(
@@ -412,13 +413,13 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = makeDef(fiber2Id),
-          currentState = StateMachine.StateId("s1"),
+          currentState = StateId("s1"),
           stateData = data1,
           stateDataHash = hash1,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         fiber2 = Records.StateMachineFiberRecord(
@@ -427,13 +428,13 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = makeDef(fiber1Id),
-          currentState = StateMachine.StateId("s1"),
+          currentState = StateId("s1"),
           stateData = data2,
           stateDataHash = hash2,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(
@@ -442,22 +443,22 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         input = FiberInput.Transition(
-          StateMachine.EventType("ping"),
+          EventType("ping"),
           MapValue(Map.empty)
         )
 
         // Very shallow depth limit
         limits = ExecutionLimits(maxDepth = 2, maxGas = 100_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiber1Id, input, List.empty)
 
       } yield expect(
         result match {
-          case TransactionOutcome.Aborted(reason, _, _) =>
+          case TransactionResult.Aborted(reason, _, _) =>
             reason match {
-              case StateMachine.FailureReason.DepthExceeded(_, _) => true
-              case _                                              => false
+              case FailureReason.DepthExceeded(_, _) => true
+              case _                                 => false
             }
           case _ => false
         }
@@ -476,17 +477,17 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         fiber2Id <- UUIDGen.randomUUID[IO]
         ordinal = fixture.ordinal
 
-        simpleDef = StateMachine.StateMachineDefinition(
+        simpleDef = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("state1") -> StateMachine.State(StateMachine.StateId("state1")),
-            StateMachine.StateId("state2") -> StateMachine.State(StateMachine.StateId("state2"))
+            StateId("state1") -> State(StateId("state1")),
+            StateId("state2") -> State(StateId("state2"))
           ),
-          initialState = StateMachine.StateId("state1"),
+          initialState = StateId("state1"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("state1"),
-              to = StateMachine.StateId("state2"),
-              eventType = StateMachine.EventType("advance"),
+            Transition(
+              from = StateId("state1"),
+              to = StateId("state2"),
+              eventType = EventType("advance"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("advanced" -> BoolValue(true))))
             )
@@ -505,13 +506,13 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = simpleDef,
-          currentState = StateMachine.StateId("state1"),
+          currentState = StateId("state1"),
           stateData = data1,
           stateDataHash = hash1,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         fiber2 = Records.StateMachineFiberRecord(
@@ -520,13 +521,13 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = simpleDef,
-          currentState = StateMachine.StateId("state1"),
+          currentState = StateId("state1"),
           stateData = data2,
           stateDataHash = hash2,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(
@@ -540,39 +541,38 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         triggers = List(
           FiberTrigger(
             targetFiberId = fiber1Id,
-            input = FiberInput.Transition(StateMachine.EventType("advance"), MapValue(Map.empty)),
+            input = FiberInput.Transition(EventType("advance"), MapValue(Map.empty)),
             sourceFiberId = None
           ),
           FiberTrigger(
             targetFiberId = fiber2Id,
-            input = FiberInput.Transition(StateMachine.EventType("advance"), MapValue(Map.empty)),
+            input = FiberInput.Transition(EventType("advance"), MapValue(Map.empty)),
             sourceFiberId = None
           )
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 100_000L)
 
-        evaluatorFactory = { (state: CalculatedState) =>
-          val ctxProvider = ContextProvider.make[IO](state)
-          FiberEvaluator.make[IO](ctxProvider, state, ordinal, limits, GasConfig.Default)
-        }
-
-        dispatcher = TriggerDispatcher.make[IO](evaluatorFactory, ordinal, limits, GasConfig.Default)
-        result <- dispatcher.dispatch(triggers, calculatedState)
+        ctx = FiberContext(ordinal, limits, GasConfig.Default, FiberGasConfig.Default)
+        dispatcher = TriggerDispatcher.make[IO, FiberT[IO, *]]
+        result <- dispatcher
+          .dispatch(triggers, calculatedState)
+          .run(ctx)
+          .runA(ExecutionState.initial)
 
       } yield result match {
-        case TransactionOutcome.Committed(updatedSMs, _, _, _, _, _) =>
+        case TransactionResult.Committed(updatedSMs, _, _, _, _, _) =>
           // Both fibers should be updated atomically
           expect(updatedSMs.size == 2, s"Expected 2 updated machines, got ${updatedSMs.size}") and
           expect(
-            updatedSMs.get(fiber1Id).exists(_.currentState == StateMachine.StateId("state2")),
+            updatedSMs.get(fiber1Id).exists(_.currentState == StateId("state2")),
             s"Expected fiber1 in state 'state2', got ${updatedSMs.get(fiber1Id).map(_.currentState)}"
           ) and
           expect(
-            updatedSMs.get(fiber2Id).exists(_.currentState == StateMachine.StateId("state2")),
+            updatedSMs.get(fiber2Id).exists(_.currentState == StateId("state2")),
             s"Expected fiber2 in state 'state2', got ${updatedSMs.get(fiber2Id).map(_.currentState)}"
           )
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           failure(s"Expected Committed but got Aborted: ${reason.toMessage}")
       }
     }
@@ -588,11 +588,11 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         fiberId <- UUIDGen.randomUUID[IO]
         ordinal = fixture.ordinal
 
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("initial") -> StateMachine.State(StateMachine.StateId("initial"))
+            StateId("initial") -> State(StateId("initial"))
           ),
-          initialState = StateMachine.StateId("initial"),
+          initialState = StateId("initial"),
           transitions = List.empty // No valid transitions
         )
 
@@ -605,30 +605,30 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("initial"),
+          currentState = StateId("initial"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 5,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("invalid"),
+          EventType("invalid"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 100_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
         // State should remain unchanged - get from original calculatedState
         finalFiber = calculatedState.stateMachines.get(fiberId)
 
-      } yield expect(result.isInstanceOf[TransactionOutcome.Aborted]) and
+      } yield expect(result.isInstanceOf[TransactionResult.Aborted]) and
       // Fiber state should be unchanged (Aborted means no changes applied)
       expect(finalFiber.isDefined) and
       expect(finalFiber.exists(_.sequenceNumber == 5)) and
@@ -648,18 +648,18 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
 
         // Create state machine with multiple guarded transitions
         // First two guards will fail, third will pass
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("start") -> StateMachine.State(StateMachine.StateId("start")),
-            StateMachine.StateId("end")   -> StateMachine.State(StateMachine.StateId("end"))
+            StateId("start") -> State(StateId("start")),
+            StateId("end")   -> State(StateId("end"))
           ),
-          initialState = StateMachine.StateId("start"),
+          initialState = StateId("start"),
           transitions = List(
             // First guard: expensive computation that returns false
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("go"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("go"),
               guard = ApplyExpression(
                 EqOp,
                 List(
@@ -670,10 +670,10 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
               effect = ConstExpression(MapValue(Map("path" -> StrValue("first"))))
             ),
             // Second guard: also returns false
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("go"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("go"),
               guard = ApplyExpression(
                 EqOp,
                 List(
@@ -684,10 +684,10 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
               effect = ConstExpression(MapValue(Map("path" -> StrValue("second"))))
             ),
             // Third guard: returns true
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("go"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("go"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("path" -> StrValue("third"))))
             )
@@ -703,28 +703,28 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("start"),
+          currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("go"),
+          EventType("go"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 100_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Committed(machines, _, _, totalGasUsed, _, _) =>
+        case TransactionResult.Committed(machines, _, _, totalGasUsed, _, _) =>
           // Gas should include ALL guard evaluations (both failed ones + the successful one) + effect
           // First guard: == check (1) + add (1) + 2 consts (2) = 4
           // Second guard: == check (1) + add (1) + 2 consts (2) = 4
@@ -742,10 +742,10 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             "Expected 'path' to be 'third'"
           ) and
           expect(
-            updatedFiber.exists(_.currentState == StateMachine.StateId("end")),
+            updatedFiber.exists(_.currentState == StateId("end")),
             "Expected state to be 'end'"
           )
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           failure(s"Expected Committed but got Aborted: ${reason.toMessage}")
       }
     }
@@ -768,17 +768,17 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           ApplyExpression(AddOp, List(acc, ConstExpression(IntValue(1))))
         }
 
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("start") -> StateMachine.State(StateMachine.StateId("start")),
-            StateMachine.StateId("end")   -> StateMachine.State(StateMachine.StateId("end"))
+            StateId("start") -> State(StateId("start")),
+            StateId("end")   -> State(StateId("end"))
           ),
-          initialState = StateMachine.StateId("start"),
+          initialState = StateId("start"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("go"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("go"),
               guard = ApplyExpression(EqOp, List(expensiveGuard, ConstExpression(IntValue(50)))),
               effect = ConstExpression(MapValue(Map("done" -> BoolValue(true))))
             )
@@ -794,38 +794,38 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("start"),
+          currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("go"),
+          EventType("go"),
           MapValue(Map.empty)
         )
 
         // Use very low gas limit to trigger exhaustion
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           reason match {
-            case StateMachine.FailureReason.GasExhaustedFailure(used, limit, phase) =>
+            case FailureReason.GasExhaustedFailure(used, limit, phase) =>
               expect(used <= limit, s"Gas used ($used) should be at or below limit ($limit)") and
               expect(limit == 10L, s"Expected gas limit 10L, got $limit") and
-              expect(phase == StateMachine.GasExhaustionPhase.Guard, s"Expected Guard phase, got $phase")
+              expect(phase == GasExhaustionPhase.Guard, s"Expected Guard phase, got $phase")
             case other =>
               failure(s"Expected GasExhaustedFailure but got: ${other.getClass.getSimpleName}")
           }
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected Aborted with GasExhaustedFailure, but transaction was committed")
       }
     }
@@ -844,17 +844,17 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         ordinal = fixture.ordinal
 
         // A triggers B
-        defA = StateMachine.StateMachineDefinition(
+        defA = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("idle")      -> StateMachine.State(StateMachine.StateId("idle")),
-            StateMachine.StateId("triggered") -> StateMachine.State(StateMachine.StateId("triggered"))
+            StateId("idle")      -> State(StateId("idle")),
+            StateId("triggered") -> State(StateId("triggered"))
           ),
-          initialState = StateMachine.StateId("idle"),
+          initialState = StateId("idle"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("idle"),
-              to = StateMachine.StateId("triggered"),
-              eventType = StateMachine.EventType("start"),
+            Transition(
+              from = StateId("idle"),
+              to = StateId("triggered"),
+              eventType = EventType("start"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -876,10 +876,10 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
               )
             ),
             // Transition to handle incoming loop - triggers B again to create cycle
-            StateMachine.Transition(
-              from = StateMachine.StateId("triggered"),
-              to = StateMachine.StateId("idle"),
-              eventType = StateMachine.EventType("loop"),
+            Transition(
+              from = StateId("triggered"),
+              to = StateId("idle"),
+              eventType = EventType("loop"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -901,10 +901,10 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
               )
             ),
             // Also handle loop in idle state to keep cycle going
-            StateMachine.Transition(
-              from = StateMachine.StateId("idle"),
-              to = StateMachine.StateId("triggered"),
-              eventType = StateMachine.EventType("loop"),
+            Transition(
+              from = StateId("idle"),
+              to = StateId("triggered"),
+              eventType = EventType("loop"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -929,17 +929,17 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         // B triggers C (with self-transition to allow cycle to continue)
-        defB = StateMachine.StateMachineDefinition(
+        defB = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("waiting")   -> StateMachine.State(StateMachine.StateId("waiting")),
-            StateMachine.StateId("continued") -> StateMachine.State(StateMachine.StateId("continued"))
+            StateId("waiting")   -> State(StateId("waiting")),
+            StateId("continued") -> State(StateId("continued"))
           ),
-          initialState = StateMachine.StateId("waiting"),
+          initialState = StateId("waiting"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("waiting"),
-              to = StateMachine.StateId("continued"),
-              eventType = StateMachine.EventType("continue"),
+            Transition(
+              from = StateId("waiting"),
+              to = StateId("continued"),
+              eventType = EventType("continue"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -961,10 +961,10 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
               )
             ),
             // Self-transition to handle continue event in cycle
-            StateMachine.Transition(
-              from = StateMachine.StateId("continued"),
-              to = StateMachine.StateId("continued"),
-              eventType = StateMachine.EventType("continue"),
+            Transition(
+              from = StateId("continued"),
+              to = StateId("continued"),
+              eventType = EventType("continue"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -989,17 +989,17 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         // C triggers A (completes the cycle, with self-transition to allow cycle to continue)
-        defC = StateMachine.StateMachineDefinition(
+        defC = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("pending")  -> StateMachine.State(StateMachine.StateId("pending")),
-            StateMachine.StateId("finished") -> StateMachine.State(StateMachine.StateId("finished"))
+            StateId("pending")  -> State(StateId("pending")),
+            StateId("finished") -> State(StateId("finished"))
           ),
-          initialState = StateMachine.StateId("pending"),
+          initialState = StateId("pending"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("pending"),
-              to = StateMachine.StateId("finished"),
-              eventType = StateMachine.EventType("finish"),
+            Transition(
+              from = StateId("pending"),
+              to = StateId("finished"),
+              eventType = EventType("finish"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1021,10 +1021,10 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
               )
             ),
             // Self-transition to handle finish event in cycle
-            StateMachine.Transition(
-              from = StateMachine.StateId("finished"),
-              to = StateMachine.StateId("finished"),
-              eventType = StateMachine.EventType("finish"),
+            Transition(
+              from = StateId("finished"),
+              to = StateId("finished"),
+              eventType = EventType("finish"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1063,13 +1063,13 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = defA,
-          currentState = StateMachine.StateId("idle"),
+          currentState = StateId("idle"),
           stateData = dataA,
           stateDataHash = hashA,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         fiberB = Records.StateMachineFiberRecord(
@@ -1078,13 +1078,13 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = defB,
-          currentState = StateMachine.StateId("waiting"),
+          currentState = StateId("waiting"),
           stateData = dataB,
           stateDataHash = hashB,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         fiberC = Records.StateMachineFiberRecord(
@@ -1093,13 +1093,13 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = defC,
-          currentState = StateMachine.StateId("pending"),
+          currentState = StateId("pending"),
           stateData = dataC,
           stateDataHash = hashC,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(
@@ -1108,23 +1108,23 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         input = FiberInput.Transition(
-          StateMachine.EventType("start"),
+          EventType("start"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 100_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(machineA, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           // 3-node cycle A→B→C→A should be detected before depth is exceeded
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.CycleDetected],
+            reason.isInstanceOf[FailureReason.CycleDetected],
             s"Expected CycleDetected but got: ${reason.getClass.getSimpleName}: ${reason.toMessage}"
           )
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected Aborted with CycleDetected, but transaction was committed")
       }
     }
@@ -1142,17 +1142,17 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         ordinal = fixture.ordinal
 
         // A sends "ping" to B, B sends "pong" to A, A sends "ping" to B...
-        defA = StateMachine.StateMachineDefinition(
+        defA = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("s1") -> StateMachine.State(StateMachine.StateId("s1")),
-            StateMachine.StateId("s2") -> StateMachine.State(StateMachine.StateId("s2"))
+            StateId("s1") -> State(StateId("s1")),
+            StateId("s2") -> State(StateId("s2"))
           ),
-          initialState = StateMachine.StateId("s1"),
+          initialState = StateId("s1"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("s1"),
-              to = StateMachine.StateId("s2"),
-              eventType = StateMachine.EventType("start"),
+            Transition(
+              from = StateId("s1"),
+              to = StateId("s2"),
+              eventType = EventType("start"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1173,10 +1173,10 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                 )
               )
             ),
-            StateMachine.Transition(
-              from = StateMachine.StateId("s2"),
-              to = StateMachine.StateId("s1"),
-              eventType = StateMachine.EventType("pong"),
+            Transition(
+              from = StateId("s2"),
+              to = StateId("s1"),
+              eventType = EventType("pong"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1200,17 +1200,17 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           )
         )
 
-        defB = StateMachine.StateMachineDefinition(
+        defB = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("idle")     -> StateMachine.State(StateMachine.StateId("idle")),
-            StateMachine.StateId("received") -> StateMachine.State(StateMachine.StateId("received"))
+            StateId("idle")     -> State(StateId("idle")),
+            StateId("received") -> State(StateId("received"))
           ),
-          initialState = StateMachine.StateId("idle"),
+          initialState = StateId("idle"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("idle"),
-              to = StateMachine.StateId("received"),
-              eventType = StateMachine.EventType("ping"),
+            Transition(
+              from = StateId("idle"),
+              to = StateId("received"),
+              eventType = EventType("ping"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1231,10 +1231,10 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                 )
               )
             ),
-            StateMachine.Transition(
-              from = StateMachine.StateId("received"),
-              to = StateMachine.StateId("idle"),
-              eventType = StateMachine.EventType("ping"),
+            Transition(
+              from = StateId("received"),
+              to = StateId("idle"),
+              eventType = EventType("ping"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1270,13 +1270,13 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = defA,
-          currentState = StateMachine.StateId("s1"),
+          currentState = StateId("s1"),
           stateData = dataA,
           stateDataHash = hashA,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         fiberB = Records.StateMachineFiberRecord(
@@ -1285,13 +1285,13 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = defB,
-          currentState = StateMachine.StateId("idle"),
+          currentState = StateId("idle"),
           stateData = dataB,
           stateDataHash = hashB,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(
@@ -1300,24 +1300,24 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         input = FiberInput.Transition(
-          StateMachine.EventType("start"),
+          EventType("start"),
           MapValue(Map.empty)
         )
 
         // Use high depth limit so cycle detection triggers before depth is exceeded
         limits = ExecutionLimits(maxDepth = 100, maxGas = 100_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(machineA, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           // Ping-pong cycle should be detected: A→ping→B→pong→A→ping→B (repeat!)
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.CycleDetected],
+            reason.isInstanceOf[FailureReason.CycleDetected],
             s"Expected CycleDetected but got: ${reason.getClass.getSimpleName}: ${reason.toMessage}"
           )
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected Aborted with CycleDetected, but transaction was committed")
       }
     }
@@ -1337,17 +1337,17 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         ordinal = fixture.ordinal
 
         // Child triggers parent on activate, creating half of the cycle
-        childDefinition = StateMachine.StateMachineDefinition(
+        childDefinition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("init")      -> StateMachine.State(StateMachine.StateId("init")),
-            StateMachine.StateId("triggered") -> StateMachine.State(StateMachine.StateId("triggered"))
+            StateId("init")      -> State(StateId("init")),
+            StateId("triggered") -> State(StateId("triggered"))
           ),
-          initialState = StateMachine.StateId("init"),
+          initialState = StateId("init"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("init"),
-              to = StateMachine.StateId("triggered"),
-              eventType = StateMachine.EventType("activate"),
+            Transition(
+              from = StateId("init"),
+              to = StateId("triggered"),
+              eventType = EventType("activate"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1369,10 +1369,10 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
               )
             ),
             // Self-transition to handle activate when already triggered (for cycle)
-            StateMachine.Transition(
-              from = StateMachine.StateId("triggered"),
-              to = StateMachine.StateId("init"),
-              eventType = StateMachine.EventType("activate"),
+            Transition(
+              from = StateId("triggered"),
+              to = StateId("init"),
+              eventType = EventType("activate"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1397,19 +1397,19 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         // Parent triggers child, creating the other half of the cycle
-        parentDefinition = StateMachine.StateMachineDefinition(
+        parentDefinition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("ready")    -> StateMachine.State(StateMachine.StateId("ready")),
-            StateMachine.StateId("active")   -> StateMachine.State(StateMachine.StateId("active")),
-            StateMachine.StateId("callback") -> StateMachine.State(StateMachine.StateId("callback"))
+            StateId("ready")    -> State(StateId("ready")),
+            StateId("active")   -> State(StateId("active")),
+            StateId("callback") -> State(StateId("callback"))
           ),
-          initialState = StateMachine.StateId("ready"),
+          initialState = StateId("ready"),
           transitions = List(
             // Start transition triggers child
-            StateMachine.Transition(
-              from = StateMachine.StateId("ready"),
-              to = StateMachine.StateId("active"),
-              eventType = StateMachine.EventType("start"),
+            Transition(
+              from = StateId("ready"),
+              to = StateId("active"),
+              eventType = EventType("start"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1431,10 +1431,10 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
               )
             ),
             // Callback from child triggers child again - creates cycle!
-            StateMachine.Transition(
-              from = StateMachine.StateId("active"),
-              to = StateMachine.StateId("callback"),
-              eventType = StateMachine.EventType("child_callback"),
+            Transition(
+              from = StateId("active"),
+              to = StateId("callback"),
+              eventType = EventType("child_callback"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1456,10 +1456,10 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
               )
             ),
             // Handle callback from callback state to continue cycle
-            StateMachine.Transition(
-              from = StateMachine.StateId("callback"),
-              to = StateMachine.StateId("active"),
-              eventType = StateMachine.EventType("child_callback"),
+            Transition(
+              from = StateId("callback"),
+              to = StateId("active"),
+              eventType = EventType("child_callback"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1495,13 +1495,13 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = parentDefinition,
-          currentState = StateMachine.StateId("ready"),
+          currentState = StateId("ready"),
           stateData = parentData,
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         childFiber = Records.StateMachineFiberRecord(
@@ -1510,36 +1510,36 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = childDefinition,
-          currentState = StateMachine.StateId("init"),
+          currentState = StateId("init"),
           stateData = childData,
           stateDataHash = childHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         // Both fibers exist from the start
         calculatedState = CalculatedState(Map(parentId -> parentFiber, childId -> childFiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("start"),
+          EventType("start"),
           MapValue(Map.empty)
         )
 
         // Use high depth limit so cycle detection triggers before depth is exceeded
         limits = ExecutionLimits(maxDepth = 100, maxGas = 100_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(parentId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           // Parent→child→parent→child... cycle should be detected
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.CycleDetected],
+            reason.isInstanceOf[FailureReason.CycleDetected],
             s"Expected CycleDetected but got: ${reason.getClass.getSimpleName}: ${reason.toMessage}"
           )
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected Aborted with CycleDetected, but transaction was committed")
       }
     }
@@ -1557,17 +1557,17 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         ordinal = fixture.ordinal
 
         // State machine with a dependency on a non-existent machine
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("start") -> StateMachine.State(StateMachine.StateId("start")),
-            StateMachine.StateId("end")   -> StateMachine.State(StateMachine.StateId("end"))
+            StateId("start") -> State(StateId("start")),
+            StateId("end")   -> State(StateId("end"))
           ),
-          initialState = StateMachine.StateId("start"),
+          initialState = StateId("start"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("go"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("go"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("done" -> BoolValue(true)))),
               dependencies = Set(missingId) // Dependency on non-existent machine
@@ -1584,38 +1584,38 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("start"),
+          currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         // Calculated state only contains the main fiber, not the dependency
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("go"),
+          EventType("go"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           // Missing trigger target should cause TriggerTargetNotFound
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.TriggerTargetNotFound],
+            reason.isInstanceOf[FailureReason.TriggerTargetNotFound],
             s"Expected TriggerTargetNotFound but got: ${reason.getClass.getSimpleName}"
           )
-        case TransactionOutcome.Committed(machines, _, _, _, _, _) =>
+        case TransactionResult.Committed(machines, _, _, _, _, _) =>
           // If missing dependencies are skipped, verify the main transition completed
           expect(
-            machines.get(fiberId).exists(_.currentState == StateMachine.StateId("end")),
+            machines.get(fiberId).exists(_.currentState == StateId("end")),
             "If dependencies are skipped, transition should still complete"
           )
       }

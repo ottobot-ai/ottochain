@@ -8,7 +8,8 @@ import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, StateMachine, Updates}
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Participant._
 import xyz.kd5ujc.shared_test.TestFixture
@@ -71,26 +72,17 @@ object ConcurrentEventsSuite extends SimpleIOSuite {
         combiner <- Combiner.make[IO].pure[IO]
 
         cid  <- IO.randomUUID
-        def_ <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachine.StateMachineDefinition]))
+        def_ <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
 
-        createSM = Updates.CreateStateMachineFiber(cid, def_, MapValue(Map("value" -> IntValue(0))))
+        createSM = Updates.CreateStateMachine(cid, def_, MapValue(Map("value" -> IntValue(0))))
 
         createProof <- fixture.registry.generateProofs(createSM, Set(Alice))
         state0 <- combiner.insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createSM, createProof))
 
         // Process multiple increment events sequentially
-        event1 = Updates.ProcessFiberEvent(
-          cid,
-          StateMachine.Event(StateMachine.EventType("increment"), MapValue(Map.empty))
-        )
-        event2 = Updates.ProcessFiberEvent(
-          cid,
-          StateMachine.Event(StateMachine.EventType("increment"), MapValue(Map.empty))
-        )
-        event3 = Updates.ProcessFiberEvent(
-          cid,
-          StateMachine.Event(StateMachine.EventType("increment"), MapValue(Map.empty))
-        )
+        event1 = Updates.TransitionStateMachine(cid, EventType("increment"), MapValue(Map.empty))
+        event2 = Updates.TransitionStateMachine(cid, EventType("increment"), MapValue(Map.empty))
+        event3 = Updates.TransitionStateMachine(cid, EventType("increment"), MapValue(Map.empty))
 
         proof1 <- fixture.registry.generateProofs(event1, Set(Alice))
         proof2 <- fixture.registry.generateProofs(event2, Set(Alice))
@@ -136,22 +128,16 @@ object ConcurrentEventsSuite extends SimpleIOSuite {
         combiner <- Combiner.make[IO].pure[IO]
 
         cid  <- IO.randomUUID
-        def_ <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachine.StateMachineDefinition]))
+        def_ <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
 
-        createSM = Updates.CreateStateMachineFiber(cid, def_, MapValue(Map("value" -> IntValue(0))))
+        createSM = Updates.CreateStateMachine(cid, def_, MapValue(Map("value" -> IntValue(0))))
 
         createProof <- fixture.registry.generateProofs(createSM, Set(Alice))
         state0 <- combiner.insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createSM, createProof))
 
         // Order 1: add 10, then add 5 (result: 15)
-        eventA1 = Updates.ProcessFiberEvent(
-          cid,
-          StateMachine.Event(StateMachine.EventType("add"), MapValue(Map("amount" -> IntValue(10))))
-        )
-        eventB1 = Updates.ProcessFiberEvent(
-          cid,
-          StateMachine.Event(StateMachine.EventType("add"), MapValue(Map("amount" -> IntValue(5))))
-        )
+        eventA1 = Updates.TransitionStateMachine(cid, EventType("add"), MapValue(Map("amount" -> IntValue(10))))
+        eventB1 = Updates.TransitionStateMachine(cid, EventType("add"), MapValue(Map("amount" -> IntValue(5))))
 
         proofA1 <- fixture.registry.generateProofs(eventA1, Set(Alice))
         proofB1 <- fixture.registry.generateProofs(eventB1, Set(Alice))
@@ -160,14 +146,8 @@ object ConcurrentEventsSuite extends SimpleIOSuite {
         stateOrder1_2 <- combiner.insert(stateOrder1_1, Signed(eventB1, proofB1))
 
         // Order 2: add 5, then add 10 (result: 15, but different sequence)
-        eventA2 = Updates.ProcessFiberEvent(
-          cid,
-          StateMachine.Event(StateMachine.EventType("add"), MapValue(Map("amount" -> IntValue(5))))
-        )
-        eventB2 = Updates.ProcessFiberEvent(
-          cid,
-          StateMachine.Event(StateMachine.EventType("add"), MapValue(Map("amount" -> IntValue(10))))
-        )
+        eventA2 = Updates.TransitionStateMachine(cid, EventType("add"), MapValue(Map("amount" -> IntValue(5))))
+        eventB2 = Updates.TransitionStateMachine(cid, EventType("add"), MapValue(Map("amount" -> IntValue(10))))
 
         proofA2 <- fixture.registry.generateProofs(eventA2, Set(Alice))
         proofB2 <- fixture.registry.generateProofs(eventB2, Set(Alice))
@@ -245,9 +225,9 @@ object ConcurrentEventsSuite extends SimpleIOSuite {
         combiner <- Combiner.make[IO].pure[IO]
 
         cid  <- IO.randomUUID
-        def_ <- IO.fromEither(parser.parse(historyDefinitionJson).flatMap(_.as[StateMachine.StateMachineDefinition]))
+        def_ <- IO.fromEither(parser.parse(historyDefinitionJson).flatMap(_.as[StateMachineDefinition]))
 
-        createSM = Updates.CreateStateMachineFiber(
+        createSM = Updates.CreateStateMachine(
           cid,
           def_,
           MapValue(Map("history" -> ArrayValue(List.empty), "lastValue" -> IntValue(0)))
@@ -257,18 +237,9 @@ object ConcurrentEventsSuite extends SimpleIOSuite {
         state0 <- combiner.insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createSM, createProof))
 
         // Record events: 1, 2, 3
-        event1 = Updates.ProcessFiberEvent(
-          cid,
-          StateMachine.Event(StateMachine.EventType("record"), MapValue(Map("value" -> IntValue(1))))
-        )
-        event2 = Updates.ProcessFiberEvent(
-          cid,
-          StateMachine.Event(StateMachine.EventType("record"), MapValue(Map("value" -> IntValue(2))))
-        )
-        event3 = Updates.ProcessFiberEvent(
-          cid,
-          StateMachine.Event(StateMachine.EventType("record"), MapValue(Map("value" -> IntValue(3))))
-        )
+        event1 = Updates.TransitionStateMachine(cid, EventType("record"), MapValue(Map("value" -> IntValue(1))))
+        event2 = Updates.TransitionStateMachine(cid, EventType("record"), MapValue(Map("value" -> IntValue(2))))
+        event3 = Updates.TransitionStateMachine(cid, EventType("record"), MapValue(Map("value" -> IntValue(3))))
 
         proof1 <- fixture.registry.generateProofs(event1, Set(Alice))
         proof2 <- fixture.registry.generateProofs(event2, Set(Alice))

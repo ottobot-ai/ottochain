@@ -9,10 +9,9 @@ import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
-import xyz.kd5ujc.shared_data.lifecycle.validate.ValidationException
-import xyz.kd5ujc.shared_data.lifecycle.validate.rules.OracleRules
 import xyz.kd5ujc.shared_test.Participant._
 import xyz.kd5ujc.shared_test.TestFixture
 
@@ -39,7 +38,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
           cid = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Whitelist(Set(aliceAddress))
+          accessControl = AccessControlPolicy.Whitelist(Set(aliceAddress))
         )
 
         oracleProof <- fixture.registry.generateProofs(createOracle, Set(Alice))
@@ -82,7 +81,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
           cid = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Whitelist(Set(aliceAddress))
+          accessControl = AccessControlPolicy.Whitelist(Set(aliceAddress))
         )
 
         oracleProof <- fixture.registry.generateProofs(createOracle, Set(Alice))
@@ -127,7 +126,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
           cid = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Whitelist(Set(aliceAddress, bobAddress))
+          accessControl = AccessControlPolicy.Whitelist(Set(aliceAddress, bobAddress))
         )
 
         oracleProof <- fixture.registry.generateProofs(createOracle, Set(Alice))
@@ -193,7 +192,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
           cid = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Whitelist(Set(aliceAddress))
+          accessControl = AccessControlPolicy.Whitelist(Set(aliceAddress))
         )
 
         oracleProof <- fixture.registry.generateProofs(createOracle, Set(Alice))
@@ -229,19 +228,17 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         }
         """
 
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("status" -> StrValue("idle")))
 
-        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
         machineProof      <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterMachine <- combiner.insert(stateAfterOracle, Signed(createMachine, machineProof))
 
-        validateEvent = Updates.ProcessFiberEvent(
+        validateEvent = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("validate"),
-            MapValue(Map.empty)
-          )
+          EventType("validate"),
+          MapValue(Map.empty)
         )
         validateProof <- fixture.registry.generateProofs(validateEvent, Set(Alice))
         finalState    <- combiner.insert(stateAfterMachine, Signed(validateEvent, validateProof))
@@ -253,7 +250,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         oracle = finalState.calculated.scriptOracles.get(oracleCid)
 
       } yield expect(machine.isDefined) and
-      expect(machine.map(_.currentState).contains(StateMachine.StateId("validated"))) and
+      expect(machine.map(_.currentState).contains(StateId("validated"))) and
       expect(oracle.isDefined) and
       expect(oracle.map(_.invocationCount).contains(1L))
     }
@@ -284,7 +281,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
           cid = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Whitelist(Set(aliceAddress))
+          accessControl = AccessControlPolicy.Whitelist(Set(aliceAddress))
         )
 
         oracleProof <- fixture.registry.generateProofs(createOracle, Set(Alice))
@@ -320,19 +317,17 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         }
         """
 
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("status" -> StrValue("idle")))
 
-        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
         machineProof      <- fixture.registry.generateProofs(createMachine, Set(Bob))
         stateAfterMachine <- combiner.insert(stateAfterOracle, Signed(createMachine, machineProof))
 
-        validateEvent = Updates.ProcessFiberEvent(
+        validateEvent = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("validate"),
-            MapValue(Map.empty)
-          )
+          EventType("validate"),
+          MapValue(Map.empty)
         )
         validateProof <- fixture.registry.generateProofs(validateEvent, Set(Bob))
         finalState    <- combiner.insert(stateAfterMachine, Signed(validateEvent, validateProof))
@@ -344,9 +339,9 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         oracle = finalState.calculated.scriptOracles.get(oracleCid)
 
       } yield expect(machine.isDefined) and
-      expect(machine.map(_.currentState).contains(StateMachine.StateId("idle"))) and
+      expect(machine.map(_.currentState).contains(StateId("idle"))) and
       expect(machine.map(_.lastEventStatus).exists {
-        case Records.EventProcessingStatus.ExecutionFailed(reason, _, _, _, _) =>
+        case EventProcessingStatus.ExecutionFailed(reason, _, _, _, _) =>
           reason.contains("Access denied") || reason.contains("not in whitelist")
         case _ => false
       }) and
@@ -381,7 +376,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
           cid = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Whitelist(Set(aliceAddress))
+          accessControl = AccessControlPolicy.Whitelist(Set(aliceAddress))
         )
 
         oracleProof <- fixture.registry.generateProofs(createOracle, Set(Alice))
@@ -421,20 +416,18 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         }
         """
 
-        machineDef <- IO.fromEither(decode[StateMachine.StateMachineDefinition](machineJson))
+        machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("status" -> StrValue("idle")))
 
         // Create state machine owned by Bob (not in whitelist)
-        createMachine = Updates.CreateStateMachineFiber(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
         machineProof      <- fixture.registry.generateProofs(createMachine, Set(Bob))
         stateAfterMachine <- combiner.insert(stateAfterOracle, Signed(createMachine, machineProof))
 
-        triggerEvent = Updates.ProcessFiberEvent(
+        triggerEvent = Updates.TransitionStateMachine(
           machineCid,
-          StateMachine.Event(
-            StateMachine.EventType("trigger"),
-            MapValue(Map.empty)
-          )
+          EventType("trigger"),
+          MapValue(Map.empty)
         )
         triggerProof <- fixture.registry.generateProofs(triggerEvent, Set(Bob))
         finalState   <- combiner.insert(stateAfterMachine, Signed(triggerEvent, triggerProof))
@@ -447,9 +440,9 @@ object OracleAccessControlSuite extends SimpleIOSuite {
 
       } yield expect(machine.isDefined) and
       // The SM's transition should have been aborted due to oracle access denial
-      expect(machine.map(_.currentState).contains(StateMachine.StateId("idle"))) and
+      expect(machine.map(_.currentState).contains(StateId("idle"))) and
       expect(machine.map(_.lastEventStatus).exists {
-        case Records.EventProcessingStatus.ExecutionFailed(reason, _, _, _, _) =>
+        case EventProcessingStatus.ExecutionFailed(reason, _, _, _, _) =>
           reason.toLowerCase.contains("access") || reason.toLowerCase.contains("denied")
         case _ => false
       }) and
@@ -459,7 +452,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
     }
   }
 
-  test("FiberOwned access control policy returns 'not yet implemented'") {
+  test("FiberOwned access control denies access when owner fiber does not exist") {
     TestFixture.resource(Set(Alice)).use { fixture =>
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
@@ -467,7 +460,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         combiner <- Combiner.make[IO].pure[IO]
 
         oracleCid    <- IO.randomUUID
-        ownerFiberId <- IO.randomUUID // The fiber that "owns" this oracle
+        ownerFiberId <- IO.randomUUID // Non-existent fiber ID
 
         oracleScript =
           """|{
@@ -480,12 +473,12 @@ object OracleAccessControlSuite extends SimpleIOSuite {
 
         oracleProg <- IO.fromEither(parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
-        // Create oracle with FiberOwned access control
+        // Create oracle with FiberOwned access control (pointing to non-existent fiber)
         createOracle = Updates.CreateScriptOracle(
           cid = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.FiberOwned(ownerFiberId)
+          accessControl = AccessControlPolicy.FiberOwned(ownerFiberId)
         )
 
         oracleProof <- fixture.registry.generateProofs(createOracle, Set(Alice))
@@ -494,7 +487,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
           Signed(createOracle, oracleProof)
         )
 
-        // Attempt to invoke the oracle
+        // Attempt to invoke the oracle (should fail - owner fiber doesn't exist)
         invokeOracle = Updates.InvokeScriptOracle(
           cid = oracleCid,
           method = "process",
@@ -504,21 +497,24 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         invokeProof  <- fixture.registry.generateProofs(invokeOracle, Set(Alice))
         invokeResult <- combiner.insert(stateAfterOracle, Signed(invokeOracle, invokeProof)).attempt
 
-        oracle = invokeResult.toOption.flatMap(_.calculated.scriptOracles.get(oracleCid))
-
       } yield invokeResult match {
-        case Left(ValidationException(err: OracleRules.Errors.OracleAccessDenied)) =>
-          // FiberOwned access control denies access (not yet implemented)
+        case Left(err: RuntimeException) =>
+          // FiberOwned access control denies access when owner fiber doesn't exist
           expect(
-            err.policy.isInstanceOf[Records.AccessControlPolicy.FiberOwned],
-            s"Expected FiberOwned policy, got ${err.policy}"
+            err.getMessage.toLowerCase.contains("access denied") ||
+            err.getMessage.toLowerCase.contains("not authorized"),
+            s"Expected access denied message, got: ${err.getMessage}"
+          ) and expect(
+            err.getMessage.toLowerCase.contains("owner fiber") &&
+            err.getMessage.toLowerCase.contains("not found"),
+            s"Expected 'owner fiber not found' in message, got: ${err.getMessage}"
           )
         case Left(other) =>
           failure(
-            s"Expected OracleAccessDenied validation error, got: ${other.getClass.getSimpleName}: ${other.getMessage}"
+            s"Expected RuntimeException for access denied, got: ${other.getClass.getSimpleName}: ${other.getMessage}"
           )
         case Right(_) =>
-          failure("Expected FiberOwned access control to fail (not yet implemented)")
+          failure("Expected FiberOwned access control to deny access when owner fiber doesn't exist")
       }
     }
   }

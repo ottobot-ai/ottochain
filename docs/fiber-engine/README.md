@@ -344,8 +344,7 @@ sealed trait FailureReason
 // Transition failures
 case class NoTransitionFound(fromState, eventType)
 case class NoGuardMatched(fromState, eventType, attemptedGuards)
-case class GuardEvaluationError(message)
-case class EffectEvaluationError(message)
+case class EvaluationError(phase, message)  // phase: Guard | Effect | Oracle
 
 // Execution limit failures
 case class CycleDetected(fiberId, eventType)

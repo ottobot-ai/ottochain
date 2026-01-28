@@ -8,10 +8,12 @@ import cats.effect.Async
 import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.DataApplicationValidationError
+import io.constellationnetwork.schema.address.Address
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.signature.SignatureProof
 
-import xyz.kd5ujc.schema.{CalculatedState, Records}
+import xyz.kd5ujc.schema.CalculatedState
+import xyz.kd5ujc.schema.fiber.AccessControlPolicy
 import xyz.kd5ujc.shared_data.lifecycle.validate.ValidationResult
 import xyz.kd5ujc.shared_data.syntax.all._
 
@@ -81,19 +83,19 @@ object OracleRules {
     // ============== Private Helpers ==============
 
     private def isAuthorized(
-      policy:    Records.AccessControlPolicy,
-      callerSet: Set[io.constellationnetwork.schema.address.Address],
+      policy:    AccessControlPolicy,
+      callerSet: Set[Address],
       state:     CalculatedState
     ): Boolean =
       policy match {
-        case Records.AccessControlPolicy.Public => true
+        case AccessControlPolicy.Public => true
 
-        case Records.AccessControlPolicy.FiberOwned(ownerFiberId) =>
+        case AccessControlPolicy.FiberOwned(ownerFiberId) =>
           state.getFiber(ownerFiberId).exists { ownerFiber =>
             callerSet.intersect(ownerFiber.owners).nonEmpty
           }
 
-        case Records.AccessControlPolicy.Whitelist(allowed) =>
+        case AccessControlPolicy.Whitelist(allowed) =>
           callerSet.intersect(allowed).nonEmpty
       }
   }
@@ -108,7 +110,7 @@ object OracleRules {
       override val message: String = s"Oracle $oracleId not found"
     }
 
-    final case class OracleAccessDenied(oracleId: UUID, policy: Records.AccessControlPolicy)
+    final case class OracleAccessDenied(oracleId: UUID, policy: AccessControlPolicy)
         extends DataApplicationValidationError {
       override val message: String = s"Access denied to oracle $oracleId (policy: $policy)"
     }

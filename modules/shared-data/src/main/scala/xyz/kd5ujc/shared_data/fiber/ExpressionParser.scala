@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber.engine
+package xyz.kd5ujc.shared_data.fiber
 
 import java.util.UUID
 
@@ -7,8 +7,7 @@ import cats.syntax.all._
 
 import io.constellationnetwork.metagraph_sdk.json_logic._
 
-import xyz.kd5ujc.schema.StateMachine
-import xyz.kd5ujc.shared_data.fiber.domain.ReservedKeys
+import xyz.kd5ujc.schema.fiber._
 
 /**
  * Parses JsonLogicExpression and JsonLogicValue into domain types.
@@ -22,7 +21,7 @@ object ExpressionParser {
 
   def parseStateMachineDefinitionFromExpression(
     defExpr: JsonLogicExpression
-  ): Option[StateMachine.StateMachineDefinition] =
+  ): Option[StateMachineDefinition] =
     defExpr match {
       case MapExpression(defMap) =>
         (for {
@@ -32,13 +31,11 @@ object ExpressionParser {
           initialState     <- OptionT.fromOption[cats.Id](parseInitialState(initialStateExpr))
           transitionsExpr  <- OptionT.fromOption[cats.Id](defMap.get(ReservedKeys.TRANSITIONS))
           transitions      <- OptionT.fromOption[cats.Id](parseTransitionsFromExpression(transitionsExpr))
-        } yield {
-          val metadata = defMap.get(ReservedKeys.METADATA).flatMap {
+          metadata = defMap.get(ReservedKeys.METADATA).flatMap {
             case ConstExpression(v) => v.some
             case _                  => none
           }
-          StateMachine.StateMachineDefinition(states, initialState, transitions, metadata)
-        }).value
+        } yield StateMachineDefinition(states, initialState, transitions, metadata)).value
 
       case ConstExpression(v) =>
         parseStateMachineDefinition(v)
@@ -46,12 +43,12 @@ object ExpressionParser {
       case _ => none
     }
 
-  def parseInitialState(expr: JsonLogicExpression): Option[StateMachine.StateId] =
+  def parseInitialState(expr: JsonLogicExpression): Option[StateId] =
     expr match {
-      case ConstExpression(StrValue(s)) => StateMachine.StateId(s).some
+      case ConstExpression(StrValue(s)) => StateId(s).some
       case MapExpression(m) =>
         m.get(ReservedKeys.VALUE).flatMap {
-          case ConstExpression(StrValue(s)) => StateMachine.StateId(s).some
+          case ConstExpression(StrValue(s)) => StateId(s).some
           case _                            => none
         }
       case _ => none
@@ -59,7 +56,7 @@ object ExpressionParser {
 
   def parseStatesFromExpression(
     statesExpr: JsonLogicExpression
-  ): Option[Map[StateMachine.StateId, StateMachine.State]] =
+  ): Option[Map[StateId, State]] =
     statesExpr match {
       case MapExpression(statesMap) =>
         statesMap.toList
@@ -77,8 +74,8 @@ object ExpressionParser {
                   case ConstExpression(v) => v.some
                   case _                  => none
                 }
-                (StateMachine.StateId(stateId) -> StateMachine.State(
-                  id = StateMachine.StateId(stateId),
+                (StateId(stateId) -> State(
+                  id = StateId(stateId),
                   isFinal = isFinal,
                   metadata = metadata
                 )).some
@@ -91,7 +88,7 @@ object ExpressionParser {
 
   def parseTransitionsFromExpression(
     transitionsExpr: JsonLogicExpression
-  ): Option[List[StateMachine.Transition]] =
+  ): Option[List[Transition]] =
     transitionsExpr match {
       case ArrayExpression(transitionsList) =>
         transitionsList.traverse {
@@ -121,36 +118,36 @@ object ExpressionParser {
                 }
                 .getOrElse(Set.empty)
 
-              StateMachine.Transition(from, to, eventType, guard, effect, dependencies)
+              Transition(from, to, eventType, guard, effect, dependencies)
             }).value
           case _ => none
         }
       case _ => none
     }
 
-  def parseStateId(expr: JsonLogicExpression): Option[StateMachine.StateId] =
+  def parseStateId(expr: JsonLogicExpression): Option[StateId] =
     expr match {
-      case ConstExpression(StrValue(s)) => StateMachine.StateId(s).some
+      case ConstExpression(StrValue(s)) => StateId(s).some
       case MapExpression(m) =>
         m.get(ReservedKeys.VALUE).flatMap {
-          case ConstExpression(StrValue(s)) => StateMachine.StateId(s).some
+          case ConstExpression(StrValue(s)) => StateId(s).some
           case _                            => none
         }
       case _ => none
     }
 
-  def parseEventType(expr: JsonLogicExpression): Option[StateMachine.EventType] =
+  def parseEventType(expr: JsonLogicExpression): Option[EventType] =
     expr match {
-      case ConstExpression(StrValue(et)) => StateMachine.EventType(et).some
+      case ConstExpression(StrValue(et)) => EventType(et).some
       case MapExpression(m) =>
         m.get(ReservedKeys.VALUE).flatMap {
-          case ConstExpression(StrValue(et)) => StateMachine.EventType(et).some
+          case ConstExpression(StrValue(et)) => EventType(et).some
           case _                             => none
         }
       case _ => none
     }
 
-  def parseStateMachineDefinition(defValue: JsonLogicValue): Option[StateMachine.StateMachineDefinition] =
+  def parseStateMachineDefinition(defValue: JsonLogicValue): Option[StateMachineDefinition] =
     defValue match {
       case MapValue(defMap) =>
         (for {
@@ -160,7 +157,7 @@ object ExpressionParser {
           initialState      <- OptionT.fromOption[cats.Id](parseInitialStateValue(initialStateValue))
           transitionsValue  <- OptionT.fromOption[cats.Id](defMap.get(ReservedKeys.TRANSITIONS))
           transitions       <- OptionT.fromOption[cats.Id](parseTransitions(transitionsValue))
-        } yield StateMachine.StateMachineDefinition(
+        } yield StateMachineDefinition(
           states = states,
           initialState = initialState,
           transitions = transitions,
@@ -169,10 +166,10 @@ object ExpressionParser {
       case _ => none
     }
 
-  def parseInitialStateValue(value: JsonLogicValue): Option[StateMachine.StateId] =
+  def parseInitialStateValue(value: JsonLogicValue): Option[StateId] =
     value match {
-      case StrValue(s) => StateMachine.StateId(s).some
-      case MapValue(m) => m.get(ReservedKeys.VALUE).collect { case StrValue(s) => StateMachine.StateId(s) }
+      case StrValue(s) => StateId(s).some
+      case MapValue(m) => m.get(ReservedKeys.VALUE).collect { case StrValue(s) => StateId(s) }
       case _           => none
     }
 
@@ -190,7 +187,7 @@ object ExpressionParser {
     case other         => ConstExpression(other)
   }
 
-  def parseStates(statesValue: JsonLogicValue): Option[Map[StateMachine.StateId, StateMachine.State]] =
+  def parseStates(statesValue: JsonLogicValue): Option[Map[StateId, State]] =
     statesValue match {
       case MapValue(statesMap) =>
         statesMap.toList
@@ -203,8 +200,8 @@ object ExpressionParser {
                     b
                   }
                   .getOrElse(false)
-                (StateMachine.StateId(stateId) -> StateMachine.State(
-                  id = StateMachine.StateId(stateId),
+                (StateId(stateId) -> State(
+                  id = StateId(stateId),
                   isFinal = isFinal,
                   metadata = stateMap.get(ReservedKeys.METADATA)
                 )).some
@@ -215,7 +212,7 @@ object ExpressionParser {
       case _ => none
     }
 
-  def parseTransitions(transitionsValue: JsonLogicValue): Option[List[StateMachine.Transition]] =
+  def parseTransitions(transitionsValue: JsonLogicValue): Option[List[Transition]] =
     transitionsValue match {
       case ArrayValue(transitionsList) =>
         transitionsList.traverse {
@@ -240,7 +237,7 @@ object ExpressionParser {
                 }
                 .getOrElse(Set.empty)
 
-              StateMachine.Transition(
+              Transition(
                 from = from,
                 to = to,
                 eventType = eventType,
@@ -254,17 +251,17 @@ object ExpressionParser {
       case _ => none
     }
 
-  def parseStateIdValue(value: JsonLogicValue): Option[StateMachine.StateId] =
+  def parseStateIdValue(value: JsonLogicValue): Option[StateId] =
     value match {
-      case StrValue(s) => StateMachine.StateId(s).some
-      case MapValue(m) => m.get(ReservedKeys.VALUE).collect { case StrValue(s) => StateMachine.StateId(s) }
+      case StrValue(s) => StateId(s).some
+      case MapValue(m) => m.get(ReservedKeys.VALUE).collect { case StrValue(s) => StateId(s) }
       case _           => none
     }
 
-  def parseEventTypeValue(value: JsonLogicValue): Option[StateMachine.EventType] =
+  def parseEventTypeValue(value: JsonLogicValue): Option[EventType] =
     value match {
-      case StrValue(et) => StateMachine.EventType(et).some
-      case MapValue(m)  => m.get(ReservedKeys.VALUE).collect { case StrValue(et) => StateMachine.EventType(et) }
+      case StrValue(et) => EventType(et).some
+      case MapValue(m)  => m.get(ReservedKeys.VALUE).collect { case StrValue(et) => EventType(et) }
       case _            => none
     }
 }

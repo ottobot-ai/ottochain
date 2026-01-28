@@ -8,7 +8,8 @@ import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
 import xyz.kd5ujc.shared_test.Participant
@@ -55,7 +56,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
           cid = cid,
           scriptProgram = prog,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         createProof <- registry.generateProofs(createOracle, Set(Alice))
@@ -97,7 +98,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
           cid = cid,
           scriptProgram = prog,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         createProof <- registry.generateProofs(createOracle, Set(Alice))
@@ -138,7 +139,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
           cid = cid,
           scriptProgram = prog,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         createProof <- registry.generateProofs(createOracle, Set(Alice))
@@ -179,7 +180,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
           cid = cid,
           scriptProgram = prog,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         createProof <- registry.generateProofs(createOracle, Set(Alice))
@@ -220,7 +221,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
           cid = cid,
           scriptProgram = prog,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         createProof <- registry.generateProofs(createOracle, Set(Alice))
@@ -261,7 +262,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
           cid = cid,
           scriptProgram = prog,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         createProof <- registry.generateProofs(createOracle, Set(Alice))
@@ -307,7 +308,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
           cid = cid,
           scriptProgram = prog,
           initialState = None,
-          accessControl = Records.AccessControlPolicy.Public
+          accessControl = AccessControlPolicy.Public
         )
 
         // Alice creates

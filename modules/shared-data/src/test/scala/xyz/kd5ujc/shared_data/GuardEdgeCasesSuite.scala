@@ -11,9 +11,9 @@ import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluat
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 
-import xyz.kd5ujc.schema.{CalculatedState, Records, StateMachine}
-import xyz.kd5ujc.shared_data.fiber.domain._
-import xyz.kd5ujc.shared_data.fiber.engine._
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, Records}
+import xyz.kd5ujc.shared_data.fiber.FiberEngine
 import xyz.kd5ujc.shared_test.{Participant, TestFixture}
 
 import weaver.SimpleIOSuite
@@ -40,18 +40,18 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
         ordinal = fixture.ordinal
 
         // Guard references a field that doesn't exist in state
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("start") -> StateMachine.State(StateMachine.StateId("start")),
-            StateMachine.StateId("end")   -> StateMachine.State(StateMachine.StateId("end"))
+            StateId("start") -> State(StateId("start")),
+            StateId("end")   -> State(StateId("end"))
           ),
-          initialState = StateMachine.StateId("start"),
+          initialState = StateId("start"),
           transitions = List(
             // Guard checks missing field - should evaluate to false or null
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("check"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("check"),
               // Access non-existent state.missingField and compare to true
               guard = ApplyExpression(
                 EqOp,
@@ -60,10 +60,10 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
               effect = ConstExpression(MapValue(Map("path" -> StrValue("first"))))
             ),
             // Fallback guard that always passes
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("check"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("check"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("path" -> StrValue("fallback"))))
             )
@@ -80,33 +80,33 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("start"),
+          currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("check"),
+          EventType("check"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Committed(machines, _, _, _, _, _) =>
+        case TransactionResult.Committed(machines, _, _, _, _, _) =>
           // First guard should fail (missing field evaluates to null != true), fallback should succeed
           val updated = machines.get(fiberId)
           expect(updated.isDefined, "Updated fiber should exist") and
           expect(
-            updated.exists(_.currentState == StateMachine.StateId("end")),
+            updated.exists(_.currentState == StateId("end")),
             s"Expected state 'end', got ${updated.map(_.currentState)}"
           ) and
           expect(
@@ -116,7 +116,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
             }),
             "Expected 'path' to be 'fallback' (second transition taken)"
           )
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           failure(s"Expected Committed with fallback transition, but got Aborted: ${reason.toMessage}")
       }
     }
@@ -142,17 +142,17 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
             ApplyExpression(OrOp, List(acc, ConstExpression(BoolValue(false))))
         }
 
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("start") -> StateMachine.State(StateMachine.StateId("start")),
-            StateMachine.StateId("end")   -> StateMachine.State(StateMachine.StateId("end"))
+            StateId("start") -> State(StateId("start")),
+            StateId("end")   -> State(StateId("end"))
           ),
-          initialState = StateMachine.StateId("start"),
+          initialState = StateId("start"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("process"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("process"),
               guard = deepGuard,
               effect = ConstExpression(MapValue(Map("processed" -> BoolValue(true))))
             )
@@ -168,37 +168,37 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("start"),
+          currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("process"),
+          EventType("process"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Committed(machines, _, _, gasUsed, _, _) =>
+        case TransactionResult.Committed(machines, _, _, gasUsed, _, _) =>
           // Deeply nested guard: 10 levels of nested conditionals
           // Each level has: if (1) = 2 gas ops, so ~20 gas minimum
           val expectedMinGas = 10L
           expect(
-            machines.get(fiberId).exists(_.currentState == StateMachine.StateId("end")),
+            machines.get(fiberId).exists(_.currentState == StateId("end")),
             s"Expected state 'end', got ${machines.get(fiberId).map(_.currentState)}"
           ) and
           expect(gasUsed >= expectedMinGas, s"Expected at least $expectedMinGas gas, got $gasUsed")
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           failure(s"Expected Committed but got Aborted: ${reason.toMessage}")
       }
     }
@@ -226,25 +226,25 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           )
         )
 
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("start") -> StateMachine.State(StateMachine.StateId("start")),
-            StateMachine.StateId("end")   -> StateMachine.State(StateMachine.StateId("end"))
+            StateId("start") -> State(StateId("start")),
+            StateId("end")   -> State(StateId("end"))
           ),
-          initialState = StateMachine.StateId("start"),
+          initialState = StateId("start"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("divide"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("divide"),
               guard = divByZeroGuard,
               effect = ConstExpression(MapValue(Map("divided" -> BoolValue(true))))
             ),
             // Fallback
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("divide"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("divide"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("fallback" -> BoolValue(true))))
             )
@@ -260,44 +260,34 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("start"),
+          currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("divide"),
+          EventType("divide"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
-          // Division by zero should cause guard evaluation error
+        case TransactionResult.Aborted(reason, _, _) =>
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.GuardEvaluationError],
-            s"Expected GuardEvaluationError but got: ${reason.getClass.getSimpleName}"
+            reason.isInstanceOf[FailureReason.EvaluationError],
+            s"Expected EvaluationError but got: ${reason.getClass.getSimpleName}"
           )
-        case TransactionOutcome.Committed(machines, _, _, _, _, _) =>
-          // If JsonLogic handles div-by-zero gracefully (returns null/false),
-          // fallback transition should be taken
-          val updated = machines.get(fiberId)
-          expect(
-            updated.exists(_.stateData match {
-              case MapValue(m) => m.get("fallback").contains(BoolValue(true))
-              case _           => false
-            }),
-            "Expected fallback transition to be taken when div-by-zero returns null"
-          )
+        case _ =>
+          failure(s"Division by zero should cause guard evaluation error")
       }
     }
   }
@@ -313,18 +303,18 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
         ordinal = fixture.ordinal
 
         // Three transitions - first two guards check specific conditions
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("start") -> StateMachine.State(StateMachine.StateId("start")),
-            StateMachine.StateId("end")   -> StateMachine.State(StateMachine.StateId("end"))
+            StateId("start") -> State(StateId("start")),
+            StateId("end")   -> State(StateId("end"))
           ),
-          initialState = StateMachine.StateId("start"),
+          initialState = StateId("start"),
           transitions = List(
             // First: requires value > 100
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("process"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("process"),
               guard = ApplyExpression(
                 Gt,
                 List(VarExpression(Left("state.value")), ConstExpression(IntValue(100)))
@@ -332,10 +322,10 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
               effect = ConstExpression(MapValue(Map("path" -> StrValue("high"))))
             ),
             // Second: requires value > 50
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("process"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("process"),
               guard = ApplyExpression(
                 Gt,
                 List(VarExpression(Left("state.value")), ConstExpression(IntValue(50)))
@@ -343,10 +333,10 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
               effect = ConstExpression(MapValue(Map("path" -> StrValue("medium"))))
             ),
             // Third: always passes
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("process"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("process"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("path" -> StrValue("low"))))
             )
@@ -363,28 +353,28 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("start"),
+          currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("process"),
+          EventType("process"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Committed(machines, _, _, _, _, _) =>
+        case TransactionResult.Committed(machines, _, _, _, _, _) =>
           val updated = machines.get(fiberId)
           expect(updated.isDefined) and
           // Second transition should be taken (75 > 50 but 75 not > 100)
@@ -392,13 +382,13 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
             case MapValue(m) => m.get("path").contains(StrValue("medium"))
             case _           => false
           }))
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           failure(s"Expected Committed but got Aborted: ${reason.toMessage}")
       }
     }
   }
 
-  test("guard returning non-boolean value causes GuardEvaluationError") {
+  test("guard returning non-boolean value causes EvaluationError") {
     TestFixture.resource(Set.empty[Participant]).use { fixture =>
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
@@ -411,17 +401,17 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
         // Guard returns an integer instead of boolean
         nonBooleanGuard = ConstExpression(IntValue(42))
 
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("start") -> StateMachine.State(StateMachine.StateId("start")),
-            StateMachine.StateId("end")   -> StateMachine.State(StateMachine.StateId("end"))
+            StateId("start") -> State(StateId("start")),
+            StateId("end")   -> State(StateId("end"))
           ),
-          initialState = StateMachine.StateId("start"),
+          initialState = StateId("start"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("go"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("go"),
               guard = nonBooleanGuard,
               effect = ConstExpression(MapValue(Map("done" -> BoolValue(true))))
             )
@@ -437,40 +427,40 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("start"),
+          currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("go"),
+          EventType("go"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
-          // Guard returning non-boolean (IntValue(42)) should error with GuardEvaluationError
+        case TransactionResult.Aborted(reason, _, _) =>
+          // Guard returning non-boolean (IntValue(42)) should error with EvaluationError
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.GuardEvaluationError],
-            s"Expected GuardEvaluationError but got: ${reason.getClass.getSimpleName}: ${reason.toMessage}"
+            reason.isInstanceOf[FailureReason.EvaluationError],
+            s"Expected EvaluationError but got: ${reason.getClass.getSimpleName}: ${reason.toMessage}"
           )
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
-          failure("Expected Aborted with GuardEvaluationError, but transaction was committed")
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
+          failure("Expected Aborted with EvaluationError, but transaction was committed")
       }
     }
   }
 
-  test("fiber with non-MapValue stateData causes EffectEvaluationError") {
+  test("fiber with non-MapValue stateData causes EvaluationError") {
     TestFixture.resource(Set.empty[Participant]).use { fixture =>
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
@@ -480,17 +470,17 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
         fiberId <- UUIDGen.randomUUID[IO]
         ordinal = fixture.ordinal
 
-        definition = StateMachine.StateMachineDefinition(
+        definition = StateMachineDefinition(
           states = Map(
-            StateMachine.StateId("start") -> StateMachine.State(StateMachine.StateId("start")),
-            StateMachine.StateId("end")   -> StateMachine.State(StateMachine.StateId("end"))
+            StateId("start") -> State(StateId("start")),
+            StateId("end")   -> State(StateId("end"))
           ),
-          initialState = StateMachine.StateId("start"),
+          initialState = StateId("start"),
           transitions = List(
-            StateMachine.Transition(
-              from = StateMachine.StateId("start"),
-              to = StateMachine.StateId("end"),
-              eventType = StateMachine.EventType("go"),
+            Transition(
+              from = StateId("start"),
+              to = StateId("end"),
+              eventType = EventType("go"),
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("done" -> BoolValue(true))))
             )
@@ -507,34 +497,34 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = definition,
-          currentState = StateMachine.StateId("start"),
+          currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
         input = FiberInput.Transition(
-          StateMachine.EventType("go"),
+          EventType("go"),
           MapValue(Map.empty)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
-        orchestrator = FiberOrchestrator.make[IO](calculatedState, ordinal, limits)
+        orchestrator = FiberEngine.make[IO](calculatedState, ordinal, limits)
 
         result <- orchestrator.process(fiberId, input, List.empty)
 
       } yield result match {
-        case TransactionOutcome.Aborted(reason, _, _) =>
+        case TransactionResult.Aborted(reason, _, _) =>
           expect(
-            reason.isInstanceOf[StateMachine.FailureReason.EffectEvaluationError],
-            s"Expected EffectEvaluationError but got: ${reason.getClass.getSimpleName}"
+            reason.isInstanceOf[FailureReason.EvaluationError],
+            s"Expected EvaluationError but got: ${reason.getClass.getSimpleName}"
           )
-        case TransactionOutcome.Committed(_, _, _, _, _, _) =>
-          failure("Expected Aborted with EffectEvaluationError for non-MapValue state data")
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
+          failure("Expected Aborted with EvaluationError for non-MapValue state data")
       }
     }
   }

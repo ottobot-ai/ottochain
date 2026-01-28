@@ -13,7 +13,8 @@ import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, StateMachine, Updates}
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
 import xyz.kd5ujc.shared_test.Participant._
@@ -39,9 +40,9 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
   private val securityProviderResource: Resource[IO, SecurityProvider[IO]] = SecurityProvider.forAsync[IO]
 
   // Helper function to decode JSON to StateMachineDefinition
-  private def decodeStateMachine(json: String): IO[StateMachine.StateMachineDefinition] =
+  private def decodeStateMachine(json: String): IO[StateMachineDefinition] =
     IO.fromEither(
-      decode[StateMachine.StateMachineDefinition](json).left.map(err =>
+      decode[StateMachineDefinition](json).left.map(err =>
         new RuntimeException(s"Failed to decode state machine JSON: $err")
       )
     )
@@ -1543,15 +1544,15 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = manufacturerDef,
-          currentState = StateMachine.StateId("idle"),
+          currentState = StateId("idle"),
           stateData = manufacturerInitialData.copy(value =
             manufacturerInitialData.value + ("businessName" -> StrValue("SteelCore Manufacturing"))
           ),
           stateDataHash = aliceHash,
           sequenceNumber = 0,
           owners = Set(Alice).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         bobHash <- (manufacturerInitialData: JsonLogicValue).computeDigest
@@ -1561,15 +1562,15 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = manufacturerDef,
-          currentState = StateMachine.StateId("idle"),
+          currentState = StateId("idle"),
           stateData = manufacturerInitialData.copy(value =
             manufacturerInitialData.value + ("businessName" -> StrValue("AgriGrow Farms"))
           ),
           stateDataHash = bobHash,
           sequenceNumber = 0,
           owners = Set(Bob).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         charlieInitialData = manufacturerInitialData.copy(value =
@@ -1585,13 +1586,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = manufacturerDef,
-          currentState = StateMachine.StateId("idle"),
+          currentState = StateId("idle"),
           stateData = charlieInitialData,
           stateDataHash = charlieHash,
           sequenceNumber = 0,
           owners = Set(Charlie).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         // Initialize retailer fibers (with dependencies on manufacturers)
@@ -1606,13 +1607,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = heidiRetailerDef,
-          currentState = StateMachine.StateId("open"),
+          currentState = StateId("open"),
           stateData = heidiData,
           stateDataHash = heidiHash,
           sequenceNumber = 0,
           owners = Set(Heidi).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         // Initialize platform fibers
@@ -1626,13 +1627,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = manufacturerDef, // Simplified for test
-          currentState = StateMachine.StateId("idle"),
+          currentState = StateId("idle"),
           stateData = niajData,
           stateDataHash = niajHash,
           sequenceNumber = 0,
           owners = Set(Niaj).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         // Initialize bank fibers
@@ -1643,15 +1644,15 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = bankDef,
-          currentState = StateMachine.StateId("operating"),
+          currentState = StateId("operating"),
           stateData = bankInitialData.copy(value =
             bankInitialData.value + ("businessName" -> StrValue("Riverdale National Bank"))
           ),
           stateDataHash = oscarHash,
           sequenceNumber = 0,
           owners = Set(Oscar).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         peggyHash <- (bankInitialData: JsonLogicValue).computeDigest
@@ -1661,14 +1662,14 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = bankDef,
-          currentState = StateMachine.StateId("operating"),
+          currentState = StateId("operating"),
           stateData =
             bankInitialData.copy(value = bankInitialData.value + ("businessName" -> StrValue("SecureCredit Union"))),
           stateDataHash = peggyHash,
           sequenceNumber = 0,
           owners = Set(Peggy).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         quentinHash <- (bankInitialData: JsonLogicValue).computeDigest
@@ -1678,15 +1679,15 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = bankDef,
-          currentState = StateMachine.StateId("operating"),
+          currentState = StateId("operating"),
           stateData = bankInitialData.copy(value =
             bankInitialData.value + ("businessName" -> StrValue("VentureForward Capital"))
           ),
           stateDataHash = quentinHash,
           sequenceNumber = 0,
           owners = Set(Quentin).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         // Initialize consumer fibers
@@ -1697,15 +1698,15 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = consumerDef,
-          currentState = StateMachine.StateId("active"),
+          currentState = StateId("active"),
           stateData = consumerInitialData.copy(value =
             consumerInitialData.value + ("name" -> StrValue("Ruth - Software Developer"))
           ),
           stateDataHash = ruthHash,
           sequenceNumber = 0,
           owners = Set(Ruth).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         sybilInitialData = consumerInitialData.copy(value =
@@ -1721,13 +1722,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = consumerDef,
-          currentState = StateMachine.StateId("active"),
+          currentState = StateId("active"),
           stateData = sybilInitialData,
           stateDataHash = sybilHash,
           sequenceNumber = 0,
           owners = Set(Sybil).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         victorInitialData = consumerInitialData.copy(value =
@@ -1743,13 +1744,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = consumerDef,
-          currentState = StateMachine.StateId("active"),
+          currentState = StateId("active"),
           stateData = victorInitialData,
           stateDataHash = victorHash,
           sequenceNumber = 0,
           owners = Set(Victor).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         // Initialize Federal Reserve fiber
@@ -1760,14 +1761,14 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = fedDef,
-          currentState = StateMachine.StateId("stable"),
+          currentState = StateId("stable"),
           stateData =
             fedInitialData.copy(value = fedInitialData.value + ("name" -> StrValue("Federal Reserve Branch"))),
           stateDataHash = yolandaHash,
           sequenceNumber = 0,
           owners = Set(Yolanda).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         // Initialize Governance fiber
@@ -1778,15 +1779,15 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = governanceDef,
-          currentState = StateMachine.StateId("monitoring"),
+          currentState = StateId("monitoring"),
           stateData = governanceInitialData.copy(value =
             governanceInitialData.value + ("name" -> StrValue("Riverdale Governance"))
           ),
           stateDataHash = xavierHash,
           sequenceNumber = 0,
           owners = Set(Xavier).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         // Create initial state with key participants
@@ -1833,9 +1834,10 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Event 1: Federal Reserve quarterly meeting (high inflation scenario)
-        event1 = StateMachine.Event(
-          eventType = StateMachine.EventType("quarterly_meeting"),
-          payload = MapValue(
+        update1 = Updates.TransitionStateMachine(
+          yolandaCid,
+          EventType("quarterly_meeting"),
+          MapValue(
             Map(
               "timestamp"        -> IntValue(1000),
               "inflationRate"    -> FloatValue(0.03), // Above 0.025 threshold triggers rate increase
@@ -1844,62 +1846,61 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             )
           )
         )
-        update1 = Updates.ProcessFiberEvent(yolandaCid, event1)
         proof1 <- registry.generateProofs(update1, Set(Yolanda))
         state1 <- combiner.insert(initialState, Signed(update1, proof1))
 
         // Event 2: Fed sets rate (returns to stable, broadcasts rate_adjustment to all banks)
-        event2 = StateMachine.Event(
-          eventType = StateMachine.EventType("set_rate"),
-          payload = MapValue(Map("timestamp" -> IntValue(1050)))
+        update2 = Updates.TransitionStateMachine(
+          yolandaCid,
+          EventType("set_rate"),
+          MapValue(Map("timestamp" -> IntValue(1050)))
         )
-        update2 = Updates.ProcessFiberEvent(yolandaCid, event2)
         proof2 <- registry.generateProofs(update2, Set(Yolanda))
         state2 <- combiner.insert(state1, Signed(update2, proof2))
 
         // Event 3: Alice schedules production
-        event3 = StateMachine.Event(
-          eventType = StateMachine.EventType("schedule_production"),
-          payload = MapValue(
+        update3 = Updates.TransitionStateMachine(
+          aliceCid,
+          EventType("schedule_production"),
+          MapValue(
             Map(
               "timestamp" -> IntValue(1100),
               "batchSize" -> IntValue(100)
             )
           )
         )
-        update3 = Updates.ProcessFiberEvent(aliceCid, event3)
         proof3 <- registry.generateProofs(update3, Set(Alice))
         state3 <- combiner.insert(state2, Signed(update3, proof3))
 
         // Event 4: Alice starts production
-        event4 = StateMachine.Event(
-          eventType = StateMachine.EventType("start_production"),
-          payload = MapValue(Map("timestamp" -> IntValue(1200)))
+        update4 = Updates.TransitionStateMachine(
+          aliceCid,
+          EventType("start_production"),
+          MapValue(Map("timestamp" -> IntValue(1200)))
         )
-        update4 = Updates.ProcessFiberEvent(aliceCid, event4)
         proof4 <- registry.generateProofs(update4, Set(Alice))
         state4 <- combiner.insert(state3, Signed(update4, proof4))
 
         // Event 5: Alice completes batch
-        event5 = StateMachine.Event(
-          eventType = StateMachine.EventType("complete_batch"),
-          payload = MapValue(Map("timestamp" -> IntValue(2000)))
+        update5 = Updates.TransitionStateMachine(
+          aliceCid,
+          EventType("complete_batch"),
+          MapValue(Map("timestamp" -> IntValue(2000)))
         )
-        update5 = Updates.ProcessFiberEvent(aliceCid, event5)
         proof5 <- registry.generateProofs(update5, Set(Alice))
         state5 <- combiner.insert(state4, Signed(update5, proof5))
 
         // Event 6: Heidi checks inventory (should trigger order to Alice)
-        event6 = StateMachine.Event(
-          eventType = StateMachine.EventType("check_inventory"),
-          payload = MapValue(
+        update6 = Updates.TransitionStateMachine(
+          heidiCid,
+          EventType("check_inventory"),
+          MapValue(
             Map(
               "timestamp"  -> IntValue(2100),
               "shipmentId" -> StrValue("SHIP-001")
             )
           )
         )
-        update6 = Updates.ProcessFiberEvent(heidiCid, event6)
         proof6 <- registry.generateProofs(update6, Set(Heidi))
         state6 <- combiner.insert(state5, Signed(update6, proof6))
 
@@ -1909,9 +1910,10 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Event 7: Ruth applies for loan from Oscar
-        event7 = StateMachine.Event(
-          eventType = StateMachine.EventType("apply_loan"),
-          payload = MapValue(
+        update7 = Updates.TransitionStateMachine(
+          oscarCid,
+          EventType("apply_loan"),
+          MapValue(
             Map(
               "timestamp"   -> IntValue(2200),
               "applicantId" -> StrValue(ruthCid.toString),
@@ -1921,16 +1923,15 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             )
           )
         )
-        update7 = Updates.ProcessFiberEvent(oscarCid, event7)
         proof7 <- registry.generateProofs(update7, Set(Oscar))
         state7 <- combiner.insert(state6, Signed(update7, proof7))
 
         // Event 8: Oscar underwrites loan (Fed must be in stable state)
-        event8 = StateMachine.Event(
-          eventType = StateMachine.EventType("underwrite"),
-          payload = MapValue(Map("timestamp" -> IntValue(2300)))
+        update8 = Updates.TransitionStateMachine(
+          oscarCid,
+          EventType("underwrite"),
+          MapValue(Map("timestamp" -> IntValue(2300)))
         )
-        update8 = Updates.ProcessFiberEvent(oscarCid, event8)
         proof8 <- registry.generateProofs(update8, Set(Oscar))
         state8 <- combiner.insert(state7, Signed(update8, proof8))
 
@@ -1939,11 +1940,11 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Event 9: Supply shortage at Charlie's TechParts
-        event9 = StateMachine.Event(
-          eventType = StateMachine.EventType("check_materials"),
-          payload = MapValue(Map("timestamp" -> IntValue(3000)))
+        update9 = Updates.TransitionStateMachine(
+          charlieCid,
+          EventType("check_materials"),
+          MapValue(Map("timestamp" -> IntValue(3000)))
         )
-        update9 = Updates.ProcessFiberEvent(charlieCid, event9)
         proof9 <- registry.generateProofs(update9, Set(Charlie))
         state9 <- combiner.insert(state8, Signed(update9, proof9))
 
@@ -1957,34 +1958,34 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Event 10: Bob schedules production
-        event10 = StateMachine.Event(
-          eventType = StateMachine.EventType("schedule_production"),
-          payload = MapValue(
+        update10 = Updates.TransitionStateMachine(
+          bobCid,
+          EventType("schedule_production"),
+          MapValue(
             Map(
               "timestamp" -> IntValue(3100),
               "batchSize" -> IntValue(80)
             )
           )
         )
-        update10 = Updates.ProcessFiberEvent(bobCid, event10)
         proof10 <- registry.generateProofs(update10, Set(Bob))
         state10 <- combiner.insert(state9, Signed(update10, proof10))
 
         // Event 11: Bob starts production
-        event11 = StateMachine.Event(
-          eventType = StateMachine.EventType("start_production"),
-          payload = MapValue(Map("timestamp" -> IntValue(3200)))
+        update11 = Updates.TransitionStateMachine(
+          bobCid,
+          EventType("start_production"),
+          MapValue(Map("timestamp" -> IntValue(3200)))
         )
-        update11 = Updates.ProcessFiberEvent(bobCid, event11)
         proof11 <- registry.generateProofs(update11, Set(Bob))
         state11 <- combiner.insert(state10, Signed(update11, proof11))
 
         // Event 12: Bob completes batch
-        event12 = StateMachine.Event(
-          eventType = StateMachine.EventType("complete_batch"),
-          payload = MapValue(Map("timestamp" -> IntValue(4000)))
+        update12 = Updates.TransitionStateMachine(
+          bobCid,
+          EventType("complete_batch"),
+          MapValue(Map("timestamp" -> IntValue(4000)))
         )
-        update12 = Updates.ProcessFiberEvent(bobCid, event12)
         proof12 <- registry.generateProofs(update12, Set(Bob))
         state12 <- combiner.insert(state11, Signed(update12, proof12))
 
@@ -2004,13 +2005,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = graceRetailerDef,
-          currentState = StateMachine.StateId("open"),
+          currentState = StateId("open"),
           stateData = graceData,
           stateDataHash = graceHash,
           sequenceNumber = 0,
           owners = Set(Grace).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         // Add Grace to the state
@@ -2021,16 +2022,16 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         )
 
         // Event 13: Grace checks inventory (triggers order to Bob)
-        event13 = StateMachine.Event(
-          eventType = StateMachine.EventType("check_inventory"),
-          payload = MapValue(
+        update13 = Updates.TransitionStateMachine(
+          graceCid,
+          EventType("check_inventory"),
+          MapValue(
             Map(
               "timestamp"  -> IntValue(4100),
               "shipmentId" -> StrValue("SHIP-002")
             )
           )
         )
-        update13 = Updates.ProcessFiberEvent(graceCid, event13)
         proof13 <- registry.generateProofs(update13, Set(Grace))
         state14 <- combiner.insert(state13, Signed(update13, proof13))
 
@@ -2039,18 +2040,19 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Event 14: Heidi reopens after restocking
-        event14 = StateMachine.Event(
-          eventType = StateMachine.EventType("reopen"),
-          payload = MapValue(Map("timestamp" -> IntValue(4150)))
+        update14 = Updates.TransitionStateMachine(
+          heidiCid,
+          EventType("reopen"),
+          MapValue(Map("timestamp" -> IntValue(4150)))
         )
-        update14 = Updates.ProcessFiberEvent(heidiCid, event14)
         proof14 <- registry.generateProofs(update14, Set(Heidi))
         state15 <- combiner.insert(state14, Signed(update14, proof14))
 
         // Event 15: Ruth browses products at Heidi's store
-        event15 = StateMachine.Event(
-          eventType = StateMachine.EventType("browse_products"),
-          payload = MapValue(
+        update15 = Updates.TransitionStateMachine(
+          ruthCid,
+          EventType("browse_products"),
+          MapValue(
             Map(
               "timestamp"    -> IntValue(4200),
               "retailerId"   -> StrValue(heidiCid.toString),
@@ -2059,7 +2061,6 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             )
           )
         )
-        update15 = Updates.ProcessFiberEvent(ruthCid, event15)
         proof15 <- registry.generateProofs(update15, Set(Ruth))
         state16 <- combiner.insert(state15, Signed(update15, proof15))
 
@@ -2068,9 +2069,10 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Event 16: Sybil applies for loan from Peggy
-        event16 = StateMachine.Event(
-          eventType = StateMachine.EventType("apply_loan"),
-          payload = MapValue(
+        update16 = Updates.TransitionStateMachine(
+          peggyCid,
+          EventType("apply_loan"),
+          MapValue(
             Map(
               "timestamp"   -> IntValue(4300),
               "applicantId" -> StrValue(sybilCid.toString),
@@ -2080,24 +2082,23 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             )
           )
         )
-        update16 = Updates.ProcessFiberEvent(peggyCid, event16)
         proof16 <- registry.generateProofs(update16, Set(Peggy))
         state17 <- combiner.insert(state16, Signed(update16, proof16))
 
         // Event 17: Peggy underwrites loan for Sybil
-        event17 = StateMachine.Event(
-          eventType = StateMachine.EventType("underwrite"),
-          payload = MapValue(Map("timestamp" -> IntValue(4400)))
+        update17 = Updates.TransitionStateMachine(
+          peggyCid,
+          EventType("underwrite"),
+          MapValue(Map("timestamp" -> IntValue(4400)))
         )
-        update17 = Updates.ProcessFiberEvent(peggyCid, event17)
         proof17 <- registry.generateProofs(update17, Set(Peggy))
         state18 <- combiner.insert(state17, Signed(update17, proof17))
         // Event 18: Sybil checks payment (misses payment - timestamp way past nextPaymentDue)
-        event18 = StateMachine.Event(
-          eventType = StateMachine.EventType("check_payment"),
-          payload = MapValue(Map("timestamp" -> IntValue(7100000))) // Way past due date (2592000 + 4400 = 2596400)
+        update18 = Updates.TransitionStateMachine(
+          sybilCid,
+          EventType("check_payment"),
+          MapValue(Map("timestamp" -> IntValue(7100000))) // Way past due date (2592000 + 4400 = 2596400)
         )
-        update18 = Updates.ProcessFiberEvent(sybilCid, event18)
         proof18 <- registry.generateProofs(update18, Set(Sybil))
         state19 <- combiner.insert(state18, Signed(update18, proof18))
 
@@ -2106,9 +2107,10 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Event 19: Fed initiates stress test due to high market volatility
-        event19 = StateMachine.Event(
-          eventType = StateMachine.EventType("initiate_stress_test"),
-          payload = MapValue(
+        update19 = Updates.TransitionStateMachine(
+          yolandaCid,
+          EventType("initiate_stress_test"),
+          MapValue(
             Map(
               "timestamp"        -> IntValue(7200000),
               "marketVolatility" -> FloatValue(0.35), // Above 0.30 threshold
@@ -2116,34 +2118,33 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             )
           )
         )
-        update19 = Updates.ProcessFiberEvent(yolandaCid, event19)
         proof19 <- registry.generateProofs(update19, Set(Yolanda))
         state20 <- combiner.insert(state19, Signed(update19, proof19))
 
         // Event 20: Oscar completes stress test (passes - good capital ratio)
-        event20 = StateMachine.Event(
-          eventType = StateMachine.EventType("complete_stress_test"),
-          payload = MapValue(Map("timestamp" -> IntValue(7300000)))
+        update20 = Updates.TransitionStateMachine(
+          oscarCid,
+          EventType("complete_stress_test"),
+          MapValue(Map("timestamp" -> IntValue(7300000)))
         )
-        update20 = Updates.ProcessFiberEvent(oscarCid, event20)
         proof20 <- registry.generateProofs(update20, Set(Oscar))
         state21 <- combiner.insert(state20, Signed(update20, proof20))
 
         // Event 21: Peggy completes stress test (passes - good capital ratio)
-        event21 = StateMachine.Event(
-          eventType = StateMachine.EventType("complete_stress_test"),
-          payload = MapValue(Map("timestamp" -> IntValue(7300050)))
+        update21 = Updates.TransitionStateMachine(
+          peggyCid,
+          EventType("complete_stress_test"),
+          MapValue(Map("timestamp" -> IntValue(7300050)))
         )
-        update21 = Updates.ProcessFiberEvent(peggyCid, event21)
         proof21 <- registry.generateProofs(update21, Set(Peggy))
         state22 <- combiner.insert(state21, Signed(update21, proof21))
 
         // Event 22: Quentin completes stress test (passes - good capital ratio)
-        event22 = StateMachine.Event(
-          eventType = StateMachine.EventType("complete_stress_test"),
-          payload = MapValue(Map("timestamp" -> IntValue(7300100)))
+        update22 = Updates.TransitionStateMachine(
+          quentinCid,
+          EventType("complete_stress_test"),
+          MapValue(Map("timestamp" -> IntValue(7300100)))
         )
-        update22 = Updates.ProcessFiberEvent(quentinCid, event22)
         proof22 <- registry.generateProofs(update22, Set(Quentin))
         state23 <- combiner.insert(state22, Signed(update22, proof22))
 
@@ -2152,9 +2153,10 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Event 23: Heidi starts holiday sale (20% discount)
-        event23 = StateMachine.Event(
-          eventType = StateMachine.EventType("start_sale"),
-          payload = MapValue(
+        update23 = Updates.TransitionStateMachine(
+          heidiCid,
+          EventType("start_sale"),
+          MapValue(
             Map(
               "timestamp"    -> IntValue(7400000),
               "season"       -> StrValue("holiday"),
@@ -2162,7 +2164,6 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             )
           )
         )
-        update23 = Updates.ProcessFiberEvent(heidiCid, event23)
         proof23 <- registry.generateProofs(update23, Set(Heidi))
         state24 <- combiner.insert(state23, Signed(update23, proof23))
 
@@ -2195,9 +2196,10 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         auctionCid <- UUIDGen.randomUUID[IO]
 
         // Event 24: Sybil lists handmade craft item for auction (spawns auction child machine)
-        event24 = StateMachine.Event(
-          eventType = StateMachine.EventType("list_item"),
-          payload = MapValue(
+        update24 = Updates.TransitionStateMachine(
+          sybilCid,
+          EventType("list_item"),
+          MapValue(
             Map(
               "auctionId"    -> StrValue(auctionCid.toString),
               "itemName"     -> StrValue("Handmade Ceramic Vase"),
@@ -2206,14 +2208,14 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             )
           )
         )
-        update24 = Updates.ProcessFiberEvent(sybilCid, event24)
         proof24 <- registry.generateProofs(update24, Set(Sybil))
         state25 <- combiner.insert(state24, Signed(update24, proof24))
 
         // Event 25: Victor places bid on Sybil's auction (bid exceeds reserve price)
-        event25 = StateMachine.Event(
-          eventType = StateMachine.EventType("place_bid"),
-          payload = MapValue(
+        update25 = Updates.TransitionStateMachine(
+          auctionCid,
+          EventType("place_bid"),
+          MapValue(
             Map(
               "bidAmount" -> IntValue(750),
               "bidderId"  -> StrValue(victorCid.toString),
@@ -2221,16 +2223,15 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             )
           )
         )
-        update25 = Updates.ProcessFiberEvent(auctionCid, event25)
         proof25 <- registry.generateProofs(update25, Set(Victor))
         state26 <- combiner.insert(state25, Signed(update25, proof25))
 
         // Event 26: Auction accepts bid (triggers sale_completed to Sybil)
-        event26 = StateMachine.Event(
-          eventType = StateMachine.EventType("accept_bid"),
-          payload = MapValue(Map("timestamp" -> IntValue(7700000)))
+        update26 = Updates.TransitionStateMachine(
+          auctionCid,
+          EventType("accept_bid"),
+          MapValue(Map("timestamp" -> IntValue(7700000)))
         )
-        update26 = Updates.ProcessFiberEvent(auctionCid, event26)
         proof26 <- registry.generateProofs(update26, Set(Sybil))
         state27 <- combiner.insert(state26, Signed(update26, proof26))
 
@@ -2248,11 +2249,11 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Event 27: Ruth makes first loan payment to Oscar
-        event27 = StateMachine.Event(
-          eventType = StateMachine.EventType("make_payment"),
-          payload = MapValue(Map("timestamp" -> IntValue(7750000)))
+        update27 = Updates.TransitionStateMachine(
+          ruthCid,
+          EventType("make_payment"),
+          MapValue(Map("timestamp" -> IntValue(7750000)))
         )
-        update27 = Updates.ProcessFiberEvent(ruthCid, event27)
         proof27 <- registry.generateProofs(update27, Set(Ruth))
         state28 <- combiner.insert(state27, Signed(update27, proof27))
 
@@ -2263,9 +2264,10 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         auction2Cid <- UUIDGen.randomUUID[IO]
 
         // Event 28: Victor lists antique item for auction
-        event28 = StateMachine.Event(
-          eventType = StateMachine.EventType("list_item"),
-          payload = MapValue(
+        update28 = Updates.TransitionStateMachine(
+          victorCid,
+          EventType("list_item"),
+          MapValue(
             Map(
               "auctionId"    -> StrValue(auction2Cid.toString),
               "itemName"     -> StrValue("Vintage Watch Collection"),
@@ -2274,14 +2276,14 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             )
           )
         )
-        update28 = Updates.ProcessFiberEvent(victorCid, event28)
         proof28 <- registry.generateProofs(update28, Set(Victor))
         state29 <- combiner.insert(state28, Signed(update28, proof28))
 
         // Event 29: Ruth places bid on Victor's auction (using loan proceeds)
-        event29 = StateMachine.Event(
-          eventType = StateMachine.EventType("place_bid"),
-          payload = MapValue(
+        update29 = Updates.TransitionStateMachine(
+          auction2Cid,
+          EventType("place_bid"),
+          MapValue(
             Map(
               "bidAmount" -> IntValue(2500),
               "bidderId"  -> StrValue(ruthCid.toString),
@@ -2289,16 +2291,15 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             )
           )
         )
-        update29 = Updates.ProcessFiberEvent(auction2Cid, event29)
         proof29 <- registry.generateProofs(update29, Set(Ruth))
         state30 <- combiner.insert(state29, Signed(update29, proof29))
 
         // Event 30: Victor accepts Ruth's bid
-        event30 = StateMachine.Event(
-          eventType = StateMachine.EventType("accept_bid"),
-          payload = MapValue(Map("timestamp" -> IntValue(8000000)))
+        update30 = Updates.TransitionStateMachine(
+          auction2Cid,
+          EventType("accept_bid"),
+          MapValue(Map("timestamp" -> IntValue(8000000)))
         )
-        update30 = Updates.ProcessFiberEvent(auction2Cid, event30)
         proof30 <- registry.generateProofs(update30, Set(Victor))
         state31 <- combiner.insert(state30, Signed(update30, proof30))
 
@@ -2318,13 +2319,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = daveRetailerDef,
-          currentState = StateMachine.StateId("idle"),
+          currentState = StateId("idle"),
           stateData = daveData,
           stateDataHash = daveHash,
           sequenceNumber = 0,
           owners = Set(Dave).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         // Add Dave to the state
@@ -2335,34 +2336,34 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         )
 
         // Event 32: Dave schedules production
-        event32 = StateMachine.Event(
-          eventType = StateMachine.EventType("schedule_production"),
-          payload = MapValue(
+        update32 = Updates.TransitionStateMachine(
+          daveCid,
+          EventType("schedule_production"),
+          MapValue(
             Map(
               "timestamp" -> IntValue(8100000),
               "batchSize" -> IntValue(150)
             )
           )
         )
-        update32 = Updates.ProcessFiberEvent(daveCid, event32)
         proof32 <- registry.generateProofs(update32, Set(Dave))
         state33 <- combiner.insert(state32, Signed(update32, proof32))
 
         // Event 33: Dave starts production
-        event33 = StateMachine.Event(
-          eventType = StateMachine.EventType("start_production"),
-          payload = MapValue(Map("timestamp" -> IntValue(8200000)))
+        update33 = Updates.TransitionStateMachine(
+          daveCid,
+          EventType("start_production"),
+          MapValue(Map("timestamp" -> IntValue(8200000)))
         )
-        update33 = Updates.ProcessFiberEvent(daveCid, event33)
         proof33 <- registry.generateProofs(update33, Set(Dave))
         state34 <- combiner.insert(state33, Signed(update33, proof33))
 
         // Event 34: Dave completes production
-        event34 = StateMachine.Event(
-          eventType = StateMachine.EventType("complete_batch"),
-          payload = MapValue(Map("timestamp" -> IntValue(8300000)))
+        update34 = Updates.TransitionStateMachine(
+          daveCid,
+          EventType("complete_batch"),
+          MapValue(Map("timestamp" -> IntValue(8300000)))
         )
-        update34 = Updates.ProcessFiberEvent(daveCid, event34)
         proof34 <- registry.generateProofs(update34, Set(Dave))
         state35 <- combiner.insert(state34, Signed(update34, proof34))
 
@@ -2382,13 +2383,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           definition = ivanRetailerDef,
-          currentState = StateMachine.StateId("open"),
+          currentState = StateId("open"),
           stateData = ivanData,
           stateDataHash = ivanHash,
           sequenceNumber = 0,
           owners = Set(Ivan).map(registry.addresses),
-          status = Records.FiberStatus.Active,
-          lastEventStatus = Records.EventProcessingStatus.Initialized
+          status = FiberStatus.Active,
+          lastEventStatus = EventProcessingStatus.Initialized
         )
 
         // Add Ivan to the state
@@ -2399,16 +2400,16 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         )
 
         // Event 36: Ivan checks inventory (triggers order to Dave)
-        event36 = StateMachine.Event(
-          eventType = StateMachine.EventType("check_inventory"),
-          payload = MapValue(
+        update36 = Updates.TransitionStateMachine(
+          ivanCid,
+          EventType("check_inventory"),
+          MapValue(
             Map(
               "timestamp"  -> IntValue(8400000),
               "shipmentId" -> StrValue("SHIP-003")
             )
           )
         )
-        update36 = Updates.ProcessFiberEvent(ivanCid, event36)
         proof36 <- registry.generateProofs(update36, Set(Ivan))
         state37 <- combiner.insert(state36, Signed(update36, proof36))
 
@@ -2417,9 +2418,10 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Event 37: Ruth provides freelance service (earns income)
-        event37 = StateMachine.Event(
-          eventType = StateMachine.EventType("provide_service"),
-          payload = MapValue(
+        update37 = Updates.TransitionStateMachine(
+          ruthCid,
+          EventType("provide_service"),
+          MapValue(
             Map(
               "timestamp"        -> IntValue(8500000),
               "requestedService" -> StrValue("software_development"),
@@ -2427,7 +2429,6 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             )
           )
         )
-        update37 = Updates.ProcessFiberEvent(ruthCid, event37)
         proof37 <- registry.generateProofs(update37, Set(Ruth))
         state38 <- combiner.insert(state37, Signed(update37, proof37))
 
@@ -2436,9 +2437,10 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Event 38: Victor shops at Grace's FreshFoods Market
-        event38 = StateMachine.Event(
-          eventType = StateMachine.EventType("browse_products"),
-          payload = MapValue(
+        update38 = Updates.TransitionStateMachine(
+          victorCid,
+          EventType("browse_products"),
+          MapValue(
             Map(
               "timestamp"    -> IntValue(8600000),
               "retailerId"   -> StrValue(graceCid.toString),
@@ -2447,25 +2449,24 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             )
           )
         )
-        update38 = Updates.ProcessFiberEvent(victorCid, event38)
         proof38 <- registry.generateProofs(update38, Set(Victor))
         state39 <- combiner.insert(state38, Signed(update38, proof38))
 
         // Event 39: Grace reopens after restocking
-        event39 = StateMachine.Event(
-          eventType = StateMachine.EventType("reopen"),
-          payload = MapValue(Map("timestamp" -> IntValue(8650000)))
+        update39 = Updates.TransitionStateMachine(
+          graceCid,
+          EventType("reopen"),
+          MapValue(Map("timestamp" -> IntValue(8650000)))
         )
-        update39 = Updates.ProcessFiberEvent(graceCid, event39)
         proof39 <- registry.generateProofs(update39, Set(Grace))
         state40 <- combiner.insert(state39, Signed(update39, proof39))
 
         // Event 40: Ivan reopens after restocking from Dave
-        event40 = StateMachine.Event(
-          eventType = StateMachine.EventType("reopen"),
-          payload = MapValue(Map("timestamp" -> IntValue(8700000)))
+        update40 = Updates.TransitionStateMachine(
+          ivanCid,
+          EventType("reopen"),
+          MapValue(Map("timestamp" -> IntValue(8700000)))
         )
-        update40 = Updates.ProcessFiberEvent(ivanCid, event40)
         proof40 <- registry.generateProofs(update40, Set(Ivan))
         state41 <- combiner.insert(state40, Signed(update40, proof40))
 
@@ -2474,34 +2475,34 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Event 41: Alice schedules another production batch
-        event41 = StateMachine.Event(
-          eventType = StateMachine.EventType("schedule_production"),
-          payload = MapValue(
+        update41 = Updates.TransitionStateMachine(
+          aliceCid,
+          EventType("schedule_production"),
+          MapValue(
             Map(
               "timestamp" -> IntValue(8800000),
               "batchSize" -> IntValue(80)
             )
           )
         )
-        update41 = Updates.ProcessFiberEvent(aliceCid, event41)
         proof41 <- registry.generateProofs(update41, Set(Alice))
         state42 <- combiner.insert(state41, Signed(update41, proof41))
 
         // Event 42: Alice starts second production run
-        event42 = StateMachine.Event(
-          eventType = StateMachine.EventType("start_production"),
-          payload = MapValue(Map("timestamp" -> IntValue(8900000)))
+        update42 = Updates.TransitionStateMachine(
+          aliceCid,
+          EventType("start_production"),
+          MapValue(Map("timestamp" -> IntValue(8900000)))
         )
-        update42 = Updates.ProcessFiberEvent(aliceCid, event42)
         proof42 <- registry.generateProofs(update42, Set(Alice))
         state43 <- combiner.insert(state42, Signed(update42, proof42))
 
         // Event 43: Alice completes second batch
-        event43 = StateMachine.Event(
-          eventType = StateMachine.EventType("complete_batch"),
-          payload = MapValue(Map("timestamp" -> IntValue(9000000)))
+        update43 = Updates.TransitionStateMachine(
+          aliceCid,
+          EventType("complete_batch"),
+          MapValue(Map("timestamp" -> IntValue(9000000)))
         )
-        update43 = Updates.ProcessFiberEvent(aliceCid, event43)
         proof43 <- registry.generateProofs(update43, Set(Alice))
         state44 <- combiner.insert(state43, Signed(update43, proof43))
 
@@ -2522,62 +2523,52 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         )
 
         // Event 44: Alice pays taxes
-        event44 = StateMachine.Event(eventType = StateMachine.EventType("pay_taxes"), payload = taxPayload)
-        update44 = Updates.ProcessFiberEvent(aliceCid, event44)
+        update44 = Updates.TransitionStateMachine(aliceCid, EventType("pay_taxes"), taxPayload)
         proof44 <- registry.generateProofs(update44, Set(Alice))
         state45 <- combiner.insert(state44, Signed(update44, proof44))
 
         // Event 45: Bob pays taxes
-        event45 = StateMachine.Event(eventType = StateMachine.EventType("pay_taxes"), payload = taxPayload)
-        update45 = Updates.ProcessFiberEvent(bobCid, event45)
+        update45 = Updates.TransitionStateMachine(bobCid, EventType("pay_taxes"), taxPayload)
         proof45 <- registry.generateProofs(update45, Set(Bob))
         state46 <- combiner.insert(state45, Signed(update45, proof45))
 
         // Event 46: Charlie pays taxes
-        event46 = StateMachine.Event(eventType = StateMachine.EventType("pay_taxes"), payload = taxPayload)
-        update46 = Updates.ProcessFiberEvent(charlieCid, event46)
+        update46 = Updates.TransitionStateMachine(charlieCid, EventType("pay_taxes"), taxPayload)
         proof46 <- registry.generateProofs(update46, Set(Charlie))
         state47 <- combiner.insert(state46, Signed(update46, proof46))
 
         // Event 47: Dave pays taxes
-        event47 = StateMachine.Event(eventType = StateMachine.EventType("pay_taxes"), payload = taxPayload)
-        update47 = Updates.ProcessFiberEvent(daveCid, event47)
+        update47 = Updates.TransitionStateMachine(daveCid, EventType("pay_taxes"), taxPayload)
         proof47 <- registry.generateProofs(update47, Set(Dave))
         state48 <- combiner.insert(state47, Signed(update47, proof47))
 
         // Event 48: Heidi pays taxes
-        event48 = StateMachine.Event(eventType = StateMachine.EventType("pay_taxes"), payload = taxPayload)
-        update48 = Updates.ProcessFiberEvent(heidiCid, event48)
+        update48 = Updates.TransitionStateMachine(heidiCid, EventType("pay_taxes"), taxPayload)
         proof48 <- registry.generateProofs(update48, Set(Heidi))
         state49 <- combiner.insert(state48, Signed(update48, proof48))
 
         // Event 49: Grace pays taxes
-        event49 = StateMachine.Event(eventType = StateMachine.EventType("pay_taxes"), payload = taxPayload)
-        update49 = Updates.ProcessFiberEvent(graceCid, event49)
+        update49 = Updates.TransitionStateMachine(graceCid, EventType("pay_taxes"), taxPayload)
         proof49 <- registry.generateProofs(update49, Set(Grace))
         state50 <- combiner.insert(state49, Signed(update49, proof49))
 
         // Event 50: Ivan pays taxes
-        event50 = StateMachine.Event(eventType = StateMachine.EventType("pay_taxes"), payload = taxPayload)
-        update50 = Updates.ProcessFiberEvent(ivanCid, event50)
+        update50 = Updates.TransitionStateMachine(ivanCid, EventType("pay_taxes"), taxPayload)
         proof50 <- registry.generateProofs(update50, Set(Ivan))
         state51 <- combiner.insert(state50, Signed(update50, proof50))
 
         // Event 51: Ruth pays taxes
-        event51 = StateMachine.Event(eventType = StateMachine.EventType("pay_taxes"), payload = taxPayload)
-        update51 = Updates.ProcessFiberEvent(ruthCid, event51)
+        update51 = Updates.TransitionStateMachine(ruthCid, EventType("pay_taxes"), taxPayload)
         proof51 <- registry.generateProofs(update51, Set(Ruth))
         state52 <- combiner.insert(state51, Signed(update51, proof51))
 
         // Event 52: Sybil pays taxes
-        event52 = StateMachine.Event(eventType = StateMachine.EventType("pay_taxes"), payload = taxPayload)
-        update52 = Updates.ProcessFiberEvent(sybilCid, event52)
+        update52 = Updates.TransitionStateMachine(sybilCid, EventType("pay_taxes"), taxPayload)
         proof52 <- registry.generateProofs(update52, Set(Sybil))
         state53 <- combiner.insert(state52, Signed(update52, proof52))
 
         // Event 53: Victor pays taxes
-        event53 = StateMachine.Event(eventType = StateMachine.EventType("pay_taxes"), payload = taxPayload)
-        update53 = Updates.ProcessFiberEvent(victorCid, event53)
+        update53 = Updates.TransitionStateMachine(victorCid, EventType("pay_taxes"), taxPayload)
         proof53 <- registry.generateProofs(update53, Set(Victor))
         state54 <- combiner.insert(state53, Signed(update53, proof53))
 
@@ -2701,7 +2692,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         finalNiajFiber.isDefined,
 
         // Verify Niaj remained in idle state (no events processed)
-        finalNiajFiber.map(_.currentState).contains(StateMachine.StateId("idle")),
+        finalNiajFiber.map(_.currentState).contains(StateId("idle")),
 
         // Verify Niaj's sequence number is 0 (passive participant, no events)
         finalNiajFiber.map(_.sequenceNumber).exists(_ == 0L),
@@ -2731,24 +2722,24 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         finalOscarFiber
           .map(_.currentState)
           .contains(
-            StateMachine.StateId("loan_servicing")
+            StateId("loan_servicing")
           ), // Oscar underwrote the loan successfully (Fed was stable), then completed stress test
-        finalCharlieFiber.map(_.currentState).contains(StateMachine.StateId("supply_shortage")),
+        finalCharlieFiber.map(_.currentState).contains(StateId("supply_shortage")),
         finalYolandaFiber
           .map(_.currentState)
-          .contains(StateMachine.StateId("stress_testing")), // Fed is in stress_testing state
+          .contains(StateId("stress_testing")), // Fed is in stress_testing state
 
         // Verify Ruth received loan funding and is in debt_current state
-        finalRuthFiber.map(_.currentState).contains(StateMachine.StateId("debt_current")),
+        finalRuthFiber.map(_.currentState).contains(StateId("debt_current")),
 
         // Verify cross-machine triggers fired - Heidi goes from open -> inventory_low -> stocking in same snapshot
-        heidiFiberAfterCheck.map(_.currentState).contains(StateMachine.StateId("stocking")),
+        heidiFiberAfterCheck.map(_.currentState).contains(StateId("stocking")),
 
         // Verify Charlie's supply shortage was detected
-        charlieFiberAfterShortage.map(_.currentState).contains(StateMachine.StateId("supply_shortage")),
+        charlieFiberAfterShortage.map(_.currentState).contains(StateId("supply_shortage")),
 
         // Verify Bob's production cycle
-        finalBobFiber.map(_.currentState).contains(StateMachine.StateId("shipping")), // Bob fulfilled Grace's order
+        finalBobFiber.map(_.currentState).contains(StateId("shipping")), // Bob fulfilled Grace's order
         finalBobFiber
           .map(_.sequenceNumber)
           .getOrElse(0L) == 5L, // 5 events: schedule, start, complete, fulfill_order, pay_taxes
@@ -2843,7 +2834,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           .exists(_ == 0.0425), // 0.04 + 0.0025 = 0.0425 (after rate increase)
 
         // Verify Sybil's delinquency
-        finalSybilFiber.map(_.currentState).contains(StateMachine.StateId("debt_delinquent")),
+        finalSybilFiber.map(_.currentState).contains(StateId("debt_delinquent")),
         finalSybilFiber
           .flatMap { f =>
             f.stateData match {
@@ -2856,16 +2847,16 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Verify stress test execution - banks should have completed stress test and returned to original states
         yolandaFiberAfterStressTest
           .map(_.currentState)
-          .contains(StateMachine.StateId("stress_testing")), // Fed is still in stress_testing state
+          .contains(StateId("stress_testing")), // Fed is still in stress_testing state
         oscarFiberAfterStressTest
           .map(_.currentState)
-          .contains(StateMachine.StateId("loan_servicing")), // Oscar returned to loan_servicing (has activeLoans > 0)
+          .contains(StateId("loan_servicing")), // Oscar returned to loan_servicing (has activeLoans > 0)
         peggyFiberAfterStressTest
           .map(_.currentState)
-          .contains(StateMachine.StateId("loan_servicing")), // Peggy returned to loan_servicing (has activeLoans > 0)
+          .contains(StateId("loan_servicing")), // Peggy returned to loan_servicing (has activeLoans > 0)
         quentinFiberAfterStressTest
           .map(_.currentState)
-          .contains(StateMachine.StateId("operating")), // Quentin returned to operating (has activeLoans == 0)
+          .contains(StateId("operating")), // Quentin returned to operating (has activeLoans == 0)
 
         // Verify banks passed the stress test
         oscarFiberAfterStressTest
@@ -2896,7 +2887,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Verify Heidi's holiday sale
         heidiFiberAfterSale
           .map(_.currentState)
-          .contains(StateMachine.StateId("sale_active")), // Heidi entered sale_active state
+          .contains(StateId("sale_active")), // Heidi entered sale_active state
         heidiFiberAfterSale
           .flatMap { f =>
             f.stateData match {
@@ -2914,7 +2905,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         auctionFiberAfterBidAccepted.isDefined,
 
         // Verify auction reached "sold" final state
-        auctionFiberAfterBidAccepted.map(_.currentState).contains(StateMachine.StateId("sold")),
+        auctionFiberAfterBidAccepted.map(_.currentState).contains(StateId("sold")),
 
         // Verify auction has correct parent relationship
         auctionFiberAfterBidAccepted.flatMap(_.parentFiberId).contains(sybilCid),
@@ -2950,7 +2941,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           .contains("Handmade Ceramic Vase"),
 
         // Verify Sybil remained in "debt_delinquent" state after sale completed (delinquency doesn't clear just from earning money)
-        sybilFiberAfterSale.map(_.currentState).contains(StateMachine.StateId("debt_delinquent")),
+        sybilFiberAfterSale.map(_.currentState).contains(StateId("debt_delinquent")),
 
         // Verify Sybil's balance increased by bid amount (8000 after loan + 750 sale = 8750)
         sybilFiberAfterSale
@@ -2984,7 +2975,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
 
         // Verify Victor still exists in active state
         finalVictorFiber.isDefined,
-        finalVictorFiber.map(_.currentState).contains(StateMachine.StateId("active")),
+        finalVictorFiber.map(_.currentState).contains(StateId("active")),
 
         // ========================================
         // AUCTION 2 (VICTOR'S AUCTION) VALIDATIONS
@@ -2994,7 +2985,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         finalAuction2Fiber.isDefined,
 
         // Verify auction reached "sold" final state
-        finalAuction2Fiber.map(_.currentState).contains(StateMachine.StateId("sold")),
+        finalAuction2Fiber.map(_.currentState).contains(StateId("sold")),
 
         // Verify auction has correct parent relationship (Victor)
         finalAuction2Fiber.flatMap(_.parentFiberId).contains(victorCid),
@@ -3044,7 +3035,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Verify Alice completed second production cycle and reached inventory_full state
-        finalAliceFiber.map(_.currentState).contains(StateMachine.StateId("inventory_full")),
+        finalAliceFiber.map(_.currentState).contains(StateId("inventory_full")),
 
         // Verify Alice's sequence number increased by 3 (schedule, start, complete)
         finalAliceFiber.map(_.sequenceNumber).exists(_ >= 3L),
@@ -3111,7 +3102,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         finalXavierFiber.isDefined,
 
         // Verify Xavier returned to monitoring state after all taxpayers paid
-        finalXavierFiber.map(_.currentState).contains(StateMachine.StateId("monitoring")),
+        finalXavierFiber.map(_.currentState).contains(StateId("monitoring")),
 
         // Verify Xavier received tax payments (sequence number incremented)
         finalXavierFiber.map(_.sequenceNumber).exists(_ > 0L),
@@ -3196,7 +3187,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         finalCharlieFiber.isDefined,
 
         // Verify Charlie is in supply_shortage state (insufficient raw materials)
-        finalCharlieFiber.map(_.currentState).contains(StateMachine.StateId("supply_shortage")),
+        finalCharlieFiber.map(_.currentState).contains(StateId("supply_shortage")),
 
         // Verify Charlie's sequence number (check_materials, pay_taxes)
         finalCharlieFiber.map(_.sequenceNumber).exists(_ == 2L),
@@ -3257,7 +3248,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         finalDaveFiber.isDefined,
 
         // Verify Dave completed production cycle (schedule -> start -> complete)
-        finalDaveFiber.map(_.currentState).contains(StateMachine.StateId("shipping")),
+        finalDaveFiber.map(_.currentState).contains(StateId("shipping")),
 
         // Verify Dave's sequence number reflects all events (schedule, start, complete, fulfill_order, pay_taxes)
         finalDaveFiber.map(_.sequenceNumber).exists(_ == 5L),
@@ -3339,7 +3330,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         finalGraceFiber.isDefined,
 
         // Verify Grace returned to open state after restocking
-        finalGraceFiber.map(_.currentState).contains(StateMachine.StateId("open")),
+        finalGraceFiber.map(_.currentState).contains(StateId("open")),
 
         // Verify Grace's sequence number (check_inventory, receive_shipment, reopen, process_sale, pay_taxes)
         finalGraceFiber.map(_.sequenceNumber).exists(_ == 5L),
@@ -3390,7 +3381,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         finalIvanFiber.isDefined,
 
         // Verify Ivan returned to open state after restocking
-        finalIvanFiber.map(_.currentState).contains(StateMachine.StateId("open")),
+        finalIvanFiber.map(_.currentState).contains(StateId("open")),
 
         // Verify Ivan's sequence number (check_inventory, receive_shipment, reopen, pay_taxes)
         finalIvanFiber.map(_.sequenceNumber).exists(_ == 4L),

@@ -8,7 +8,8 @@ import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, StateMachine, Updates}
+import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Participant._
 import xyz.kd5ujc.shared_test.TestFixture
@@ -56,28 +57,22 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
         combiner <- Combiner.make[IO].pure[IO]
 
         cid  <- IO.randomUUID
-        def_ <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachine.StateMachineDefinition]))
+        def_ <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
 
-        createSM = Updates.CreateStateMachineFiber(cid, def_, MapValue(Map("count" -> IntValue(0))))
+        createSM = Updates.CreateStateMachine(cid, def_, MapValue(Map("count" -> IntValue(0))))
 
         createProof <- fixture.registry.generateProofs(createSM, Set(Alice))
         state0 <- combiner.insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createSM, createProof))
 
         // Process first event
-        event1 = Updates.ProcessFiberEvent(
-          cid,
-          StateMachine.Event(StateMachine.EventType("increment"), MapValue(Map.empty))
-        )
+        event1 = Updates.TransitionStateMachine(cid, EventType("increment"), MapValue(Map.empty))
         proof1 <- fixture.registry.generateProofs(event1, Set(Alice))
         state1 <- combiner.insert(state0, Signed(event1, proof1))
 
         machine1 = state1.calculated.stateMachines.get(cid)
 
         // Process second event
-        event2 = Updates.ProcessFiberEvent(
-          cid,
-          StateMachine.Event(StateMachine.EventType("increment"), MapValue(Map.empty))
-        )
+        event2 = Updates.TransitionStateMachine(cid, EventType("increment"), MapValue(Map.empty))
         proof2 <- fixture.registry.generateProofs(event2, Set(Alice))
         state2 <- combiner.insert(state1, Signed(event2, proof2))
 
@@ -99,9 +94,9 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
         combiner <- Combiner.make[IO].pure[IO]
 
         cid  <- IO.randomUUID
-        def_ <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachine.StateMachineDefinition]))
+        def_ <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
 
-        createSM = Updates.CreateStateMachineFiber(cid, def_, MapValue(Map("count" -> IntValue(0))))
+        createSM = Updates.CreateStateMachine(cid, def_, MapValue(Map("count" -> IntValue(0))))
 
         createProof <- fixture.registry.generateProofs(createSM, Set(Alice))
         state0 <- combiner.insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createSM, createProof))
