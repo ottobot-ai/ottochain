@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber
+package xyz.kd5ujc.shared_data.fiber.evaluation
 
 import java.util.UUID
 
@@ -13,6 +13,7 @@ import io.constellationnetwork.metagraph_sdk.json_logic.gas.GasLimit
 import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluator
 
 import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.shared_data.fiber.core._
 
 /**
  * Extracts side effects from transition effect results.
@@ -115,12 +116,11 @@ object EffectExtractor {
           remaining <- OptionT.liftF(ExecutionOps.remainingGas[G])
           gasConfig <- OptionT.liftF(ExecutionOps.askGasConfig[G])
           evalResult <- OptionT(
-            lift(
-              JsonLogicEvaluator
-                .tailRecursive[F]
-                .evaluateWithGas(payloadExpr, contextData, None, GasLimit(remaining), gasConfig)
-                .map(_.toOption)
-            )
+            JsonLogicEvaluator
+              .tailRecursive[F]
+              .evaluateWithGas(payloadExpr, contextData, None, GasLimit(remaining), gasConfig)
+              .map(_.toOption)
+              .liftTo[G]
           )
           _ <- OptionT.liftF(ExecutionOps.chargeGas[G](evalResult.gasUsed.amount))
         } yield FiberTrigger(
@@ -158,12 +158,11 @@ object EffectExtractor {
           remaining <- OptionT.liftF(ExecutionOps.remainingGas[G])
           gasConfig <- OptionT.liftF(ExecutionOps.askGasConfig[G])
           evalResult <- OptionT(
-            lift(
-              JsonLogicEvaluator
-                .tailRecursive[F]
-                .evaluateWithGas(argsExpr, contextData, None, GasLimit(remaining), gasConfig)
-                .map(_.toOption)
-            )
+            JsonLogicEvaluator
+              .tailRecursive[F]
+              .evaluateWithGas(argsExpr, contextData, None, GasLimit(remaining), gasConfig)
+              .map(_.toOption)
+              .liftTo[G]
           )
           _ <- OptionT.liftF(ExecutionOps.chargeGas[G](evalResult.gasUsed.amount))
         } yield FiberTrigger(

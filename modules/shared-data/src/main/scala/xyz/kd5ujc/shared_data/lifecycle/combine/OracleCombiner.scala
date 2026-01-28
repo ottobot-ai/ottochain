@@ -10,7 +10,8 @@ import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
-import xyz.kd5ujc.shared_data.fiber.{FiberEngine, OracleProcessor}
+import xyz.kd5ujc.shared_data.fiber.FiberEngine
+import xyz.kd5ujc.shared_data.fiber.evaluation.OracleProcessor
 import xyz.kd5ujc.shared_data.syntax.all._
 
 /**

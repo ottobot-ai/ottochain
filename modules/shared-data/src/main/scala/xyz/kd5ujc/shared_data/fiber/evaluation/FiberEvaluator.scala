@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber
+package xyz.kd5ujc.shared_data.fiber.evaluation
 
 import java.util.UUID
 
@@ -18,6 +18,7 @@ import io.constellationnetwork.security.signature.signature.SignatureProof
 import xyz.kd5ujc.schema.fiber.FiberOutcome.FailureReasonOps
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, Records}
+import xyz.kd5ujc.shared_data.fiber.core._
 import xyz.kd5ujc.shared_data.syntax.all._
 
 /**
@@ -111,14 +112,14 @@ object FiberEvaluator {
           case transition :: rest =>
             for {
               contextProvider <- ContextProvider.make[F](calculatedState).pure[G]
-              contextData <- lift(
-                contextProvider.buildContext(
+              contextData <- contextProvider
+                .buildContext(
                   fiber,
                   input,
                   proofs,
                   transition.dependencies
                 )
-              )
+                .liftTo[G]
               result <- evaluateGuardAndApply(
                 fiber,
                 transition,
@@ -143,11 +144,10 @@ object FiberEvaluator {
         for {
           remainingGas <- ExecutionOps.remainingGas[G]
           gasConfig    <- ExecutionOps.askGasConfig[G]
-          evalResult <- lift(
-            JsonLogicEvaluator
-              .tailRecursive[F]
-              .evaluateWithGas(transition.guard, contextData, None, GasLimit(remainingGas), gasConfig)
-          )
+          evalResult <- JsonLogicEvaluator
+            .tailRecursive[F]
+            .evaluateWithGas(transition.guard, contextData, None, GasLimit(remainingGas), gasConfig)
+            .liftTo[G]
           result <- evalResult match {
             case Right(EvaluationResult(BoolValue(true), guardGasUsed, _, _)) =>
               ExecutionOps.chargeGas[G](guardGasUsed.amount) >>
@@ -198,11 +198,10 @@ object FiberEvaluator {
         for {
           remainingGas <- ExecutionOps.remainingGas[G]
           gasConfig    <- ExecutionOps.askGasConfig[G]
-          evalResult <- lift(
-            JsonLogicEvaluator
-              .tailRecursive[F]
-              .evaluateWithGas(transition.effect, contextData, None, GasLimit(remainingGas), gasConfig)
-          )
+          evalResult <- JsonLogicEvaluator
+            .tailRecursive[F]
+            .evaluateWithGas(transition.effect, contextData, None, GasLimit(remainingGas), gasConfig)
+            .liftTo[G]
           result <- evalResult match {
             case Right(EvaluationResult(effectResult, effectGasUsed, _, _)) =>
               ExecutionOps.chargeGas[G](effectGasUsed.amount).as(effectResult.asRight[FailureReason])
@@ -221,7 +220,7 @@ object FiberEvaluator {
       ): G[FiberOutcome] =
         for {
           limits    <- ExecutionOps.askLimits[G]
-          sizeCheck <- lift(validateStateSize(effectResult, limits))
+          sizeCheck <- validateStateSize(effectResult, limits).liftTo[G]
           result <- sizeCheck match {
             case Left(reason) => reason.pureOutcome[G]
             case Right(_) =>
@@ -282,7 +281,7 @@ object FiberEvaluator {
                 .GasExhaustedFailure(totalGasUsed, limits.maxGas, GasExhaustionPhase.Effect)
                 .pureOutcome[G]
             else
-              lift(StateMerger.make[F].mergeEffectIntoState(currentMap, effectResult)).map[FiberOutcome] {
+              StateMerger.make[F].mergeEffectIntoState(currentMap, effectResult).liftTo[G].map[FiberOutcome] {
                 case Right(newStateData) =>
                   FiberOutcome.Success(
                     newStateData = newStateData,
@@ -307,7 +306,9 @@ object FiberEvaluator {
         caller: io.constellationnetwork.schema.address.Address
       ): G[FiberOutcome] =
         for {
-          result <- lift(OracleProcessor.validateAccess[F](oracle.accessControl, caller, oracle.cid, calculatedState))
+          result <- OracleProcessor
+            .validateAccess[F](oracle.accessControl, caller, oracle.cid, calculatedState)
+            .liftTo[G]
             .flatMap {
               case Left(reason) => reason.pureOutcome[G]
 
@@ -323,16 +324,15 @@ object FiberEvaluator {
                 for {
                   remainingGas <- ExecutionOps.remainingGas[G]
                   gasConfig    <- ExecutionOps.askGasConfig[G]
-                  evalResult <- lift(
-                    JsonLogicEvaluator
-                      .tailRecursive[F]
-                      .evaluateWithGas(oracle.scriptProgram, inputData, None, GasLimit(remainingGas), gasConfig)
-                  )
+                  evalResult <- JsonLogicEvaluator
+                    .tailRecursive[F]
+                    .evaluateWithGas(oracle.scriptProgram, inputData, None, GasLimit(remainingGas), gasConfig)
+                    .liftTo[G]
                   r <- evalResult match {
                     case Right(EvaluationResult(evaluationResult, gasUsed, _, _)) =>
                       for {
                         _              <- ExecutionOps.chargeGas[G](gasUsed.amount)
-                        stateAndResult <- lift(OracleProcessor.extractStateAndResult[F](evaluationResult))
+                        stateAndResult <- OracleProcessor.extractStateAndResult[F](evaluationResult).liftTo[G]
                         (newStateData, returnValue) = stateAndResult
                       } yield FiberOutcome.Success(
                         newStateData = newStateData.getOrElse(oracle.stateData.getOrElse(NullValue)),

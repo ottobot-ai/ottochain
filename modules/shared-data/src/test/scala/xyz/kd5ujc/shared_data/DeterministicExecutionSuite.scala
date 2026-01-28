@@ -14,8 +14,10 @@ import io.constellationnetwork.security.SecurityProvider
 
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, Records}
-import xyz.kd5ujc.shared_data.fiber.FiberTInstances._
-import xyz.kd5ujc.shared_data.fiber.{ExecutionState, FiberEngine, FiberT, TriggerDispatcher}
+import xyz.kd5ujc.shared_data.fiber.FiberEngine
+import xyz.kd5ujc.shared_data.fiber.core.FiberTInstances._
+import xyz.kd5ujc.shared_data.fiber.core.{ExecutionState, FiberT}
+import xyz.kd5ujc.shared_data.fiber.triggers.TriggerDispatcher
 import xyz.kd5ujc.shared_data.lifecycle.validate.rules.CommonRules
 import xyz.kd5ujc.shared_test.{Participant, TestFixture}
 

@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data
+package xyz.kd5ujc.shared_data.fiber
 
 import cats.data.{ReaderT, StateT}
 import cats.mtl.{Ask, Stateful}
@@ -6,7 +6,7 @@ import cats.{~>, Applicative, Monad}
 
 import xyz.kd5ujc.schema.fiber.FiberContext
 
-package object fiber {
+package object core {
 
   /** Effect type for execution state tracking */
   type ExecutionT[F[_], A] = StateT[F, ExecutionState, A]
@@ -15,6 +15,12 @@ package object fiber {
   type FiberT[F[_], A] = ReaderT[ExecutionT[F, *], FiberContext, A]
 
   // === Extension Methods for Lifting ===
+
+  implicit class LiftVia[F[_], A](private val fa: F[A]) extends AnyVal {
+
+    /** Lift F[A] into G[A] using an implicit natural transformation F ~> G */
+    def liftTo[G[_]](implicit fk: F ~> G): G[A] = fk(fa)
+  }
 
   implicit class LiftToExecutionT[F[_]: Monad, A](fa: F[A]) {
 
@@ -47,8 +53,6 @@ package object fiber {
     def pureExec[F[_]: Monad]: ExecutionT[F, A] =
       StateT.pure[F, ExecutionState, A](a)
   }
-
-  // === cats-mtl Instances ===
 
   /**
    * MTL instances for FiberT.

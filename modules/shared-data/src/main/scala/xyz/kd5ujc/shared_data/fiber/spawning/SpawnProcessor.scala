@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber
+package xyz.kd5ujc.shared_data.fiber.spawning
 
 import java.util.UUID
 
@@ -15,6 +15,7 @@ import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 
 import xyz.kd5ujc.schema.Records
 import xyz.kd5ujc.schema.fiber.{EventProcessingStatus, FailureReason, FiberContext, FiberStatus, SpawnDirective}
+import xyz.kd5ujc.shared_data.fiber.core._
 
 /**
  * Processes spawn directives to create child fibers.
@@ -118,16 +119,15 @@ object SpawnProcessor {
           gasConfig    <- ExecutionOps.askGasConfig[G]
           ordinal      <- ExecutionOps.askOrdinal[G]
 
-          evalResult <- lift(
-            JsonLogicEvaluator
-              .tailRecursive[F]
-              .evaluateWithGas(spawn.directive.initialData, contextData, None, GasLimit(remainingGas), gasConfig)
-              .flatMap(Async[F].fromEither)
-          )
+          evalResult <- JsonLogicEvaluator
+            .tailRecursive[F]
+            .evaluateWithGas(spawn.directive.initialData, contextData, None, GasLimit(remainingGas), gasConfig)
+            .flatMap(Async[F].fromEither)
+            .liftTo[G]
           _ <- ExecutionOps.chargeGas[G](evalResult.gasUsed.amount)
           initialData = evalResult.value
 
-          initialDataHash <- lift(initialData.computeDigest)
+          initialDataHash <- initialData.computeDigest.liftTo[G]
 
           childFiber = Records.StateMachineFiberRecord(
             cid = spawn.childId,

@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber
+package xyz.kd5ujc.shared_data.fiber.spawning
 
 import java.util.UUID
 
@@ -16,6 +16,7 @@ import io.constellationnetwork.schema.address.{Address, DAGAddressRefined}
 
 import xyz.kd5ujc.schema.Records
 import xyz.kd5ujc.schema.fiber.{FailureReason, FiberContext, SpawnDirective}
+import xyz.kd5ujc.shared_data.fiber.core._
 
 import eu.timepit.refined.refineV
 
@@ -105,11 +106,10 @@ object SpawnValidator {
         for {
           remaining <- ExecutionOps.remainingGas[G]
           gasConfig <- ExecutionOps.askGasConfig[G]
-          evalResult <- lift(
-            JsonLogicEvaluator
-              .tailRecursive[F]
-              .evaluateWithGas(directive.childIdExpr, contextData, None, GasLimit(remaining), gasConfig)
-          )
+          evalResult <- JsonLogicEvaluator
+            .tailRecursive[F]
+            .evaluateWithGas(directive.childIdExpr, contextData, None, GasLimit(remaining), gasConfig)
+            .liftTo[G]
           validated <- evalResult match {
             case Right(result) =>
               ExecutionOps.chargeGas[G](result.gasUsed.amount).as {
@@ -152,11 +152,10 @@ object SpawnValidator {
             for {
               remaining <- ExecutionOps.remainingGas[G]
               gasConfig <- ExecutionOps.askGasConfig[G]
-              evalResult <- lift(
-                JsonLogicEvaluator
-                  .tailRecursive[F]
-                  .evaluateWithGas(expr, contextData, None, GasLimit(remaining), gasConfig)
-              )
+              evalResult <- JsonLogicEvaluator
+                .tailRecursive[F]
+                .evaluateWithGas(expr, contextData, None, GasLimit(remaining), gasConfig)
+                .liftTo[G]
               validated <- evalResult match {
                 case Right(result) =>
                   ExecutionOps.chargeGas[G](result.gasUsed.amount).as {

@@ -5,7 +5,7 @@ import cats.effect.IO
 import io.constellationnetwork.metagraph_sdk.json_logic._
 
 import xyz.kd5ujc.schema.fiber._
-import xyz.kd5ujc.shared_data.fiber.StateMerger
+import xyz.kd5ujc.shared_data.fiber.evaluation.StateMerger
 
 import weaver.SimpleIOSuite
 

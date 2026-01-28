@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber
+package xyz.kd5ujc.shared_data.fiber.evaluation
 
 import cats.Monad
 import cats.syntax.all._
@@ -87,11 +87,9 @@ object StateMerger {
             (acc + (key -> value)).asRight[FailureReason].pure[F]
 
           case (Right(acc), ArrayValue(List(StrValue(key), _))) if ReservedKeys.isInternal(key) =>
-            // Skip internal keys silently
             acc.asRight[FailureReason].pure[F]
 
           case (Left(err), _) =>
-            // Propagate earlier error
             err.asLeft[Map[String, JsonLogicValue]].pure[F]
 
           case (_, other) =>

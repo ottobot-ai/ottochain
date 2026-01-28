@@ -8,7 +8,7 @@ import io.constellationnetwork.metagraph_sdk.json_logic.core.JsonLogicException
 import io.constellationnetwork.metagraph_sdk.json_logic.gas.GasExhaustedException
 
 import xyz.kd5ujc.schema.fiber.{FailureReason, FiberContext, GasExhaustionPhase}
-import xyz.kd5ujc.shared_data.fiber.{ExecutionOps, ExecutionState}
+import xyz.kd5ujc.shared_data.fiber.core.{ExecutionOps, ExecutionState}
 
 trait JsonLogicExceptionOps {
 

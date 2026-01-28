@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber
+package xyz.kd5ujc.shared_data.fiber.triggers
 
 import java.util.UUID
 
@@ -17,6 +17,8 @@ import io.constellationnetwork.security.SecurityProvider
 
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, Records}
+import xyz.kd5ujc.shared_data.fiber.core._
+import xyz.kd5ujc.shared_data.fiber.evaluation.{FiberEvaluator, OracleProcessor}
 import xyz.kd5ujc.shared_data.syntax.all._
 
 sealed trait TriggerHandlerResult
@@ -194,7 +196,7 @@ class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
       )
 
       _ <- EitherT[G, TriggerHandlerResult, Unit](
-        lift(OracleProcessor.validateAccess(oracle.accessControl, callerAddress, oracle.cid, state)).map {
+        OracleProcessor.validateAccess(oracle.accessControl, callerAddress, oracle.cid, state).liftTo[G].map {
           case Right(_)     => Right(())
           case Left(reason) => Left(TriggerHandlerResult.Failed(reason))
         }
@@ -217,27 +219,27 @@ class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
       )
 
       scriptResult <- EitherT[G, TriggerHandlerResult, EvaluationResult[JsonLogicValue]](
-        lift(
-          JsonLogicEvaluator
-            .tailRecursive[F]
-            .evaluateWithGas(oracle.scriptProgram, inputData, None, GasLimit(remainingGas), gasConfig)
-        ).flatMap {
-          case Right(result) =>
-            ExecutionOps.chargeGas[G](result.gasUsed.amount).as(result.asRight[TriggerHandlerResult])
+        JsonLogicEvaluator
+          .tailRecursive[F]
+          .evaluateWithGas(oracle.scriptProgram, inputData, None, GasLimit(remainingGas), gasConfig)
+          .liftTo[G]
+          .flatMap {
+            case Right(result) =>
+              ExecutionOps.chargeGas[G](result.gasUsed.amount).as(result.asRight[TriggerHandlerResult])
 
-          case Left(ex) =>
-            ex.toFailureReason[G](GasExhaustionPhase.Oracle).map { reason =>
-              (TriggerHandlerResult.Failed(reason): TriggerHandlerResult)
-                .asLeft[EvaluationResult[JsonLogicValue]]
-            }
-        }
+            case Left(ex) =>
+              ex.toFailureReason[G](GasExhaustionPhase.Oracle).map { reason =>
+                (TriggerHandlerResult.Failed(reason): TriggerHandlerResult)
+                  .asLeft[EvaluationResult[JsonLogicValue]]
+              }
+          }
       )
 
       scriptGasUsed = scriptResult.gasUsed.amount
       evaluationResult = scriptResult.value
 
       stateAndResult <- EitherT.liftF[G, TriggerHandlerResult, (Option[JsonLogicValue], JsonLogicValue)](
-        lift(OracleProcessor.extractStateAndResult(evaluationResult))
+        OracleProcessor.extractStateAndResult(evaluationResult).liftTo[G]
       )
       (newStateData, returnValue) = stateAndResult
 
@@ -263,7 +265,7 @@ class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
       }
 
       newHash <- EitherT.liftF[G, TriggerHandlerResult, Option[io.constellationnetwork.security.hash.Hash]](
-        lift(newStateData.traverse(_.computeDigest))
+        newStateData.traverse(_.computeDigest).liftTo[G]
       )
 
       ordinal <- EitherT.liftF[G, TriggerHandlerResult, io.constellationnetwork.schema.SnapshotOrdinal](

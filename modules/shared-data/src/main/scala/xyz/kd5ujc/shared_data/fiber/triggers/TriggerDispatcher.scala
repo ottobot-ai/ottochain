@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber
+package xyz.kd5ujc.shared_data.fiber.triggers
 
 import java.util.UUID
 
@@ -12,6 +12,7 @@ import io.constellationnetwork.security.SecurityProvider
 
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, Records}
+import xyz.kd5ujc.shared_data.fiber.core._
 import xyz.kd5ujc.shared_data.syntax.calculatedState._
 
 import org.typelevel.log4cats.SelfAwareStructuredLogger
@@ -148,18 +149,19 @@ object TriggerDispatcher {
             } else {
               state.getFiber(fiberId) match {
                 case None =>
-                  lift(
-                    logger.warn(
+                  logger
+                    .warn(
                       s"Trigger target fiber $fiberId not found. " +
                       s"Source: ${trigger.sourceFiberId.getOrElse("external")}, " +
                       s"Input: $inputKey"
                     )
-                  ).as(
-                    (FailureReason.TriggerTargetNotFound(
-                      fiberId,
-                      trigger.sourceFiberId
-                    ): FailureReason).asLeft[TriggerResult]
-                  )
+                    .liftTo[G]
+                    .as(
+                      (FailureReason.TriggerTargetNotFound(
+                        fiberId,
+                        trigger.sourceFiberId
+                      ): FailureReason).asLeft[TriggerResult]
+                    )
 
                 case Some(fiber) =>
                   processWithHandler(trigger, fiber, state)
