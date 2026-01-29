@@ -56,7 +56,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("go"),
+              eventName = "go",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("done" -> BoolValue(true))))
             )
@@ -82,7 +82,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("go"),
+          "go",
           MapValue(Map.empty)
         )
 
@@ -121,7 +121,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
             Transition(
               from = StateId("a"),
               to = StateId("b"),
-              eventType = EventType("go"),
+              eventName = "go",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -132,7 +132,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(machine2Id.toString),
-                            "eventType"       -> StrValue("continue"),
+                            "eventName"       -> StrValue("continue"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -155,7 +155,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
             Transition(
               from = StateId("x"),
               to = StateId("y"),
-              eventType = EventType("continue"),
+              eventName = "continue",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("step" -> IntValue(2))))
             )
@@ -197,7 +197,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(machine1Id -> fiber1, machine2Id -> fiber2), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("go"),
+          "go",
           MapValue(Map.empty)
         )
 
@@ -238,7 +238,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("go"),
+              eventName = "go",
               guard = ConstExpression(BoolValue(false)),
               effect = ConstExpression(MapValue(Map("path" -> StrValue("first"))))
             ),
@@ -246,7 +246,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("go"),
+              eventName = "go",
               guard = ConstExpression(BoolValue(false)),
               effect = ConstExpression(MapValue(Map("path" -> StrValue("second"))))
             ),
@@ -254,7 +254,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("go"),
+              eventName = "go",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("path" -> StrValue("third"))))
             )
@@ -280,7 +280,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("go"),
+          "go",
           MapValue(Map.empty)
         )
 
@@ -325,7 +325,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("go"),
+              eventName = "go",
               // Guard that reads from state - varAccess costs 2 gas, !! (NOp) costs 1 gas
               guard = ApplyExpression(NOp, List(VarExpression(Left("_state")))),
               effect = ConstExpression(MapValue(Map("done" -> BoolValue(true))))
@@ -352,7 +352,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("go"),
+          "go",
           MapValue(Map.empty)
         )
 
@@ -400,7 +400,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("go"),
+              eventName = "go",
               guard = ConstExpression(BoolValue(true)), // Simple guard passes
               effect = expensiveEffect // Expensive effect exhausts gas
             )
@@ -426,7 +426,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("go"),
+          "go",
           MapValue(Map.empty)
         )
 
@@ -474,7 +474,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
             Transition(
               from = StateId("init"),
               to = StateId("spawned"),
-              eventType = EventType("spawn"),
+              eventName = "spawn",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -532,7 +532,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(parentId -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("spawn"),
+          "spawn",
           MapValue(Map.empty)
         )
 
@@ -587,7 +587,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
             Transition(
               from = StateId("a"),
               to = StateId("b"),
-              eventType = EventType("compute"),
+              eventName = "compute",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -598,7 +598,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(machine2Id.toString),
-                            "eventType"       -> StrValue("compute2"),
+                            "eventName"       -> StrValue("compute2"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -621,7 +621,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
             Transition(
               from = StateId("x"),
               to = StateId("y"),
-              eventType = EventType("compute2"),
+              eventName = "compute2",
               guard = ConstExpression(BoolValue(true)),
               // Effect with multiple operations to accumulate gas
               effect = MapExpression(
@@ -673,7 +673,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(machine1Id -> fiber1, machine2Id -> fiber2), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("compute"),
+          "compute",
           MapValue(Map.empty)
         )
 
@@ -724,7 +724,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
             Transition(
               from = StateId("a"),
               to = StateId("b"),
-              eventType = EventType("trigger"),
+              eventName = "trigger",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -735,7 +735,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(machine2Id.toString),
-                            "eventType"       -> StrValue("respond"),
+                            "eventName"       -> StrValue("respond"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -758,7 +758,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
             Transition(
               from = StateId("x"),
               to = StateId("y"),
-              eventType = EventType("respond"),
+              eventName = "respond",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("step" -> IntValue(2))))
             )
@@ -800,7 +800,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(machine1Id -> fiber1, machine2Id -> fiber2), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("trigger"),
+          "trigger",
           MapValue(Map.empty)
         )
 

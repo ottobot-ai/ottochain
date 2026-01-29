@@ -62,20 +62,20 @@ object FiberEvaluator {
         input:  FiberInput,
         proofs: List[SignatureProof]
       ): G[FiberResult] = (fiber, input) match {
-        case (sm: Records.StateMachineFiberRecord, FiberInput.Transition(eventType, payload, _)) =>
+        case (sm: Records.StateMachineFiberRecord, FiberInput.Transition(eventType, payload)) =>
           evaluateStateMachine(sm, eventType, payload, proofs)
 
-        case (oracle: Records.ScriptOracleFiberRecord, FiberInput.MethodCall(method, args, caller, _)) =>
+        case (oracle: Records.ScriptOracleFiberRecord, FiberInput.MethodCall(method, args, caller)) =>
           evaluateOracle(oracle, method, args, caller)
 
         case (sm: Records.StateMachineFiberRecord, _: FiberInput.MethodCall) =>
           FailureReason
-            .FiberInputMismatch(sm.cid, "StateMachineFiberRecord", "MethodCall")
+            .FiberInputMismatch(sm.cid, FiberKind.StateMachine, InputKind.MethodCall)
             .pureOutcome[G]
 
         case (oracle: Records.ScriptOracleFiberRecord, _: FiberInput.Transition) =>
           FailureReason
-            .FiberInputMismatch(oracle.cid, "ScriptOracleFiberRecord", "Transition")
+            .FiberInputMismatch(oracle.cid, FiberKind.ScriptOracle, InputKind.Transition)
             .pureOutcome[G]
       }
 
@@ -85,16 +85,16 @@ object FiberEvaluator {
 
       private def evaluateStateMachine(
         fiber:     Records.StateMachineFiberRecord,
-        eventType: EventType,
+        eventName: String,
         payload:   JsonLogicValue,
         proofs:    List[SignatureProof]
       ): G[FiberResult] = {
-        val input = FiberInput.Transition(eventType, payload)
+        val input = FiberInput.Transition(eventName, payload)
 
         fiber.definition.transitionMap
-          .get((fiber.currentState, eventType))
+          .get((fiber.currentState, eventName))
           .fold(
-            FailureReason.NoTransitionFound(fiber.currentState, eventType).pureOutcome[G]
+            FailureReason.NoTransitionFound(fiber.currentState, eventName).pureOutcome[G]
           )(
             tryTransitions(fiber, input, proofs, _, attemptedGuards = 0)
           )
@@ -251,7 +251,6 @@ object FiberEvaluator {
           fiberGasConfig <- A.reader(_.fiberGasConfig)
           limits         <- ExecutionOps.askLimits[G]
 
-          outputs <- EffectExtractor.extractOutputs(effectResult).pure[G]
           spawnMachines = EffectExtractor.extractSpawnDirectivesFromExpression(transition.effect)
           triggers <- EffectExtractor.extractTriggerEvents[F, G](
             effectResult,
@@ -263,6 +262,7 @@ object FiberEvaluator {
             contextData,
             fiberId
           )
+          emittedEvents = EffectExtractor.extractEmittedEvents(effectResult)
           allTriggers = triggers ++ oracleCall.toList
 
           // Charge orchestration overhead
@@ -287,8 +287,8 @@ object FiberEvaluator {
                     newStateId = Some(transition.to),
                     triggers = allTriggers,
                     spawns = spawnMachines,
-                    outputs = outputs,
-                    returnValue = None
+                    returnValue = None,
+                    emittedEvents = emittedEvents
                   )
                 case Left(reason) => reason.asOutcome
               }
@@ -338,7 +338,6 @@ object FiberEvaluator {
                         newStateId = None,
                         triggers = List.empty,
                         spawns = List.empty,
-                        outputs = List.empty,
                         returnValue = Some(returnValue)
                       ): FiberResult
 

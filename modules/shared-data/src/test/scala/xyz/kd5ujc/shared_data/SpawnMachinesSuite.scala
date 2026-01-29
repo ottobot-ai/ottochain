@@ -30,7 +30,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         parentCid <- UUIDGen.randomUUID[IO]
         childCid  <- UUIDGen.randomUUID[IO]
@@ -46,7 +46,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
             {
               "from": { "value": "init" },
               "to": { "value": "spawned" },
-              "eventType": { "value": "spawn_child" },
+              "eventName": "spawn_child",
               "guard": true,
               "effect": {
                 "_spawn": [
@@ -83,7 +83,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           Signed(createParent, parentProof)
         )
 
-        spawnEvent = Updates.TransitionStateMachine(parentCid, EventType("spawn_child"), MapValue(Map.empty))
+        spawnEvent = Updates.TransitionStateMachine(parentCid, "spawn_child", MapValue(Map.empty))
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -126,7 +126,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         parentCid <- UUIDGen.randomUUID[IO]
         child1Cid <- UUIDGen.randomUUID[IO]
@@ -144,7 +144,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
             {
               "from": { "value": "init" },
               "to": { "value": "spawned" },
-              "eventType": { "value": "spawn_multiple" },
+              "eventName": "spawn_multiple",
               "guard": true,
               "effect": {
                 "_spawn": [
@@ -200,7 +200,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           Signed(createParent, parentProof)
         )
 
-        spawnEvent = Updates.TransitionStateMachine(parentCid, EventType("spawn_multiple"), MapValue(Map.empty))
+        spawnEvent = Updates.TransitionStateMachine(parentCid, "spawn_multiple", MapValue(Map.empty))
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -261,7 +261,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         parentCid <- UUIDGen.randomUUID[IO]
         childCid  <- UUIDGen.randomUUID[IO]
@@ -277,7 +277,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
             {
               "from": { "value": "init" },
               "to": { "value": "spawned" },
-              "eventType": { "value": "spawn_and_trigger" },
+              "eventName": "spawn_and_trigger",
               "guard": true,
               "effect": {
                 "_spawn": [
@@ -293,7 +293,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                         {
                           "from": { "value": "idle" },
                           "to": { "value": "activated" },
-                          "eventType": { "value": "activate" },
+                          "eventName": "activate",
                           "guard": true,
                           "effect": {
                             "status": "activated",
@@ -309,7 +309,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                 "_triggers": [
                   {
                     "targetMachineId": "$childCid",
-                    "eventType": "activate",
+                    "eventName": "activate",
                     "payload": {
                       "message": "Hello from parent"
                     }
@@ -333,7 +333,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           Signed(createParent, parentProof)
         )
 
-        spawnEvent = Updates.TransitionStateMachine(parentCid, EventType("spawn_and_trigger"), MapValue(Map.empty))
+        spawnEvent = Updates.TransitionStateMachine(parentCid, "spawn_and_trigger", MapValue(Map.empty))
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -373,7 +373,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         parentCid <- UUIDGen.randomUUID[IO]
         childCid  <- UUIDGen.randomUUID[IO]
@@ -389,7 +389,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
             {
               "from": { "value": "init" },
               "to": { "value": "spawned" },
-              "eventType": { "value": "spawn_child" },
+              "eventName": "spawn_child",
               "guard": true,
               "effect": {
                 "_spawn": [
@@ -423,7 +423,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           Signed(createParent, parentProof)
         )
 
-        spawnEvent = Updates.TransitionStateMachine(parentCid, EventType("spawn_child"), MapValue(Map.empty))
+        spawnEvent = Updates.TransitionStateMachine(parentCid, "spawn_child", MapValue(Map.empty))
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -451,7 +451,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         parentCid <- UUIDGen.randomUUID[IO]
         childCid  <- UUIDGen.randomUUID[IO]
@@ -467,7 +467,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
             {
               "from": { "value": "init" },
               "to": { "value": "spawned" },
-              "eventType": { "value": "create_child" },
+              "eventName": "create_child",
               "guard": true,
               "effect": {
                 "_spawn": [
@@ -484,7 +484,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                         {
                           "from": { "value": "idle" },
                           "to": { "value": "working" },
-                          "eventType": { "value": "start_work" },
+                          "eventName": "start_work",
                           "guard": true,
                           "effect": {
                             "status": "working",
@@ -495,7 +495,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                         {
                           "from": { "value": "working" },
                           "to": { "value": "done" },
-                          "eventType": { "value": "finish_work" },
+                          "eventName": "finish_work",
                           "guard": true,
                           "effect": {
                             "status": "done",
@@ -529,7 +529,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           Signed(createParent, parentProof)
         )
 
-        spawnEvent = Updates.TransitionStateMachine(parentCid, EventType("create_child"), MapValue(Map.empty))
+        spawnEvent = Updates.TransitionStateMachine(parentCid, "create_child", MapValue(Map.empty))
         spawnProof      <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         stateAfterSpawn <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -537,7 +537,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           .get(childCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        startWorkEvent = Updates.TransitionStateMachine(childCid, EventType("start_work"), MapValue(Map.empty))
+        startWorkEvent = Updates.TransitionStateMachine(childCid, "start_work", MapValue(Map.empty))
         startProof      <- fixture.registry.generateProofs(startWorkEvent, Set(Alice))
         stateAfterStart <- combiner.insert(stateAfterSpawn, Signed(startWorkEvent, startProof))
 
@@ -545,7 +545,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           .get(childCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finishWorkEvent = Updates.TransitionStateMachine(childCid, EventType("finish_work"), MapValue(Map.empty))
+        finishWorkEvent = Updates.TransitionStateMachine(childCid, "finish_work", MapValue(Map.empty))
         finishProof      <- fixture.registry.generateProofs(finishWorkEvent, Set(Alice))
         stateAfterFinish <- combiner.insert(stateAfterStart, Signed(finishWorkEvent, finishProof))
 
@@ -590,7 +590,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         parentCid <- UUIDGen.randomUUID[IO]
         childCid  <- UUIDGen.randomUUID[IO]
@@ -606,7 +606,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
             {
               "from": { "value": "init" },
               "to": { "value": "spawned" },
-              "eventType": { "value": "spawn_and_trigger" },
+              "eventName": "spawn_and_trigger",
               "guard": true,
               "effect": {
                 "_spawn": [
@@ -622,7 +622,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                         {
                           "from": { "value": "idle" },
                           "to": { "value": "active" },
-                          "eventType": { "value": "activate" },
+                          "eventName": "activate",
                           "guard": true,
                           "effect": {
                             "status": "active",
@@ -641,7 +641,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                 "_triggers": [
                   {
                     "targetMachineId": "$childCid",
-                    "eventType": "activate",
+                    "eventName": "activate",
                     "payload": {
                       "msg": "Hello",
                       "amount": 42
@@ -666,7 +666,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           Signed(createParent, parentProof)
         )
 
-        spawnEvent = Updates.TransitionStateMachine(parentCid, EventType("spawn_and_trigger"), MapValue(Map.empty))
+        spawnEvent = Updates.TransitionStateMachine(parentCid, "spawn_and_trigger", MapValue(Map.empty))
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -716,7 +716,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         grandparentCid <- UUIDGen.randomUUID[IO]
         parentCid      <- UUIDGen.randomUUID[IO]
@@ -733,7 +733,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
             {
               "from": { "value": "init" },
               "to": { "value": "spawned" },
-              "eventType": { "value": "spawn_parent" },
+              "eventName": "spawn_parent",
               "guard": true,
               "effect": {
                 "_spawn": [
@@ -749,7 +749,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                         {
                           "from": { "value": "idle" },
                           "to": { "value": "spawned_child" },
-                          "eventType": { "value": "spawn_grandchild" },
+                          "eventName": "spawn_grandchild",
                           "guard": true,
                           "effect": {
                             "_spawn": [
@@ -764,7 +764,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                                     {
                                       "from": { "value": "active" },
                                       "to": { "value": "active" },
-                                      "eventType": { "value": "activate" },
+                                      "eventName": "activate",
                                       "guard": true,
                                       "effect": {
                                         "activatedBy": { "var": "event.activatedBy" }
@@ -782,7 +782,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                             "_triggers": [
                               {
                                 "targetMachineId": "$childCid",
-                                "eventType": "activate",
+                                "eventName": "activate",
                                 "payload": {
                                   "activatedBy": { "var": "machineId" }
                                 }
@@ -795,7 +795,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                         {
                           "from": { "value": "spawned_child" },
                           "to": { "value": "spawned_child" },
-                          "eventType": { "value": "activate" },
+                          "eventName": "activate",
                           "guard": true,
                           "effect": {
                             "activationSource": { "var": "event.activatedBy" }
@@ -829,12 +829,12 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         )
 
         spawnParentEvent = Updates
-          .TransitionStateMachine(grandparentCid, EventType("spawn_parent"), MapValue(Map.empty))
+          .TransitionStateMachine(grandparentCid, "spawn_parent", MapValue(Map.empty))
         spawnParentProof <- fixture.registry.generateProofs(spawnParentEvent, Set(Alice))
         stateAfterParent <- combiner.insert(stateAfterGrandparent, Signed(spawnParentEvent, spawnParentProof))
 
         spawnGrandchildEvent = Updates
-          .TransitionStateMachine(parentCid, EventType("spawn_grandchild"), MapValue(Map.empty))
+          .TransitionStateMachine(parentCid, "spawn_grandchild", MapValue(Map.empty))
         spawnGrandchildProof <- fixture.registry.generateProofs(spawnGrandchildEvent, Set(Alice))
         finalState           <- combiner.insert(stateAfterParent, Signed(spawnGrandchildEvent, spawnGrandchildProof))
 
@@ -882,7 +882,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         parentCid <- UUIDGen.randomUUID[IO]
         child1Cid <- UUIDGen.randomUUID[IO]
@@ -900,7 +900,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
             {
               "from": { "value": "init" },
               "to": { "value": "spawned" },
-              "eventType": { "value": "spawn_with_failing_trigger" },
+              "eventName": "spawn_with_failing_trigger",
               "guard": true,
               "effect": {
                 "_spawn": [
@@ -927,7 +927,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                         {
                           "from": { "value": "idle" },
                           "to": { "value": "activated" },
-                          "eventType": { "value": "activate" },
+                          "eventName": "activate",
                           "guard": { "===": [{ "var": "event.shouldFail" }, false] },
                           "effect": {
                             "status": "activated"
@@ -953,7 +953,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                 "_triggers": [
                   {
                     "targetMachineId": "$child2Cid",
-                    "eventType": "activate",
+                    "eventName": "activate",
                     "payload": {
                       "shouldFail": true
                     }
@@ -978,7 +978,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         )
 
         spawnEvent = Updates
-          .TransitionStateMachine(parentCid, EventType("spawn_with_failing_trigger"), MapValue(Map.empty))
+          .TransitionStateMachine(parentCid, "spawn_with_failing_trigger", MapValue(Map.empty))
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -1041,7 +1041,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
             {
               "from": { "value": "init" },
               "to": { "value": "spawned" },
-              "eventType": { "value": "spawn_many" },
+              "eventName": "spawn_many",
               "guard": true,
               "effect": {
                 "_spawn": [$childSpawns],
@@ -1076,7 +1076,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         // Use a gas limit that will be exceeded by spawn overhead
         // 25 spawns * 50 gas = 1250 spawn gas, plus guard + effect evaluation
         limits = ExecutionLimits(maxDepth = 10, maxGas = 1000L)
-        input = FiberInput.Transition(EventType("spawn_many"), MapValue(Map.empty))
+        input = FiberInput.Transition("spawn_many", MapValue(Map.empty))
 
         orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
         result <- orchestrator.process(parentCid, input, List.empty)
@@ -1115,7 +1115,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
             {
               "from": { "value": "init" },
               "to": { "value": "spawned" },
-              "eventType": { "value": "spawn_duplicate" },
+              "eventName": "spawn_duplicate",
               "guard": true,
               "effect": {
                 "_spawn": [
@@ -1170,7 +1170,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(parentCid -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("spawn_duplicate"),
+          "spawn_duplicate",
           MapValue(Map.empty)
         )
 
@@ -1216,7 +1216,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
             {
               "from": { "value": "init" },
               "to": { "value": "spawned" },
-              "eventType": { "value": "spawn_colliding" },
+              "eventName": "spawn_colliding",
               "guard": true,
               "effect": {
                 "_spawn": [
@@ -1290,7 +1290,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         )
 
         input = FiberInput.Transition(
-          EventType("spawn_colliding"),
+          "spawn_colliding",
           MapValue(Map.empty)
         )
 
@@ -1336,7 +1336,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
             {
               "from": { "value": "init" },
               "to": { "value": "spawned" },
-              "eventType": { "value": "spawn_large" },
+              "eventName": "spawn_large",
               "guard": true,
               "effect": {
                 "_spawn": [
@@ -1380,7 +1380,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(parentCid -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("spawn_large"),
+          "spawn_large",
           MapValue(Map.empty)
         )
 
@@ -1408,7 +1408,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
         implicit0(jle: JsonLogicEvaluator[IO]) <- JsonLogicEvaluator.tailRecursive[IO].pure[IO]
-        combiner                               <- Combiner.make[IO].pure[IO]
+        combiner                               <- Combiner.make[IO]().pure[IO]
 
         parentCid <- UUIDGen.randomUUID[IO]
         childCid  <- UUIDGen.randomUUID[IO]
@@ -1424,7 +1424,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
             {
               "from": { "value": "init" },
               "to": { "value": "spawned" },
-              "eventType": { "value": "spawn_child" },
+              "eventName": "spawn_child",
               "guard": true,
               "effect": {
                 "_spawn": [
@@ -1463,7 +1463,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         )
 
         // Spawn child (only Alice signs the spawn event)
-        spawnEvent = Updates.TransitionStateMachine(parentCid, EventType("spawn_child"), MapValue(Map.empty))
+        spawnEvent = Updates.TransitionStateMachine(parentCid, "spawn_child", MapValue(Map.empty))
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -1490,7 +1490,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
         implicit0(jle: JsonLogicEvaluator[IO]) <- JsonLogicEvaluator.tailRecursive[IO].pure[IO]
-        combiner                               <- Combiner.make[IO].pure[IO]
+        combiner                               <- Combiner.make[IO]().pure[IO]
 
         parentCid <- UUIDGen.randomUUID[IO]
         childCid  <- UUIDGen.randomUUID[IO]
@@ -1511,7 +1511,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
             {
               "from": { "value": "init" },
               "to": { "value": "spawned" },
-              "eventType": { "value": "spawn_child" },
+              "eventName": "spawn_child",
               "guard": true,
               "effect": {
                 "_spawn": [
@@ -1550,7 +1550,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         // Spawn child - pass Charlie's address in event payload for ownersExpr to use
         spawnEvent = Updates.TransitionStateMachine(
           parentCid,
-          EventType("spawn_child"),
+          "spawn_child",
           MapValue(
             Map(
               "customOwners" -> ArrayValue(List(StrValue(charlieAddress.value.value)))
@@ -1597,7 +1597,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
             Transition(
               from = StateId("init"),
               to = StateId("spawned"),
-              eventType = EventType("spawn"),
+              eventName = "spawn",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1655,7 +1655,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(parentCid -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("spawn"),
+          "spawn",
           MapValue(Map.empty)
         )
 
@@ -1703,7 +1703,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
             Transition(
               from = StateId("init"),
               to = StateId("spawned"),
-              eventType = EventType("spawn"),
+              eventName = "spawn",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1761,7 +1761,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(parentCid -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("spawn"),
+          "spawn",
           MapValue(Map.empty)
         )
 
@@ -1806,7 +1806,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
             Transition(
               from = StateId("init"),
               to = StateId("spawned"),
-              eventType = EventType("spawn"),
+              eventName = "spawn",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1865,7 +1865,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(parentCid -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("spawn"),
+          "spawn",
           MapValue(Map.empty)
         )
 
@@ -1910,7 +1910,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
             Transition(
               from = StateId("init"),
               to = StateId("spawned"),
-              eventType = EventType("spawn"),
+              eventName = "spawn",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1969,7 +1969,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(parentCid -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("spawn"),
+          "spawn",
           MapValue(Map.empty)
         )
 

@@ -64,7 +64,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "idle" },
           "to": { "value": "production_scheduled" },
-          "eventType": { "value": "schedule_production" },
+          "eventName": "schedule_production",
           "guard": {
             "and": [
               { ">=": [{ "var": "state.rawMaterials" }, { "var": "state.requiredMaterials" }] },
@@ -81,7 +81,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "production_scheduled" },
           "to": { "value": "producing" },
-          "eventType": { "value": "start_production" },
+          "eventName": "start_production",
           "guard": true,
           "effect": [
             ["status", "producing"],
@@ -93,7 +93,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "producing" },
           "to": { "value": "inventory_full" },
-          "eventType": { "value": "complete_batch" },
+          "eventName": "complete_batch",
           "guard": { ">=": [{ "+": [{ "var": "state.inventory" }, { "var": "state.batchSize" }] }, { "var": "state.maxInventory" }] },
           "effect": [
             ["status", "inventory_full"],
@@ -106,13 +106,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "inventory_full" },
           "to": { "value": "shipping" },
-          "eventType": { "value": "fulfill_order" },
+          "eventName": "fulfill_order",
           "guard": { ">=": [{ "var": "state.inventory" }, { "var": "event.orderQuantity" }] },
           "effect": {
             "_triggers": [
               {
                 "targetMachineId": { "var": "event.retailerId" },
-                "eventType": "receive_shipment",
+                "eventName": "receive_shipment",
                 "payload": {
                   "quantity": { "var": "event.orderQuantity" },
                   "supplier": { "var": "machineId" },
@@ -129,7 +129,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "shipping" },
           "to": { "value": "idle" },
-          "eventType": { "value": "complete_shipment" },
+          "eventName": "complete_shipment",
           "guard": true,
           "effect": [
             ["status", "idle"],
@@ -140,7 +140,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "shipping" },
           "to": { "value": "production_scheduled" },
-          "eventType": { "value": "schedule_production" },
+          "eventName": "schedule_production",
           "guard": {
             "and": [
               { ">=": [{ "var": "state.rawMaterials" }, { "var": "state.requiredMaterials" }] },
@@ -157,12 +157,12 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "idle" },
           "to": { "value": "supply_shortage" },
-          "eventType": { "value": "check_materials" },
+          "eventName": "check_materials",
           "guard": { "<": [{ "var": "state.rawMaterials" }, { "var": "state.requiredMaterials" }] },
           "effect": {
-            "_outputs": [
+            "_emit": [
               {
-                "outputType": "alert",
+                "name": "alert",
                 "data": {
                   "severity": "high",
                   "message": "Raw material shortage detected",
@@ -178,13 +178,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "idle" },
           "to": { "value": "idle" },
-          "eventType": { "value": "pay_taxes" },
+          "eventName": "pay_taxes",
           "guard": true,
           "effect": {
             "_triggers": [
               {
                 "targetMachineId": { "var": "event.governanceId" },
-                "eventType": "tax_payment_received",
+                "eventName": "tax_payment_received",
                 "payload": {
                   "taxpayerId": { "var": "machineId" },
                   "taxAmount": { "*": [{ "var": "state.totalProduced" }, { "var": "event.taxRate" }] },
@@ -205,13 +205,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "inventory_full" },
           "to": { "value": "inventory_full" },
-          "eventType": { "value": "pay_taxes" },
+          "eventName": "pay_taxes",
           "guard": true,
           "effect": {
             "_triggers": [
               {
                 "targetMachineId": { "var": "event.governanceId" },
-                "eventType": "tax_payment_received",
+                "eventName": "tax_payment_received",
                 "payload": {
                   "taxpayerId": { "var": "machineId" },
                   "taxAmount": { "*": [{ "var": "state.totalProduced" }, { "var": "event.taxRate" }] },
@@ -232,13 +232,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "shipping" },
           "to": { "value": "shipping" },
-          "eventType": { "value": "pay_taxes" },
+          "eventName": "pay_taxes",
           "guard": true,
           "effect": {
             "_triggers": [
               {
                 "targetMachineId": { "var": "event.governanceId" },
-                "eventType": "tax_payment_received",
+                "eventName": "tax_payment_received",
                 "payload": {
                   "taxpayerId": { "var": "machineId" },
                   "taxAmount": { "*": [{ "var": "state.totalProduced" }, { "var": "event.taxRate" }] },
@@ -259,13 +259,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "supply_shortage" },
           "to": { "value": "supply_shortage" },
-          "eventType": { "value": "pay_taxes" },
+          "eventName": "pay_taxes",
           "guard": true,
           "effect": {
             "_triggers": [
               {
                 "targetMachineId": { "var": "event.governanceId" },
-                "eventType": "tax_payment_received",
+                "eventName": "tax_payment_received",
                 "payload": {
                   "taxpayerId": { "var": "machineId" },
                   "taxAmount": { "*": [{ "var": "state.totalProduced" }, { "var": "event.taxRate" }] },
@@ -301,13 +301,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "open" },
           "to": { "value": "inventory_low" },
-          "eventType": { "value": "check_inventory" },
+          "eventName": "check_inventory",
           "guard": { "<": [{ "var": "state.stock" }, { "var": "state.reorderThreshold" }] },
           "effect": {
             "_triggers": [
               {
                 "targetMachineId": "$supplierCid",
-                "eventType": "fulfill_order",
+                "eventName": "fulfill_order",
                 "payload": {
                   "retailerId": { "var": "machineId" },
                   "orderQuantity": { "var": "state.reorderQuantity" },
@@ -323,7 +323,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "inventory_low" },
           "to": { "value": "stocking" },
-          "eventType": { "value": "receive_shipment" },
+          "eventName": "receive_shipment",
           "guard": { "===": [{ "var": "event.supplier" }, "$supplierCid"] },
           "effect": [
             ["status", "stocking"],
@@ -335,7 +335,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "stocking" },
           "to": { "value": "open" },
-          "eventType": { "value": "reopen" },
+          "eventName": "reopen",
           "guard": true,
           "effect": [
             ["status", "open"],
@@ -346,7 +346,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "open" },
           "to": { "value": "sale_active" },
-          "eventType": { "value": "start_sale" },
+          "eventName": "start_sale",
           "guard": {
             "or": [
               { "===": [{ "var": "event.season" }, "holiday"] },
@@ -363,7 +363,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "open" },
           "to": { "value": "open" },
-          "eventType": { "value": "process_sale" },
+          "eventName": "process_sale",
           "guard": {
             "and": [
               { ">=": [{ "var": "state.stock" }, { "var": "event.quantity" }] },
@@ -383,7 +383,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "stocking" },
           "to": { "value": "stocking" },
-          "eventType": { "value": "process_sale" },
+          "eventName": "process_sale",
           "guard": {
             "and": [
               { ">=": [{ "var": "state.stock" }, { "var": "event.quantity" }] },
@@ -403,13 +403,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "open" },
           "to": { "value": "open" },
-          "eventType": { "value": "pay_taxes" },
+          "eventName": "pay_taxes",
           "guard": true,
           "effect": {
             "_triggers": [
               {
                 "targetMachineId": { "var": "event.governanceId" },
-                "eventType": "tax_payment_received",
+                "eventName": "tax_payment_received",
                 "payload": {
                   "taxpayerId": { "var": "machineId" },
                   "taxAmount": { "*": [{ "var": "state.revenue" }, { "var": "event.taxRate" }] },
@@ -430,13 +430,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "stocking" },
           "to": { "value": "stocking" },
-          "eventType": { "value": "pay_taxes" },
+          "eventName": "pay_taxes",
           "guard": true,
           "effect": {
             "_triggers": [
               {
                 "targetMachineId": { "var": "event.governanceId" },
-                "eventType": "tax_payment_received",
+                "eventName": "tax_payment_received",
                 "payload": {
                   "taxpayerId": { "var": "machineId" },
                   "taxAmount": { "*": [{ "var": "state.revenue" }, { "var": "event.taxRate" }] },
@@ -457,13 +457,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "sale_active" },
           "to": { "value": "sale_active" },
-          "eventType": { "value": "pay_taxes" },
+          "eventName": "pay_taxes",
           "guard": true,
           "effect": {
             "_triggers": [
               {
                 "targetMachineId": { "var": "event.governanceId" },
-                "eventType": "tax_payment_received",
+                "eventName": "tax_payment_received",
                 "payload": {
                   "taxpayerId": { "var": "machineId" },
                   "taxAmount": { "*": [{ "var": "state.revenue" }, { "var": "event.taxRate" }] },
@@ -501,7 +501,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "operating" },
           "to": { "value": "processing_loan" },
-          "eventType": { "value": "apply_loan" },
+          "eventName": "apply_loan",
           "guard": {
             "and": [
               { ">=": [{ "var": "event.creditScore" }, { "var": "state.minCreditScore" }] },
@@ -523,7 +523,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "processing_loan" },
           "to": { "value": "loan_servicing" },
-          "eventType": { "value": "underwrite" },
+          "eventName": "underwrite",
           "guard": {
             "and": [
               { ">=": [{ "var": "state.currentApplication.creditScore" }, 620] },
@@ -535,7 +535,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             "_triggers": [
               {
                 "targetMachineId": { "var": "state.currentApplication.applicantId" },
-                "eventType": "loan_funded",
+                "eventName": "loan_funded",
                 "payload": {
                   "loanId": { "var": "machineId" },
                   "amount": { "var": "state.currentApplication.amount" },
@@ -557,7 +557,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "loan_servicing" },
           "to": { "value": "loan_servicing" },
-          "eventType": { "value": "payment_missed" },
+          "eventName": "payment_missed",
           "guard": { "<": [{ "var": "event.missedPayments" }, 3] },
           "effect": [
             ["missedPaymentCount", { "+": [{ "var": "state.missedPaymentCount" }, 1] }],
@@ -568,12 +568,12 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "loan_servicing" },
           "to": { "value": "default_management" },
-          "eventType": { "value": "payment_missed" },
+          "eventName": "payment_missed",
           "guard": { ">=": [{ "var": "event.missedPayments" }, 3] },
           "effect": {
-            "_outputs": [
+            "_emit": [
               {
-                "outputType": "credit_report",
+                "name": "credit_report",
                 "data": {
                   "borrowerId": { "var": "event.borrowerId" },
                   "delinquencyStatus": "90-days",
@@ -590,7 +590,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "operating" },
           "to": { "value": "stress_test" },
-          "eventType": { "value": "fed_directive" },
+          "eventName": "fed_directive",
           "guard": { "===": [{ "var": "machines.$federalReserveCid.state.status" }, "stress_testing"] },
           "effect": [
             ["status", "stress_test"],
@@ -606,7 +606,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "loan_servicing" },
           "to": { "value": "stress_test" },
-          "eventType": { "value": "fed_directive" },
+          "eventName": "fed_directive",
           "guard": { "===": [{ "var": "machines.$federalReserveCid.state.status" }, "stress_testing"] },
           "effect": [
             ["status", "stress_test"],
@@ -622,7 +622,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "stress_test" },
           "to": { "value": "loan_servicing" },
-          "eventType": { "value": "complete_stress_test" },
+          "eventName": "complete_stress_test",
           "guard": {
             "and": [
               { ">=": [{ "var": "state.capitalRatio" }, 0.08] },
@@ -640,7 +640,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "stress_test" },
           "to": { "value": "operating" },
-          "eventType": { "value": "complete_stress_test" },
+          "eventName": "complete_stress_test",
           "guard": {
             "and": [
               { ">=": [{ "var": "state.capitalRatio" }, 0.08] },
@@ -657,7 +657,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "stress_test" },
           "to": { "value": "liquidity_crisis" },
-          "eventType": { "value": "complete_stress_test" },
+          "eventName": "complete_stress_test",
           "guard": {
             "or": [
               { "<": [{ "var": "state.capitalRatio" }, 0.08] },
@@ -668,7 +668,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             "_triggers": [
               {
                 "targetMachineId": "$federalReserveCid",
-                "eventType": "emergency_lending_request",
+                "eventName": "emergency_lending_request",
                 "payload": {
                   "bankId": { "var": "machineId" },
                   "capitalShortfall": { "-": [
@@ -687,7 +687,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "operating" },
           "to": { "value": "operating" },
-          "eventType": { "value": "rate_adjustment" },
+          "eventName": "rate_adjustment",
           "guard": true,
           "effect": [
             ["baseRate", { "var": "event.newBaseRate" }],
@@ -698,7 +698,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "loan_servicing" },
           "to": { "value": "loan_servicing" },
-          "eventType": { "value": "rate_adjustment" },
+          "eventName": "rate_adjustment",
           "guard": true,
           "effect": [
             ["baseRate", { "var": "event.newBaseRate" }],
@@ -709,7 +709,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "loan_servicing" },
           "to": { "value": "loan_servicing" },
-          "eventType": { "value": "payment_received" },
+          "eventName": "payment_received",
           "guard": true,
           "effect": [
             ["lastPaymentReceivedAt", { "var": "event.timestamp" }],
@@ -736,13 +736,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "active" },
           "to": { "value": "active" },
-          "eventType": { "value": "browse_products" },
+          "eventName": "browse_products",
           "guard": { ">=": [{ "var": "state.balance" }, { "var": "event.expectedCost" }] },
           "effect": {
             "_triggers": [
               {
                 "targetMachineId": { "var": "event.retailerId" },
-                "eventType": "process_sale",
+                "eventName": "process_sale",
                 "payload": {
                   "customerId": { "var": "machineId" },
                   "quantity": { "var": "event.quantity" }
@@ -758,7 +758,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "active" },
           "to": { "value": "active" },
-          "eventType": { "value": "provide_service" },
+          "eventName": "provide_service",
           "guard": { "===": [{ "var": "state.serviceType" }, { "var": "event.requestedService" }] },
           "effect": [
             ["balance", { "+": [{ "var": "state.balance" }, { "var": "event.payment" }] }],
@@ -770,7 +770,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "active" },
           "to": { "value": "debt_current" },
-          "eventType": { "value": "loan_funded" },
+          "eventName": "loan_funded",
           "guard": true,
           "effect": [
             ["status", "debt_current"],
@@ -785,13 +785,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "debt_current" },
           "to": { "value": "debt_current" },
-          "eventType": { "value": "make_payment" },
+          "eventName": "make_payment",
           "guard": { ">=": [{ "var": "state.balance" }, { "var": "state.monthlyPayment" }] },
           "effect": {
             "_triggers": [
               {
                 "targetMachineId": { "var": "state.lenderId" },
-                "eventType": "payment_received",
+                "eventName": "payment_received",
                 "payload": {
                   "borrowerId": { "var": "machineId" },
                   "amount": { "var": "state.monthlyPayment" }
@@ -814,13 +814,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "debt_current" },
           "to": { "value": "debt_current" },
-          "eventType": { "value": "browse_products" },
+          "eventName": "browse_products",
           "guard": { ">=": [{ "var": "state.balance" }, { "var": "event.expectedCost" }] },
           "effect": {
             "_triggers": [
               {
                 "targetMachineId": { "var": "event.retailerId" },
-                "eventType": "process_sale",
+                "eventName": "process_sale",
                 "payload": {
                   "customerId": { "var": "machineId" },
                   "quantity": { "var": "event.quantity" }
@@ -836,7 +836,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "debt_current" },
           "to": { "value": "debt_current" },
-          "eventType": { "value": "provide_service" },
+          "eventName": "provide_service",
           "guard": { "===": [{ "var": "state.serviceType" }, { "var": "event.requestedService" }] },
           "effect": [
             ["balance", { "+": [{ "var": "state.balance" }, { "var": "event.payment" }] }],
@@ -848,13 +848,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "debt_current" },
           "to": { "value": "debt_delinquent" },
-          "eventType": { "value": "check_payment" },
+          "eventName": "check_payment",
           "guard": { ">": [{ "var": "event.timestamp" }, { "var": "state.nextPaymentDue" }] },
           "effect": {
             "_triggers": [
               {
                 "targetMachineId": { "var": "state.lenderId" },
-                "eventType": "payment_missed",
+                "eventName": "payment_missed",
                 "payload": {
                   "borrowerId": { "var": "machineId" },
                   "missedPayments": { "+": [{ "var": "state.missedPayments" }, 1] }
@@ -870,7 +870,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "active" },
           "to": { "value": "marketplace_selling" },
-          "eventType": { "value": "list_item" },
+          "eventName": "list_item",
           "guard": true,
           "effect": {
             "_spawn": [
@@ -888,7 +888,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
                     {
                       "from": { "value": "listed" },
                       "to": { "value": "bid_received" },
-                      "eventType": { "value": "place_bid" },
+                      "eventName": "place_bid",
                       "guard": { ">=": [{ "var": "event.bidAmount" }, { "var": "state.reservePrice" }] },
                       "effect": [
                         ["status", "bid_received"],
@@ -901,13 +901,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
                     {
                       "from": { "value": "bid_received" },
                       "to": { "value": "sold" },
-                      "eventType": { "value": "accept_bid" },
+                      "eventName": "accept_bid",
                       "guard": true,
                       "effect": {
                         "_triggers": [
                           {
                             "targetMachineId": { "var": "parent.machineId" },
-                            "eventType": "sale_completed",
+                            "eventName": "sale_completed",
                             "payload": {
                               "amount": { "var": "state.highestBid" },
                               "buyer": { "var": "state.highestBidder" },
@@ -938,7 +938,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "marketplace_selling" },
           "to": { "value": "active" },
-          "eventType": { "value": "sale_completed" },
+          "eventName": "sale_completed",
           "guard": true,
           "effect": [
             ["balance", { "+": [{ "var": "state.balance" }, { "var": "event.amount" }] }],
@@ -951,7 +951,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "debt_delinquent" },
           "to": { "value": "debt_delinquent" },
-          "eventType": { "value": "list_item" },
+          "eventName": "list_item",
           "guard": true,
           "effect": {
             "_spawn": [
@@ -969,7 +969,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
                     {
                       "from": { "value": "listed" },
                       "to": { "value": "bid_received" },
-                      "eventType": { "value": "place_bid" },
+                      "eventName": "place_bid",
                       "guard": { ">=": [{ "var": "event.bidAmount" }, { "var": "state.reservePrice" }] },
                       "effect": [
                         ["status", "bid_received"],
@@ -982,13 +982,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
                     {
                       "from": { "value": "bid_received" },
                       "to": { "value": "sold" },
-                      "eventType": { "value": "accept_bid" },
+                      "eventName": "accept_bid",
                       "guard": true,
                       "effect": {
                         "_triggers": [
                           {
                             "targetMachineId": { "var": "parent.machineId" },
-                            "eventType": "sale_completed",
+                            "eventName": "sale_completed",
                             "payload": {
                               "amount": { "var": "state.highestBid" },
                               "buyer": { "var": "state.highestBidder" },
@@ -1018,7 +1018,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "debt_delinquent" },
           "to": { "value": "debt_delinquent" },
-          "eventType": { "value": "sale_completed" },
+          "eventName": "sale_completed",
           "guard": true,
           "effect": [
             ["balance", { "+": [{ "var": "state.balance" }, { "var": "event.amount" }] }],
@@ -1030,13 +1030,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "active" },
           "to": { "value": "active" },
-          "eventType": { "value": "pay_taxes" },
+          "eventName": "pay_taxes",
           "guard": true,
           "effect": {
             "_triggers": [
               {
                 "targetMachineId": { "var": "event.governanceId" },
-                "eventType": "tax_payment_received",
+                "eventName": "tax_payment_received",
                 "payload": {
                   "taxpayerId": { "var": "machineId" },
                   "taxAmount": { "*": [{ "var": "state.serviceRevenue" }, { "var": "event.taxRate" }] },
@@ -1057,13 +1057,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "debt_current" },
           "to": { "value": "debt_current" },
-          "eventType": { "value": "pay_taxes" },
+          "eventName": "pay_taxes",
           "guard": true,
           "effect": {
             "_triggers": [
               {
                 "targetMachineId": { "var": "event.governanceId" },
-                "eventType": "tax_payment_received",
+                "eventName": "tax_payment_received",
                 "payload": {
                   "taxpayerId": { "var": "machineId" },
                   "taxAmount": { "*": [{ "var": "state.serviceRevenue" }, { "var": "event.taxRate" }] },
@@ -1084,13 +1084,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "debt_delinquent" },
           "to": { "value": "debt_delinquent" },
-          "eventType": { "value": "pay_taxes" },
+          "eventName": "pay_taxes",
           "guard": true,
           "effect": {
             "_triggers": [
               {
                 "targetMachineId": { "var": "event.governanceId" },
-                "eventType": "tax_payment_received",
+                "eventName": "tax_payment_received",
                 "payload": {
                   "taxpayerId": { "var": "machineId" },
                   "taxAmount": { "*": [{ "var": "state.serviceRevenue" }, { "var": "event.taxRate" }] },
@@ -1116,7 +1116,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
       .map { bankCid =>
         s"""{
         "targetMachineId": "$bankCid",
-        "eventType": "rate_adjustment",
+        "eventName": "rate_adjustment",
         "payload": {
           "newBaseRate": { "+": [{ "var": "state.baseRate" }, 0.0025] },
           "direction": "increase"
@@ -1129,7 +1129,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
       .map { bankCid =>
         s"""{
         "targetMachineId": "$bankCid",
-        "eventType": "fed_directive",
+        "eventName": "fed_directive",
         "payload": { "directive": "stress_test" }
       }"""
       }
@@ -1149,7 +1149,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "stable" },
           "to": { "value": "rate_review" },
-          "eventType": { "value": "quarterly_meeting" },
+          "eventName": "quarterly_meeting",
           "guard": true,
           "effect": [
             ["status", "rate_review"],
@@ -1163,7 +1163,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "rate_review" },
           "to": { "value": "stable" },
-          "eventType": { "value": "set_rate" },
+          "eventName": "set_rate",
           "guard": { ">": [{ "var": "state.inflationRate" }, 0.025] },
           "effect": {
             "_triggers": $bankTriggers,
@@ -1177,7 +1177,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "stable" },
           "to": { "value": "stress_testing" },
-          "eventType": { "value": "initiate_stress_test" },
+          "eventName": "initiate_stress_test",
           "guard": {
             "or": [
               { ">": [{ "var": "event.marketVolatility" }, 0.30] },
@@ -1194,13 +1194,13 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "stable" },
           "to": { "value": "emergency_lending" },
-          "eventType": { "value": "emergency_lending_request" },
+          "eventName": "emergency_lending_request",
           "guard": true,
           "effect": {
             "_triggers": [
               {
                 "targetMachineId": { "var": "event.bankId" },
-                "eventType": "receive_emergency_funds",
+                "eventName": "receive_emergency_funds",
                 "payload": {
                   "amount": { "var": "event.capitalShortfall" },
                   "interestRate": { "+": [{ "var": "state.baseRate" }, 0.01] },
@@ -1208,9 +1208,9 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
                 }
               }
             ],
-            "_outputs": [
+            "_emit": [
               {
-                "outputType": "regulatory_notice",
+                "name": "regulatory_notice",
                 "data": {
                   "type": "emergency_lending",
                   "recipient": { "var": "event.bankId" },
@@ -1238,7 +1238,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
       .map { cid =>
         s"""{
         "targetMachineId": "$cid",
-        "eventType": "pay_taxes",
+        "eventName": "pay_taxes",
         "payload": {
           "taxPeriod": { "var": "event.taxPeriod" },
           "taxRate": { "var": "event.taxRate" },
@@ -1261,7 +1261,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "monitoring" },
           "to": { "value": "tax_collection" },
-          "eventType": { "value": "collect_taxes" },
+          "eventName": "collect_taxes",
           "guard": true,
           "effect": {
             "_triggers": $taxCollectionTriggers,
@@ -1276,7 +1276,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "tax_collection" },
           "to": { "value": "tax_collection" },
-          "eventType": { "value": "tax_payment_received" },
+          "eventName": "tax_payment_received",
           "guard": { "<": [{ "+": [{ "var": "state.taxpayersCompliant" }, 1] }, { "var": "state.expectedTaxpayers" }] },
           "effect": [
             ["totalTaxesCollected", { "+": [{ "var": "state.totalTaxesCollected" }, { "var": "event.taxAmount" }] }],
@@ -1289,7 +1289,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "tax_collection" },
           "to": { "value": "monitoring" },
-          "eventType": { "value": "tax_payment_received" },
+          "eventName": "tax_payment_received",
           "guard": { "===": [{ "+": [{ "var": "state.taxpayersCompliant" }, 1] }, { "var": "state.expectedTaxpayers" }] },
           "effect": [
             ["totalTaxesCollected", { "+": [{ "var": "state.totalTaxesCollected" }, { "var": "event.taxAmount" }] }],
@@ -1302,7 +1302,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "monitoring" },
           "to": { "value": "monitoring" },
-          "eventType": { "value": "tax_payment_received" },
+          "eventName": "tax_payment_received",
           "guard": true,
           "effect": [
             ["totalTaxesCollected", { "+": [{ "var": "state.totalTaxesCollected" }, { "var": "event.taxAmount" }] }],
@@ -1315,7 +1315,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "monitoring" },
           "to": { "value": "audit" },
-          "eventType": { "value": "initiate_audit" },
+          "eventName": "initiate_audit",
           "guard": true,
           "effect": {
             "auditTarget": { "var": "event.targetId" },
@@ -1327,12 +1327,12 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "audit" },
           "to": { "value": "compliant" },
-          "eventType": { "value": "audit_complete" },
+          "eventName": "audit_complete",
           "guard": { "===": [{ "var": "event.finding" }, "compliant"] },
           "effect": {
-            "_outputs": [
+            "_emit": [
               {
-                "outputType": "audit_report",
+                "name": "audit_report",
                 "data": {
                   "target": { "var": "state.auditTarget" },
                   "finding": "compliant",
@@ -1348,7 +1348,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         {
           "from": { "value": "compliant" },
           "to": { "value": "monitoring" },
-          "eventType": { "value": "return_to_monitoring" },
+          "eventName": "return_to_monitoring",
           "guard": true,
           "effect": [],
           "dependencies": []
@@ -1393,7 +1393,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             Zoe
           )
         )
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
         ordinal  <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
         // Generate UUIDs for all 26 participants
@@ -1804,7 +1804,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 1: Federal Reserve quarterly meeting (high inflation scenario)
         update1 = Updates.TransitionStateMachine(
           yolandaCid,
-          EventType("quarterly_meeting"),
+          "quarterly_meeting",
           MapValue(
             Map(
               "timestamp"        -> IntValue(1000),
@@ -1820,7 +1820,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 2: Fed sets rate (returns to stable, broadcasts rate_adjustment to all banks)
         update2 = Updates.TransitionStateMachine(
           yolandaCid,
-          EventType("set_rate"),
+          "set_rate",
           MapValue(Map("timestamp" -> IntValue(1050)))
         )
         proof2 <- registry.generateProofs(update2, Set(Yolanda))
@@ -1829,7 +1829,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 3: Alice schedules production
         update3 = Updates.TransitionStateMachine(
           aliceCid,
-          EventType("schedule_production"),
+          "schedule_production",
           MapValue(
             Map(
               "timestamp" -> IntValue(1100),
@@ -1843,7 +1843,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 4: Alice starts production
         update4 = Updates.TransitionStateMachine(
           aliceCid,
-          EventType("start_production"),
+          "start_production",
           MapValue(Map("timestamp" -> IntValue(1200)))
         )
         proof4 <- registry.generateProofs(update4, Set(Alice))
@@ -1852,7 +1852,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 5: Alice completes batch
         update5 = Updates.TransitionStateMachine(
           aliceCid,
-          EventType("complete_batch"),
+          "complete_batch",
           MapValue(Map("timestamp" -> IntValue(2000)))
         )
         proof5 <- registry.generateProofs(update5, Set(Alice))
@@ -1861,7 +1861,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 6: Heidi checks inventory (should trigger order to Alice)
         update6 = Updates.TransitionStateMachine(
           heidiCid,
-          EventType("check_inventory"),
+          "check_inventory",
           MapValue(
             Map(
               "timestamp"  -> IntValue(2100),
@@ -1880,7 +1880,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 7: Ruth applies for loan from Oscar
         update7 = Updates.TransitionStateMachine(
           oscarCid,
-          EventType("apply_loan"),
+          "apply_loan",
           MapValue(
             Map(
               "timestamp"   -> IntValue(2200),
@@ -1897,7 +1897,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 8: Oscar underwrites loan (Fed must be in stable state)
         update8 = Updates.TransitionStateMachine(
           oscarCid,
-          EventType("underwrite"),
+          "underwrite",
           MapValue(Map("timestamp" -> IntValue(2300)))
         )
         proof8 <- registry.generateProofs(update8, Set(Oscar))
@@ -1910,7 +1910,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 9: Supply shortage at Charlie's TechParts
         update9 = Updates.TransitionStateMachine(
           charlieCid,
-          EventType("check_materials"),
+          "check_materials",
           MapValue(Map("timestamp" -> IntValue(3000)))
         )
         proof9 <- registry.generateProofs(update9, Set(Charlie))
@@ -1928,7 +1928,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 10: Bob schedules production
         update10 = Updates.TransitionStateMachine(
           bobCid,
-          EventType("schedule_production"),
+          "schedule_production",
           MapValue(
             Map(
               "timestamp" -> IntValue(3100),
@@ -1942,7 +1942,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 11: Bob starts production
         update11 = Updates.TransitionStateMachine(
           bobCid,
-          EventType("start_production"),
+          "start_production",
           MapValue(Map("timestamp" -> IntValue(3200)))
         )
         proof11 <- registry.generateProofs(update11, Set(Bob))
@@ -1951,7 +1951,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 12: Bob completes batch
         update12 = Updates.TransitionStateMachine(
           bobCid,
-          EventType("complete_batch"),
+          "complete_batch",
           MapValue(Map("timestamp" -> IntValue(4000)))
         )
         proof12 <- registry.generateProofs(update12, Set(Bob))
@@ -1987,7 +1987,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 13: Grace checks inventory (triggers order to Bob)
         update13 = Updates.TransitionStateMachine(
           graceCid,
-          EventType("check_inventory"),
+          "check_inventory",
           MapValue(
             Map(
               "timestamp"  -> IntValue(4100),
@@ -2005,7 +2005,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 14: Heidi reopens after restocking
         update14 = Updates.TransitionStateMachine(
           heidiCid,
-          EventType("reopen"),
+          "reopen",
           MapValue(Map("timestamp" -> IntValue(4150)))
         )
         proof14 <- registry.generateProofs(update14, Set(Heidi))
@@ -2014,7 +2014,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 15: Ruth browses products at Heidi's store
         update15 = Updates.TransitionStateMachine(
           ruthCid,
-          EventType("browse_products"),
+          "browse_products",
           MapValue(
             Map(
               "timestamp"    -> IntValue(4200),
@@ -2034,7 +2034,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 16: Sybil applies for loan from Peggy
         update16 = Updates.TransitionStateMachine(
           peggyCid,
-          EventType("apply_loan"),
+          "apply_loan",
           MapValue(
             Map(
               "timestamp"   -> IntValue(4300),
@@ -2051,7 +2051,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 17: Peggy underwrites loan for Sybil
         update17 = Updates.TransitionStateMachine(
           peggyCid,
-          EventType("underwrite"),
+          "underwrite",
           MapValue(Map("timestamp" -> IntValue(4400)))
         )
         proof17 <- registry.generateProofs(update17, Set(Peggy))
@@ -2059,7 +2059,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 18: Sybil checks payment (misses payment - timestamp way past nextPaymentDue)
         update18 = Updates.TransitionStateMachine(
           sybilCid,
-          EventType("check_payment"),
+          "check_payment",
           MapValue(Map("timestamp" -> IntValue(7100000))) // Way past due date (2592000 + 4400 = 2596400)
         )
         proof18 <- registry.generateProofs(update18, Set(Sybil))
@@ -2072,7 +2072,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 19: Fed initiates stress test due to high market volatility
         update19 = Updates.TransitionStateMachine(
           yolandaCid,
-          EventType("initiate_stress_test"),
+          "initiate_stress_test",
           MapValue(
             Map(
               "timestamp"        -> IntValue(7200000),
@@ -2087,7 +2087,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 20: Oscar completes stress test (passes - good capital ratio)
         update20 = Updates.TransitionStateMachine(
           oscarCid,
-          EventType("complete_stress_test"),
+          "complete_stress_test",
           MapValue(Map("timestamp" -> IntValue(7300000)))
         )
         proof20 <- registry.generateProofs(update20, Set(Oscar))
@@ -2096,7 +2096,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 21: Peggy completes stress test (passes - good capital ratio)
         update21 = Updates.TransitionStateMachine(
           peggyCid,
-          EventType("complete_stress_test"),
+          "complete_stress_test",
           MapValue(Map("timestamp" -> IntValue(7300050)))
         )
         proof21 <- registry.generateProofs(update21, Set(Peggy))
@@ -2105,7 +2105,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 22: Quentin completes stress test (passes - good capital ratio)
         update22 = Updates.TransitionStateMachine(
           quentinCid,
-          EventType("complete_stress_test"),
+          "complete_stress_test",
           MapValue(Map("timestamp" -> IntValue(7300100)))
         )
         proof22 <- registry.generateProofs(update22, Set(Quentin))
@@ -2118,7 +2118,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 23: Heidi starts holiday sale (20% discount)
         update23 = Updates.TransitionStateMachine(
           heidiCid,
-          EventType("start_sale"),
+          "start_sale",
           MapValue(
             Map(
               "timestamp"    -> IntValue(7400000),
@@ -2161,7 +2161,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 24: Sybil lists handmade craft item for auction (spawns auction child machine)
         update24 = Updates.TransitionStateMachine(
           sybilCid,
-          EventType("list_item"),
+          "list_item",
           MapValue(
             Map(
               "auctionId"    -> StrValue(auctionCid.toString),
@@ -2177,7 +2177,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 25: Victor places bid on Sybil's auction (bid exceeds reserve price)
         update25 = Updates.TransitionStateMachine(
           auctionCid,
-          EventType("place_bid"),
+          "place_bid",
           MapValue(
             Map(
               "bidAmount" -> IntValue(750),
@@ -2192,7 +2192,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 26: Auction accepts bid (triggers sale_completed to Sybil)
         update26 = Updates.TransitionStateMachine(
           auctionCid,
-          EventType("accept_bid"),
+          "accept_bid",
           MapValue(Map("timestamp" -> IntValue(7700000)))
         )
         proof26 <- registry.generateProofs(update26, Set(Sybil))
@@ -2214,7 +2214,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 27: Ruth makes first loan payment to Oscar
         update27 = Updates.TransitionStateMachine(
           ruthCid,
-          EventType("make_payment"),
+          "make_payment",
           MapValue(Map("timestamp" -> IntValue(7750000)))
         )
         proof27 <- registry.generateProofs(update27, Set(Ruth))
@@ -2229,7 +2229,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 28: Victor lists antique item for auction
         update28 = Updates.TransitionStateMachine(
           victorCid,
-          EventType("list_item"),
+          "list_item",
           MapValue(
             Map(
               "auctionId"    -> StrValue(auction2Cid.toString),
@@ -2245,7 +2245,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 29: Ruth places bid on Victor's auction (using loan proceeds)
         update29 = Updates.TransitionStateMachine(
           auction2Cid,
-          EventType("place_bid"),
+          "place_bid",
           MapValue(
             Map(
               "bidAmount" -> IntValue(2500),
@@ -2260,7 +2260,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 30: Victor accepts Ruth's bid
         update30 = Updates.TransitionStateMachine(
           auction2Cid,
-          EventType("accept_bid"),
+          "accept_bid",
           MapValue(Map("timestamp" -> IntValue(8000000)))
         )
         proof30 <- registry.generateProofs(update30, Set(Victor))
@@ -2296,7 +2296,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 32: Dave schedules production
         update32 = Updates.TransitionStateMachine(
           daveCid,
-          EventType("schedule_production"),
+          "schedule_production",
           MapValue(
             Map(
               "timestamp" -> IntValue(8100000),
@@ -2310,7 +2310,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 33: Dave starts production
         update33 = Updates.TransitionStateMachine(
           daveCid,
-          EventType("start_production"),
+          "start_production",
           MapValue(Map("timestamp" -> IntValue(8200000)))
         )
         proof33 <- registry.generateProofs(update33, Set(Dave))
@@ -2319,7 +2319,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 34: Dave completes production
         update34 = Updates.TransitionStateMachine(
           daveCid,
-          EventType("complete_batch"),
+          "complete_batch",
           MapValue(Map("timestamp" -> IntValue(8300000)))
         )
         proof34 <- registry.generateProofs(update34, Set(Dave))
@@ -2355,7 +2355,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 36: Ivan checks inventory (triggers order to Dave)
         update36 = Updates.TransitionStateMachine(
           ivanCid,
-          EventType("check_inventory"),
+          "check_inventory",
           MapValue(
             Map(
               "timestamp"  -> IntValue(8400000),
@@ -2373,7 +2373,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 37: Ruth provides freelance service (earns income)
         update37 = Updates.TransitionStateMachine(
           ruthCid,
-          EventType("provide_service"),
+          "provide_service",
           MapValue(
             Map(
               "timestamp"        -> IntValue(8500000),
@@ -2392,7 +2392,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 38: Victor shops at Grace's FreshFoods Market
         update38 = Updates.TransitionStateMachine(
           victorCid,
-          EventType("browse_products"),
+          "browse_products",
           MapValue(
             Map(
               "timestamp"    -> IntValue(8600000),
@@ -2408,7 +2408,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 39: Grace reopens after restocking
         update39 = Updates.TransitionStateMachine(
           graceCid,
-          EventType("reopen"),
+          "reopen",
           MapValue(Map("timestamp" -> IntValue(8650000)))
         )
         proof39 <- registry.generateProofs(update39, Set(Grace))
@@ -2417,7 +2417,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 40: Ivan reopens after restocking from Dave
         update40 = Updates.TransitionStateMachine(
           ivanCid,
-          EventType("reopen"),
+          "reopen",
           MapValue(Map("timestamp" -> IntValue(8700000)))
         )
         proof40 <- registry.generateProofs(update40, Set(Ivan))
@@ -2430,7 +2430,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 41: Alice schedules another production batch
         update41 = Updates.TransitionStateMachine(
           aliceCid,
-          EventType("schedule_production"),
+          "schedule_production",
           MapValue(
             Map(
               "timestamp" -> IntValue(8800000),
@@ -2444,7 +2444,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 42: Alice starts second production run
         update42 = Updates.TransitionStateMachine(
           aliceCid,
-          EventType("start_production"),
+          "start_production",
           MapValue(Map("timestamp" -> IntValue(8900000)))
         )
         proof42 <- registry.generateProofs(update42, Set(Alice))
@@ -2453,7 +2453,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // Event 43: Alice completes second batch
         update43 = Updates.TransitionStateMachine(
           aliceCid,
-          EventType("complete_batch"),
+          "complete_batch",
           MapValue(Map("timestamp" -> IntValue(9000000)))
         )
         proof43 <- registry.generateProofs(update43, Set(Alice))
@@ -2476,52 +2476,52 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         )
 
         // Event 44: Alice pays taxes
-        update44 = Updates.TransitionStateMachine(aliceCid, EventType("pay_taxes"), taxPayload)
+        update44 = Updates.TransitionStateMachine(aliceCid, "pay_taxes", taxPayload)
         proof44 <- registry.generateProofs(update44, Set(Alice))
         state45 <- combiner.insert(state44, Signed(update44, proof44))
 
         // Event 45: Bob pays taxes
-        update45 = Updates.TransitionStateMachine(bobCid, EventType("pay_taxes"), taxPayload)
+        update45 = Updates.TransitionStateMachine(bobCid, "pay_taxes", taxPayload)
         proof45 <- registry.generateProofs(update45, Set(Bob))
         state46 <- combiner.insert(state45, Signed(update45, proof45))
 
         // Event 46: Charlie pays taxes
-        update46 = Updates.TransitionStateMachine(charlieCid, EventType("pay_taxes"), taxPayload)
+        update46 = Updates.TransitionStateMachine(charlieCid, "pay_taxes", taxPayload)
         proof46 <- registry.generateProofs(update46, Set(Charlie))
         state47 <- combiner.insert(state46, Signed(update46, proof46))
 
         // Event 47: Dave pays taxes
-        update47 = Updates.TransitionStateMachine(daveCid, EventType("pay_taxes"), taxPayload)
+        update47 = Updates.TransitionStateMachine(daveCid, "pay_taxes", taxPayload)
         proof47 <- registry.generateProofs(update47, Set(Dave))
         state48 <- combiner.insert(state47, Signed(update47, proof47))
 
         // Event 48: Heidi pays taxes
-        update48 = Updates.TransitionStateMachine(heidiCid, EventType("pay_taxes"), taxPayload)
+        update48 = Updates.TransitionStateMachine(heidiCid, "pay_taxes", taxPayload)
         proof48 <- registry.generateProofs(update48, Set(Heidi))
         state49 <- combiner.insert(state48, Signed(update48, proof48))
 
         // Event 49: Grace pays taxes
-        update49 = Updates.TransitionStateMachine(graceCid, EventType("pay_taxes"), taxPayload)
+        update49 = Updates.TransitionStateMachine(graceCid, "pay_taxes", taxPayload)
         proof49 <- registry.generateProofs(update49, Set(Grace))
         state50 <- combiner.insert(state49, Signed(update49, proof49))
 
         // Event 50: Ivan pays taxes
-        update50 = Updates.TransitionStateMachine(ivanCid, EventType("pay_taxes"), taxPayload)
+        update50 = Updates.TransitionStateMachine(ivanCid, "pay_taxes", taxPayload)
         proof50 <- registry.generateProofs(update50, Set(Ivan))
         state51 <- combiner.insert(state50, Signed(update50, proof50))
 
         // Event 51: Ruth pays taxes
-        update51 = Updates.TransitionStateMachine(ruthCid, EventType("pay_taxes"), taxPayload)
+        update51 = Updates.TransitionStateMachine(ruthCid, "pay_taxes", taxPayload)
         proof51 <- registry.generateProofs(update51, Set(Ruth))
         state52 <- combiner.insert(state51, Signed(update51, proof51))
 
         // Event 52: Sybil pays taxes
-        update52 = Updates.TransitionStateMachine(sybilCid, EventType("pay_taxes"), taxPayload)
+        update52 = Updates.TransitionStateMachine(sybilCid, "pay_taxes", taxPayload)
         proof52 <- registry.generateProofs(update52, Set(Sybil))
         state53 <- combiner.insert(state52, Signed(update52, proof52))
 
         // Event 53: Victor pays taxes
-        update53 = Updates.TransitionStateMachine(victorCid, EventType("pay_taxes"), taxPayload)
+        update53 = Updates.TransitionStateMachine(victorCid, "pay_taxes", taxPayload)
         proof53 <- registry.generateProofs(update53, Set(Victor))
         state54 <- combiner.insert(state53, Signed(update53, proof53))
 

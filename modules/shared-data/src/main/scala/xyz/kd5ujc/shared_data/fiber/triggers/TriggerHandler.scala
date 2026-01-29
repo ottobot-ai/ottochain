@@ -71,7 +71,7 @@ class StateMachineTriggerHandler[F[_]: Async: SecurityProvider, G[_]: Monad](
       case other =>
         (TriggerHandlerResult.Failed(
           FailureReason
-            .FiberInputMismatch(other.cid, other.getClass.getSimpleName, "StateMachineTrigger")
+            .FiberInputMismatch(other.cid, FiberKind.ScriptOracle, InputKind.Transition)
         ): TriggerHandlerResult).pure[G]
     }
 
@@ -84,24 +84,16 @@ class StateMachineTriggerHandler[F[_]: Async: SecurityProvider, G[_]: Monad](
       ordinal <- ExecutionOps.askOrdinal[G]
       outcome <- FiberEvaluator.make[F, G](calculatedState).evaluate(sm, trigger.input, List.empty)
       result <- outcome match {
-        case FiberResult.Success(newStateData, newStateId, triggers, _, outputs, _) =>
-          val eventType = trigger.input match {
-            case FiberInput.Transition(et, _, _)   => et
-            case FiberInput.MethodCall(m, _, _, _) => EventType(m)
-          }
-
-          val receipt = EventReceipt(
-            fiberId = sm.cid,
-            sequenceNumber = sm.sequenceNumber + 1,
-            eventType = eventType,
+        case FiberResult.Success(newStateData, newStateId, triggers, _, _, emittedEvents) =>
+          val receipt = EventReceipt.success(
+            sm = sm,
+            eventName = trigger.input.key,
             ordinal = ordinal,
-            fromState = sm.currentState,
-            toState = newStateId.getOrElse(sm.currentState),
-            success = true,
             gasUsed = 0L,
-            triggersFired = triggers.size,
-            outputs = outputs,
-            sourceFiberId = trigger.sourceFiberId
+            newStateId = newStateId,
+            triggers = triggers,
+            sourceFiberId = trigger.sourceFiberId,
+            emittedEvents = emittedEvents
           )
 
           val updatedFiber = sm.copy(
@@ -124,12 +116,8 @@ class StateMachineTriggerHandler[F[_]: Async: SecurityProvider, G[_]: Monad](
             )
 
         case FiberResult.GuardFailed(attemptedCount) =>
-          val eventType = trigger.input match {
-            case FiberInput.Transition(et, _, _)   => et
-            case FiberInput.MethodCall(m, _, _, _) => EventType(m)
-          }
           (TriggerHandlerResult.Failed(
-            FailureReason.NoGuardMatched(sm.currentState, eventType, attemptedCount)
+            FailureReason.NoGuardMatched(sm.currentState, trigger.input.key, attemptedCount)
           ): TriggerHandlerResult).pure[G]
 
         case FiberResult.Failed(reason) =>
@@ -154,7 +142,7 @@ class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
         handleOracle(trigger, oracle, state)
       case other =>
         (TriggerHandlerResult.Failed(
-          FailureReason.FiberInputMismatch(other.cid, other.getClass.getSimpleName, "OracleTrigger")
+          FailureReason.FiberInputMismatch(other.cid, FiberKind.StateMachine, InputKind.MethodCall)
         ): TriggerHandlerResult).pure[G]
     }
 
@@ -163,11 +151,6 @@ class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
     oracle:  Records.ScriptOracleFiberRecord,
     state:   CalculatedState
   ): G[TriggerHandlerResult] = {
-    val (method, args) = trigger.input match {
-      case FiberInput.Transition(eventType, payload, _) => (eventType.value, payload)
-      case FiberInput.MethodCall(m, a, _, _)            => (m, a)
-    }
-
     type OracleET[A] = EitherT[G, TriggerHandlerResult, A]
 
     val computation: OracleET[TriggerHandlerResult] = for {
@@ -189,8 +172,8 @@ class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
 
       inputData = MapValue(
         Map(
-          ReservedKeys.METHOD -> StrValue(method),
-          ReservedKeys.ARGS   -> args,
+          ReservedKeys.METHOD -> StrValue(trigger.input.key),
+          ReservedKeys.ARGS   -> trigger.input.content,
           ReservedKeys.STATE  -> oracle.stateData.getOrElse(NullValue)
         )
       )
@@ -233,7 +216,7 @@ class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
           case BoolValue(false) =>
             Left(
               TriggerHandlerResult.Failed(
-                FailureReason.OracleInvocationFailed(oracle.cid, method, Some("returned false"))
+                FailureReason.OracleInvocationFailed(oracle.cid, trigger.input.key, Some("returned false"))
               )
             )
           case MapValue(m) if m.get("valid").contains(BoolValue(false)) =>
@@ -241,7 +224,7 @@ class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
             Left(
               TriggerHandlerResult.Failed(
                 FailureReason
-                  .OracleInvocationFailed(oracle.cid, method, Some(s"validation failed: $errorMsg"))
+                  .OracleInvocationFailed(oracle.cid, trigger.input.key, Some(s"validation failed: $errorMsg"))
               )
             )
           case _ => Right(())
@@ -259,8 +242,8 @@ class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
 
       invocation = OracleInvocation(
         fiberId = oracle.cid,
-        method = method,
-        args = args,
+        method = trigger.input.key,
+        args = trigger.input.content,
         result = returnValue,
         gasUsed = scriptGasUsed,
         invokedAt = ordinal,

@@ -30,7 +30,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
         ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
         oracleCid = java.util.UUID.fromString("11111111-1111-1111-1111-111111111111")
@@ -102,7 +102,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         // Step 1: Start game
         startGameUpdate = Updates.TransitionStateMachine(
           machineCid,
-          EventType("start_game"),
+          "start_game",
           MapValue(
             Map(
               "playerX" -> StrValue(aliceAddr.toString),
@@ -127,7 +127,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         // Move 1: X plays top left (0)
         move1Update = Updates.TransitionStateMachine(
           machineCid,
-          EventType("make_move"),
+          "make_move",
           MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(0)))
         )
         move1Proof <- registry.generateProofs(move1Update, Set(Alice))
@@ -136,7 +136,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         // Move 2: O plays middle left (3)
         move2Update = Updates.TransitionStateMachine(
           machineCid,
-          EventType("make_move"),
+          "make_move",
           MapValue(Map("player" -> StrValue("O"), "cell" -> IntValue(3)))
         )
         move2Proof <- registry.generateProofs(move2Update, Set(Bob))
@@ -145,7 +145,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         // Move 3: X plays top middle (1)
         move3Update = Updates.TransitionStateMachine(
           machineCid,
-          EventType("make_move"),
+          "make_move",
           MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(1)))
         )
         move3Proof <- registry.generateProofs(move3Update, Set(Alice))
@@ -154,7 +154,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         // Move 4: O plays center (4)
         move4Update = Updates.TransitionStateMachine(
           machineCid,
-          EventType("make_move"),
+          "make_move",
           MapValue(Map("player" -> StrValue("O"), "cell" -> IntValue(4)))
         )
         move4Proof <- registry.generateProofs(move4Update, Set(Bob))
@@ -163,7 +163,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         // Move 5: X plays top right (2) - should trigger win
         move5Update = Updates.TransitionStateMachine(
           machineCid,
-          EventType("make_move"),
+          "make_move",
           MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(2)))
         )
         move5Proof <- registry.generateProofs(move5Update, Set(Alice))
@@ -229,7 +229,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
         ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
         oracleCid = java.util.UUID.fromString("11111111-1111-1111-1111-111111111111")
@@ -305,7 +305,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         // Start game
         startGameUpdate = Updates.TransitionStateMachine(
           machineCid,
-          EventType("start_game"),
+          "start_game",
           MapValue(
             Map(
               "playerX" -> StrValue(aliceAddr.toString),
@@ -333,7 +333,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         finalState <- drawMoves.foldLeftM(state1) { case (currentState, (player, cell, signer)) =>
           val moveUpdate = Updates.TransitionStateMachine(
             machineCid,
-            EventType("make_move"),
+            "make_move",
             MapValue(Map("player" -> StrValue(player), "cell" -> IntValue(cell)))
           )
           for {
@@ -377,7 +377,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
         ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
         oracleCid = java.util.UUID.fromString("11111111-1111-1111-1111-111111111111")
@@ -448,7 +448,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         // Start game
         startGameUpdate = Updates.TransitionStateMachine(
           machineCid,
-          EventType("start_game"),
+          "start_game",
           MapValue(
             Map(
               "playerX" -> StrValue(aliceAddr.toString),
@@ -463,7 +463,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         // Move 1: X plays cell 0
         move1Update = Updates.TransitionStateMachine(
           machineCid,
-          EventType("make_move"),
+          "make_move",
           MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(0)))
         )
         move1Proof <- registry.generateProofs(move1Update, Set(Alice))
@@ -472,7 +472,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         // Invalid move: O tries to play same cell again (should be recorded as failed)
         invalidMoveUpdate = Updates.TransitionStateMachine(
           machineCid,
-          EventType("make_move"),
+          "make_move",
           MapValue(Map("player" -> StrValue("O"), "cell" -> IntValue(0)))
         )
         invalidMoveProof <- registry.generateProofs(invalidMoveUpdate, Set(Bob))
@@ -504,7 +504,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
         ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
         oracleCid = java.util.UUID.fromString("11111111-1111-1111-1111-111111111111")
@@ -575,7 +575,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         // Start and play first game to completion
         startGameUpdate = Updates.TransitionStateMachine(
           machineCid,
-          EventType("start_game"),
+          "start_game",
           MapValue(
             Map(
               "playerX" -> StrValue(aliceAddr.toString),
@@ -593,7 +593,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         stateAfterWin <- quickWin.foldLeftM(state1) { case (currentState, (player, cell, signer)) =>
           val moveUpdate = Updates.TransitionStateMachine(
             machineCid,
-            EventType("make_move"),
+            "make_move",
             MapValue(Map("player" -> StrValue(player), "cell" -> IntValue(cell)))
           )
           for {
@@ -614,7 +614,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         // Reset for round 2
         resetUpdate = Updates.TransitionStateMachine(
           machineCid,
-          EventType("reset_board"),
+          "reset_board",
           MapValue(Map.empty[String, JsonLogicValue])
         )
         resetProof      <- registry.generateProofs(resetUpdate, Set(Alice))

@@ -38,7 +38,7 @@ object ConcurrentEventsSuite extends SimpleIOSuite {
        |    {
        |      "from": { "value": "counting" },
        |      "to": { "value": "counting" },
-       |      "eventType": { "value": "increment" },
+       |      "eventName": "increment",
        |      "guard": true,
        |      "effect": {
        |        "merge": [
@@ -51,7 +51,7 @@ object ConcurrentEventsSuite extends SimpleIOSuite {
        |    {
        |      "from": { "value": "counting" },
        |      "to": { "value": "counting" },
-       |      "eventType": { "value": "add" },
+       |      "eventName": "add",
        |      "guard": true,
        |      "effect": {
        |        "merge": [
@@ -69,7 +69,7 @@ object ConcurrentEventsSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         cid  <- IO.randomUUID
         def_ <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
@@ -80,9 +80,9 @@ object ConcurrentEventsSuite extends SimpleIOSuite {
         state0 <- combiner.insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createSM, createProof))
 
         // Process multiple increment events sequentially
-        event1 = Updates.TransitionStateMachine(cid, EventType("increment"), MapValue(Map.empty))
-        event2 = Updates.TransitionStateMachine(cid, EventType("increment"), MapValue(Map.empty))
-        event3 = Updates.TransitionStateMachine(cid, EventType("increment"), MapValue(Map.empty))
+        event1 = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty))
+        event2 = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty))
+        event3 = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty))
 
         proof1 <- fixture.registry.generateProofs(event1, Set(Alice))
         proof2 <- fixture.registry.generateProofs(event2, Set(Alice))
@@ -125,7 +125,7 @@ object ConcurrentEventsSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         cid  <- IO.randomUUID
         def_ <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
@@ -136,8 +136,8 @@ object ConcurrentEventsSuite extends SimpleIOSuite {
         state0 <- combiner.insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createSM, createProof))
 
         // Order 1: add 10, then add 5 (result: 15)
-        eventA1 = Updates.TransitionStateMachine(cid, EventType("add"), MapValue(Map("amount" -> IntValue(10))))
-        eventB1 = Updates.TransitionStateMachine(cid, EventType("add"), MapValue(Map("amount" -> IntValue(5))))
+        eventA1 = Updates.TransitionStateMachine(cid, "add", MapValue(Map("amount" -> IntValue(10))))
+        eventB1 = Updates.TransitionStateMachine(cid, "add", MapValue(Map("amount" -> IntValue(5))))
 
         proofA1 <- fixture.registry.generateProofs(eventA1, Set(Alice))
         proofB1 <- fixture.registry.generateProofs(eventB1, Set(Alice))
@@ -146,8 +146,8 @@ object ConcurrentEventsSuite extends SimpleIOSuite {
         stateOrder1_2 <- combiner.insert(stateOrder1_1, Signed(eventB1, proofB1))
 
         // Order 2: add 5, then add 10 (result: 15, but different sequence)
-        eventA2 = Updates.TransitionStateMachine(cid, EventType("add"), MapValue(Map("amount" -> IntValue(5))))
-        eventB2 = Updates.TransitionStateMachine(cid, EventType("add"), MapValue(Map("amount" -> IntValue(10))))
+        eventA2 = Updates.TransitionStateMachine(cid, "add", MapValue(Map("amount" -> IntValue(5))))
+        eventB2 = Updates.TransitionStateMachine(cid, "add", MapValue(Map("amount" -> IntValue(10))))
 
         proofA2 <- fixture.registry.generateProofs(eventA2, Set(Alice))
         proofB2 <- fixture.registry.generateProofs(eventB2, Set(Alice))
@@ -201,7 +201,7 @@ object ConcurrentEventsSuite extends SimpleIOSuite {
        |    {
        |      "from": { "value": "active" },
        |      "to": { "value": "active" },
-       |      "eventType": { "value": "record" },
+       |      "eventName": "record",
        |      "guard": true,
        |      "effect": {
        |        "merge": [
@@ -222,7 +222,7 @@ object ConcurrentEventsSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         cid  <- IO.randomUUID
         def_ <- IO.fromEither(parser.parse(historyDefinitionJson).flatMap(_.as[StateMachineDefinition]))
@@ -237,9 +237,9 @@ object ConcurrentEventsSuite extends SimpleIOSuite {
         state0 <- combiner.insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createSM, createProof))
 
         // Record events: 1, 2, 3
-        event1 = Updates.TransitionStateMachine(cid, EventType("record"), MapValue(Map("value" -> IntValue(1))))
-        event2 = Updates.TransitionStateMachine(cid, EventType("record"), MapValue(Map("value" -> IntValue(2))))
-        event3 = Updates.TransitionStateMachine(cid, EventType("record"), MapValue(Map("value" -> IntValue(3))))
+        event1 = Updates.TransitionStateMachine(cid, "record", MapValue(Map("value" -> IntValue(1))))
+        event2 = Updates.TransitionStateMachine(cid, "record", MapValue(Map("value" -> IntValue(2))))
+        event3 = Updates.TransitionStateMachine(cid, "record", MapValue(Map("value" -> IntValue(3))))
 
         proof1 <- fixture.registry.generateProofs(event1, Set(Alice))
         proof2 <- fixture.registry.generateProofs(event2, Set(Alice))

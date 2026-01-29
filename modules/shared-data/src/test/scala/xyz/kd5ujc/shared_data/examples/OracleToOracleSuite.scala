@@ -69,7 +69,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
 
         innerCid  <- IO.randomUUID
         innerProg <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
@@ -121,7 +121,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice, Bob, Charlie))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
 
         oracleCid <- IO.randomUUID
         prog      <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
@@ -180,7 +180,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
 
         oracle1Cid <- IO.randomUUID
         oracle2Cid <- IO.randomUUID
@@ -251,7 +251,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
 
         oracleCid <- IO.randomUUID
 

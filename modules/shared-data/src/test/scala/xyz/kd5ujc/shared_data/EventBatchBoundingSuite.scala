@@ -41,7 +41,7 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
        |    {
        |      "from": { "value": "counting" },
        |      "to": { "value": "counting" },
-       |      "eventType": { "value": "increment" },
+       |      "eventName": "increment",
        |      "guard": true,
        |      "effect": {
        |        "merge": [
@@ -59,7 +59,7 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         cid  <- IO.randomUUID
         def_ <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
@@ -70,7 +70,7 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
         state0 <- combiner.insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createSM, createProof))
 
         // Process first event
-        event1 = Updates.TransitionStateMachine(cid, EventType("increment"), MapValue(Map.empty))
+        event1 = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty))
         proof1 <- fixture.registry.generateProofs(event1, Set(Alice))
         state1 <- combiner.insert(state0, Signed(event1, proof1))
 
@@ -79,7 +79,7 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Process second event
-        event2 = Updates.TransitionStateMachine(cid, EventType("increment"), MapValue(Map.empty))
+        event2 = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty))
         proof2 <- fixture.registry.generateProofs(event2, Set(Alice))
         state2 <- combiner.insert(state1, Signed(event2, proof2))
 
@@ -111,7 +111,7 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
         seedReceipt = EventReceipt(
           fiberId = cid,
           sequenceNumber = 4L,
-          eventType = EventType("increment"),
+          eventName = "increment",
           ordinal = fixture.ordinal,
           fromState = StateId("counting"),
           toState = StateId("counting"),
@@ -145,10 +145,10 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
         )
 
         // Generate valid proofs via the registry
-        dummyUpdate = Updates.TransitionStateMachine(cid, EventType("increment"), MapValue(Map.empty))
+        dummyUpdate = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty))
         proofs <- fixture.registry.generateProofs(dummyUpdate, Set(Alice)).map(_.toList)
 
-        input = FiberInput.Transition(EventType("increment"), MapValue(Map.empty), None)
+        input = FiberInput.Transition("increment", MapValue(Map.empty))
 
         result <- engine.process(cid, input, proofs)
 
@@ -169,7 +169,7 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         cid  <- IO.randomUUID
         def_ <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
@@ -184,7 +184,7 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Process event
-        event1 = Updates.TransitionStateMachine(cid, EventType("increment"), MapValue(Map.empty))
+        event1 = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty))
         proof1 <- fixture.registry.generateProofs(event1, Set(Alice))
         state1 <- combiner.insert(state0, Signed(event1, proof1))
 
@@ -196,7 +196,7 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
       expect(machine0.exists(_.lastReceipt.isEmpty)) and
       // After processing, lastReceipt should be set with success
       expect(machine1.exists(_.lastReceipt.exists(_.success))) and
-      expect(machine1.exists(_.lastReceipt.exists(_.eventType == EventType("increment"))))
+      expect(machine1.exists(_.lastReceipt.exists(_.eventName == "increment")))
     }
   }
 }

@@ -15,6 +15,6 @@ case class StateMachineDefinition(
 
   // Helper to get transitions by current state + event type
   // Returns list to support multiple transitions with guards (first-match-wins)
-  lazy val transitionMap: Map[(StateId, EventType), List[Transition]] =
-    transitions.groupBy(t => (t.from, t.eventType))
+  lazy val transitionMap: Map[(StateId, String), List[Transition]] =
+    transitions.groupBy(t => (t.from, t.eventName))
 }

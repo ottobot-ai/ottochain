@@ -31,7 +31,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob, Charlie, Dave))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
         ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
         contractCid   <- UUIDGen.randomUUID[IO]
@@ -62,7 +62,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "draft" },
               "to": { "value": "supplier_review" },
-              "eventType": { "value": "submit_for_approval" },
+              "eventName": "submit_for_approval",
               "guard": {
                 "and": [
                   { ">=": [ { "var": "state.fuelQuantity" }, 1000 ] },
@@ -78,7 +78,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "supplier_review" },
               "to": { "value": "supplier_approved" },
-              "eventType": { "value": "supplier_approved" },
+              "eventName": "supplier_approved",
               "guard": {
                 "===": [
                   { "var": "machines.${supplierCid}.state.status" },
@@ -95,7 +95,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "supplier_approved" },
               "to": { "value": "gps_ready" },
-              "eventType": { "value": "prepare_shipment" },
+              "eventName": "prepare_shipment",
               "guard": {
                 "===": [
                   { "var": "machines.${gpsTrackerCid}.state.status" },
@@ -113,7 +113,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "gps_ready" },
               "to": { "value": "in_transit" },
-              "eventType": { "value": "begin_transit" },
+              "eventName": "begin_transit",
               "guard": {
                 "and": [
                   {
@@ -140,7 +140,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "in_transit" },
               "to": { "value": "delivered" },
-              "eventType": { "value": "confirm_delivery" },
+              "eventName": "confirm_delivery",
               "guard": {
                 "and": [
                   {
@@ -168,7 +168,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "delivered" },
               "to": { "value": "quality_check" },
-              "eventType": { "value": "initiate_inspection" },
+              "eventName": "initiate_inspection",
               "guard": {
                 "===": [
                   { "var": "machines.${inspectionCid}.state.status" },
@@ -184,7 +184,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "quality_check" },
               "to": { "value": "inspected" },
-              "eventType": { "value": "inspection_complete" },
+              "eventName": "inspection_complete",
               "guard": {
                 "and": [
                   {
@@ -212,7 +212,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "quality_check" },
               "to": { "value": "rejected" },
-              "eventType": { "value": "inspection_complete" },
+              "eventName": "inspection_complete",
               "guard": {
                 "or": [
                   {
@@ -240,7 +240,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "inspected" },
               "to": { "value": "settling" },
-              "eventType": { "value": "initiate_settlement" },
+              "eventName": "initiate_settlement",
               "guard": true,
               "effect": [
                 ["status", "settling"],
@@ -252,7 +252,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "settling" },
               "to": { "value": "settled" },
-              "eventType": { "value": "finalize_settlement" },
+              "eventName": "finalize_settlement",
               "guard": {
                 ">=": [
                   { "var": "event.paymentConfirmation" },
@@ -286,7 +286,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "inactive" },
               "to": { "value": "active" },
-              "eventType": { "value": "activate" },
+              "eventName": "activate",
               "guard": true,
               "effect": [
                 ["status", "active"],
@@ -300,7 +300,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "active" },
               "to": { "value": "tracking" },
-              "eventType": { "value": "start_tracking" },
+              "eventName": "start_tracking",
               "guard": true,
               "effect": [
                 ["status", "tracking"],
@@ -316,7 +316,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "tracking" },
               "to": { "value": "tracking" },
-              "eventType": { "value": "log_position" },
+              "eventName": "log_position",
               "guard": {
                 "<": [
                   { "var": "state.dataPointCount" },
@@ -335,7 +335,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "tracking" },
               "to": { "value": "stopped" },
-              "eventType": { "value": "stop_tracking" },
+              "eventName": "stop_tracking",
               "guard": {
                 ">=": [
                   { "var": "state.dataPointCount" },
@@ -353,7 +353,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "stopped" },
               "to": { "value": "archived" },
-              "eventType": { "value": "archive" },
+              "eventName": "archive",
               "guard": true,
               "effect": [
                 ["status", "archived"],
@@ -379,7 +379,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "pending" },
               "to": { "value": "reviewing" },
-              "eventType": { "value": "begin_review" },
+              "eventName": "begin_review",
               "guard": true,
               "effect": [
                 ["status", "reviewing"],
@@ -391,7 +391,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "reviewing" },
               "to": { "value": "approved" },
-              "eventType": { "value": "approve" },
+              "eventName": "approve",
               "guard": {
                 "and": [
                   { ">=": [ { "var": "event.complianceScore" }, 75 ] },
@@ -409,7 +409,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "reviewing" },
               "to": { "value": "rejected" },
-              "eventType": { "value": "approve" },
+              "eventName": "approve",
               "guard": {
                 "or": [
                   { "<": [ { "var": "event.complianceScore" }, 75 ] },
@@ -442,7 +442,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "pending" },
               "to": { "value": "scheduled" },
-              "eventType": { "value": "schedule" },
+              "eventName": "schedule",
               "guard": true,
               "effect": [
                 ["status", "scheduled"],
@@ -454,7 +454,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "scheduled" },
               "to": { "value": "inspecting" },
-              "eventType": { "value": "begin_inspection" },
+              "eventName": "begin_inspection",
               "guard": true,
               "effect": [
                 ["status", "inspecting"],
@@ -465,7 +465,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "inspecting" },
               "to": { "value": "passed" },
-              "eventType": { "value": "complete" },
+              "eventName": "complete",
               "guard": {
                 "and": [
                   { ">=": [ { "var": "event.qualityScore" }, 85 ] },
@@ -483,7 +483,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "inspecting" },
               "to": { "value": "failed" },
-              "eventType": { "value": "complete" },
+              "eventName": "complete",
               "guard": {
                 "or": [
                   { "<": [ { "var": "event.qualityScore" }, 85 ] },
@@ -630,7 +630,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         // STEP 1: Submit contract for approval
         submitUpdate = Updates.TransitionStateMachine(
           contractCid,
-          EventType("submit_for_approval"),
+          "submit_for_approval",
           MapValue(Map("timestamp" -> IntValue(1000)))
         )
         submitProof <- registry.generateProofs(submitUpdate, Set(Alice))
@@ -639,7 +639,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         // STEP 2: Begin supplier review
         beginReviewUpdate = Updates.TransitionStateMachine(
           supplierCid,
-          EventType("begin_review"),
+          "begin_review",
           MapValue(
             Map(
               "timestamp" -> IntValue(1100),
@@ -653,7 +653,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         // STEP 3: Approve supplier
         approveSupplierUpdate = Updates.TransitionStateMachine(
           supplierCid,
-          EventType("approve"),
+          "approve",
           MapValue(
             Map(
               "timestamp"       -> IntValue(1200),
@@ -669,7 +669,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         // STEP 4: Contract receives supplier approval
         supplierApprovedUpdate = Updates.TransitionStateMachine(
           contractCid,
-          EventType("supplier_approved"),
+          "supplier_approved",
           MapValue(Map("timestamp" -> IntValue(1300)))
         )
         supplierApprovedProof <- registry.generateProofs(supplierApprovedUpdate, Set(Alice))
@@ -678,7 +678,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         // STEP 5: Activate GPS tracker
         activateGpsUpdate = Updates.TransitionStateMachine(
           gpsTrackerCid,
-          EventType("activate"),
+          "activate",
           MapValue(
             Map(
               "timestamp" -> IntValue(1400),
@@ -692,7 +692,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         // STEP 6: Prepare shipment (contract checks GPS is active)
         prepareShipmentUpdate = Updates.TransitionStateMachine(
           contractCid,
-          EventType("prepare_shipment"),
+          "prepare_shipment",
           MapValue(
             Map(
               "timestamp" -> IntValue(1500),
@@ -707,7 +707,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         // STEP 7: Start GPS tracking
         startTrackingUpdate = Updates.TransitionStateMachine(
           gpsTrackerCid,
-          EventType("start_tracking"),
+          "start_tracking",
           MapValue(
             Map(
               "timestamp" -> IntValue(1600),
@@ -722,7 +722,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         // STEP 8: Begin transit (contract checks GPS is tracking)
         beginTransitUpdate = Updates.TransitionStateMachine(
           contractCid,
-          EventType("begin_transit"),
+          "begin_transit",
           MapValue(
             Map(
               "timestamp"        -> IntValue(1700),
@@ -736,7 +736,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         // STEP 9-11: Log GPS positions during transit
         logPosition1Update = Updates.TransitionStateMachine(
           gpsTrackerCid,
-          EventType("log_position"),
+          "log_position",
           MapValue(
             Map(
               "timestamp"     -> IntValue(1800),
@@ -751,7 +751,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
 
         logPosition2Update = Updates.TransitionStateMachine(
           gpsTrackerCid,
-          EventType("log_position"),
+          "log_position",
           MapValue(
             Map(
               "timestamp"     -> IntValue(2000),
@@ -766,7 +766,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
 
         logPosition3Update = Updates.TransitionStateMachine(
           gpsTrackerCid,
-          EventType("log_position"),
+          "log_position",
           MapValue(
             Map(
               "timestamp"     -> IntValue(2200),
@@ -782,7 +782,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         // STEP 12: Stop GPS tracking
         stopTrackingUpdate = Updates.TransitionStateMachine(
           gpsTrackerCid,
-          EventType("stop_tracking"),
+          "stop_tracking",
           MapValue(Map("timestamp" -> IntValue(2500)))
         )
         stopTrackingProof <- registry.generateProofs(stopTrackingUpdate, Set(Alice))
@@ -791,7 +791,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         // STEP 13: Confirm delivery (contract checks GPS stopped and has data)
         confirmDeliveryUpdate = Updates.TransitionStateMachine(
           contractCid,
-          EventType("confirm_delivery"),
+          "confirm_delivery",
           MapValue(Map("timestamp" -> IntValue(2600)))
         )
         confirmDeliveryProof <- registry.generateProofs(confirmDeliveryUpdate, Set(Alice))
@@ -800,7 +800,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         // STEP 14: Schedule quality inspection
         scheduleInspectionUpdate = Updates.TransitionStateMachine(
           inspectionCid,
-          EventType("schedule"),
+          "schedule",
           MapValue(
             Map(
               "timestamp" -> IntValue(2700),
@@ -814,7 +814,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         // STEP 15: Contract initiates inspection
         initiateInspectionUpdate = Updates.TransitionStateMachine(
           contractCid,
-          EventType("initiate_inspection"),
+          "initiate_inspection",
           MapValue(Map("timestamp" -> IntValue(2800)))
         )
         initiateInspectionProof <- registry.generateProofs(initiateInspectionUpdate, Set(Alice))
@@ -823,7 +823,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         // STEP 16: Begin inspection
         beginInspectionUpdate = Updates.TransitionStateMachine(
           inspectionCid,
-          EventType("begin_inspection"),
+          "begin_inspection",
           MapValue(Map("timestamp" -> IntValue(2900)))
         )
         beginInspectionProof <- registry.generateProofs(beginInspectionUpdate, Set(Charlie))
@@ -832,7 +832,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         // STEP 17: Complete inspection (passed)
         completeInspectionUpdate = Updates.TransitionStateMachine(
           inspectionCid,
-          EventType("complete"),
+          "complete",
           MapValue(
             Map(
               "timestamp"             -> IntValue(3000),
@@ -848,7 +848,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         // STEP 18: Contract receives inspection completion
         inspectionCompleteUpdate = Updates.TransitionStateMachine(
           contractCid,
-          EventType("inspection_complete"),
+          "inspection_complete",
           MapValue(Map("timestamp" -> IntValue(3100)))
         )
         inspectionCompleteProof <- registry.generateProofs(inspectionCompleteUpdate, Set(Alice))
@@ -857,7 +857,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         // STEP 19: Initiate settlement
         initiateSettlementUpdate = Updates.TransitionStateMachine(
           contractCid,
-          EventType("initiate_settlement"),
+          "initiate_settlement",
           MapValue(Map("timestamp" -> IntValue(3200)))
         )
         initiateSettlementProof <- registry.generateProofs(initiateSettlementUpdate, Set(Alice))
@@ -866,7 +866,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         // STEP 20: Finalize settlement
         finalizeSettlementUpdate = Updates.TransitionStateMachine(
           contractCid,
-          EventType("finalize_settlement"),
+          "finalize_settlement",
           MapValue(
             Map(
               "timestamp"           -> IntValue(3300),

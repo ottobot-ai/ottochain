@@ -9,6 +9,7 @@ import cats.syntax.all._
 import cats.{~>, Monad}
 
 import io.constellationnetwork.metagraph_sdk.json_logic._
+import io.constellationnetwork.metagraph_sdk.json_logic.core.StrValue
 import io.constellationnetwork.metagraph_sdk.json_logic.gas.GasLimit
 import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluator
 
@@ -90,7 +91,7 @@ object EffectExtractor {
           )
           targetId <- OptionT.fromOption[G](scala.util.Try(UUID.fromString(targetIdStr)).toOption)
           eventType <- OptionT.fromOption[G](
-            triggerMap.get(ReservedKeys.EVENT_TYPE).collect { case StrValue(et) => EventType(et) }
+            triggerMap.get(ReservedKeys.EVENT_NAME).collect { case StrValue(et) => et }
           )
           payloadValue <- OptionT.fromOption[G](triggerMap.get(ReservedKeys.PAYLOAD))
           payloadExpr = ExpressionParser.valueToExpression(payloadValue)
@@ -148,24 +149,24 @@ object EffectExtractor {
           _ <- OptionT.liftF(ExecutionOps.chargeGas[G](evalResult.gasUsed.amount))
         } yield FiberTrigger(
           targetFiberId = targetId,
-          input = FiberInput.Transition(EventType(method), evalResult.value),
+          input = FiberInput.Transition(method, evalResult.value),
           sourceFiberId = Some(sourceFiberId)
         )).value
 
       case _ => none[FiberTrigger].pure[G]
     }
 
-  def extractOutputs(effectResult: JsonLogicValue): List[StructuredOutput] =
-    extractArrayByKey(effectResult, ReservedKeys.OUTPUTS).flatMap(parseOutput)
+  def extractEmittedEvents(effectResult: JsonLogicValue): List[EmittedEvent] =
+    extractArrayByKey(effectResult, ReservedKeys.EMIT).flatMap(parseEmittedEvent)
 
-  private def parseOutput(value: JsonLogicValue): Option[StructuredOutput] =
+  private def parseEmittedEvent(value: JsonLogicValue): Option[EmittedEvent] =
     value match {
-      case MapValue(outputMap) =>
+      case MapValue(m) =>
         for {
-          outputType <- outputMap.get(ReservedKeys.OUTPUT_TYPE).collect { case StrValue(t) => t }
-          data       <- outputMap.get(ReservedKeys.DATA)
-          destination = outputMap.get(ReservedKeys.DESTINATION).collect { case StrValue(d) => d }
-        } yield StructuredOutput(outputType, data, destination)
+          name <- m.get(ReservedKeys.NAME).collect { case StrValue(n) => n }
+          data <- m.get(ReservedKeys.DATA)
+          destination = m.get(ReservedKeys.DESTINATION).collect { case StrValue(d) => d }
+        } yield EmittedEvent(name, data, destination)
       case _ => None
     }
 

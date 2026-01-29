@@ -11,7 +11,7 @@ import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.signature.SignatureProof
 
 import xyz.kd5ujc.schema.fiber.FiberLogEntry.OracleInvocation
-import xyz.kd5ujc.schema.fiber.{EventType, FiberInput, ReservedKeys}
+import xyz.kd5ujc.schema.fiber.{FiberInput, ReservedKeys}
 import xyz.kd5ujc.schema.{CalculatedState, Records}
 
 /**
@@ -75,17 +75,17 @@ object ContextProvider {
       ): F[JsonLogicValue] = fiber match {
         case sm: Records.StateMachineFiberRecord =>
           input match {
-            case FiberInput.Transition(eventType, payload, _) =>
-              buildStateMachineContext(sm, eventType, payload, proofs, dependencies)
-            case FiberInput.MethodCall(_, _, _, _) =>
+            case _: FiberInput.Transition =>
+              buildStateMachineContext(sm, input.key, input.content, proofs, dependencies)
+            case _: FiberInput.MethodCall =>
               Async[F].raiseError(new RuntimeException("Cannot use MethodCall input with StateMachineFiberRecord"))
           }
 
         case oracle: Records.ScriptOracleFiberRecord =>
           input match {
-            case FiberInput.MethodCall(method, args, _, _) =>
-              buildOracleContext(oracle, method, args)
-            case FiberInput.Transition(_, _, _) =>
+            case _: FiberInput.MethodCall =>
+              buildOracleContext(oracle, input.key, input.content)
+            case _: FiberInput.Transition =>
               Async[F].raiseError(new RuntimeException("Cannot use Transition input with ScriptOracleFiberRecord"))
           }
       }
@@ -94,7 +94,7 @@ object ContextProvider {
 
       private def buildStateMachineContext(
         fiber:        Records.StateMachineFiberRecord,
-        eventType:    EventType,
+        eventName:    String,
         payload:      JsonLogicValue,
         proofs:       List[SignatureProof],
         dependencies: Set[UUID]
@@ -109,7 +109,7 @@ object ContextProvider {
           Map(
             ReservedKeys.STATE            -> fiber.stateData,
             ReservedKeys.EVENT            -> payload,
-            ReservedKeys.EVENT_TYPE       -> StrValue(eventType.value),
+            ReservedKeys.EVENT_NAME       -> StrValue(eventName),
             ReservedKeys.MACHINE_ID       -> StrValue(fiber.cid.toString),
             ReservedKeys.CURRENT_STATE_ID -> StrValue(fiber.currentState.value),
             ReservedKeys.SEQUENCE_NUMBER  -> IntValue(fiber.sequenceNumber),
@@ -141,20 +141,15 @@ object ContextProvider {
       def buildTriggerContext(
         fiber: Records.StateMachineFiberRecord,
         input: FiberInput
-      ): F[JsonLogicValue] = {
-        val (eventPayload, eventType) = input match {
-          case FiberInput.Transition(et, payload, _)     => (payload, et.value)
-          case FiberInput.MethodCall(method, args, _, _) => (args, method)
-        }
-
+      ): F[JsonLogicValue] =
         for {
           parentData   <- buildParentContext(fiber)
           childrenData <- buildChildrenContext(fiber)
         } yield MapValue(
           Map(
             ReservedKeys.STATE            -> fiber.stateData,
-            ReservedKeys.EVENT            -> eventPayload,
-            ReservedKeys.EVENT_TYPE       -> StrValue(eventType),
+            ReservedKeys.EVENT            -> input.content,
+            ReservedKeys.EVENT_NAME       -> StrValue(input.key),
             ReservedKeys.MACHINE_ID       -> StrValue(fiber.cid.toString),
             ReservedKeys.CURRENT_STATE_ID -> StrValue(fiber.currentState.value),
             ReservedKeys.SEQUENCE_NUMBER  -> IntValue(fiber.sequenceNumber),
@@ -162,7 +157,6 @@ object ContextProvider {
             ReservedKeys.CHILDREN         -> childrenData
           )
         )
-      }
 
       // === Shared Context Builders ===
 

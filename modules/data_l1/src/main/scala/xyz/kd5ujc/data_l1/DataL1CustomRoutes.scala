@@ -19,12 +19,13 @@ import io.circe.syntax.EncoderOps
 import org.http4s.HttpRoutes
 import org.http4s.circe.CirceEntityCodec.circeEntityDecoder
 import org.http4s.circe.jsonEncoder
+import org.http4s.server.Router
 
 class DataL1CustomRoutes[F[_]: Async](implicit
   context: L1NodeContext[F]
 ) extends MetagraphPublicRoutes[F] {
 
-  protected val routes: HttpRoutes[F] = HttpRoutes.of[F] {
+  private val v1Routes: HttpRoutes[F] = HttpRoutes.of[F] {
     case req @ POST -> Root / "util" / "hash" =>
       req.asR[Signed[OttochainMessage]] { msg =>
         msg.value.computeDigest.flatMap { digest =>
@@ -35,4 +36,8 @@ class DataL1CustomRoutes[F[_]: Async](implicit
     case GET -> Root / "onchain" =>
       context.getOnChainState[OnChain].toResponse
   }
+
+  protected val routes: HttpRoutes[F] = Router(
+    "/v1" -> v1Routes
+  )
 }

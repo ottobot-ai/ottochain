@@ -125,14 +125,14 @@ object TriggerDispatcher {
         state:   CalculatedState
       ): G[Either[FailureReason, TriggerResult]] = {
         val fiberId = trigger.targetFiberId
-        val inputKey = trigger.input.inputKey
+        val inputKey = trigger.input.key
 
         for {
           isCycle <- ExecutionOps.checkCycle[G](fiberId, inputKey)
           result <-
             if (isCycle) {
               (FailureReason
-                .CycleDetected(fiberId, EventType(inputKey)): FailureReason)
+                .CycleDetected(fiberId, inputKey): FailureReason)
                 .asLeft[TriggerResult]
                 .pure[G]
             } else {
@@ -165,7 +165,7 @@ object TriggerDispatcher {
         state:   CalculatedState
       ): G[Either[FailureReason, TriggerResult]] =
         for {
-          _             <- ExecutionOps.markProcessed[G](fiber.cid, trigger.input.inputKey)
+          _             <- ExecutionOps.markProcessed[G](fiber.cid, trigger.input.key)
           handlerResult <- handler.handle(trigger, fiber, state)
           result <- handlerResult match {
             case TriggerHandlerResult.Success(updatedState, cascadeTriggers) =>

@@ -51,7 +51,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
             Transition(
               from = StateId("idle"),
               to = StateId("triggered"),
-              eventType = EventType("start"),
+              eventName = "start",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -62,7 +62,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(machineB.toString),
-                            "eventType"       -> StrValue("continue"),
+                            "eventName"       -> StrValue("continue"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -86,7 +86,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
             Transition(
               from = StateId("waiting"),
               to = StateId("continued"),
-              eventType = EventType("continue"),
+              eventName = "continue",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -97,7 +97,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(machineC.toString),
-                            "eventType"       -> StrValue("finish"),
+                            "eventName"       -> StrValue("finish"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -121,7 +121,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
             Transition(
               from = StateId("pending"),
               to = StateId("finished"),
-              eventType = EventType("finish"),
+              eventName = "finish",
               // Guard that always fails
               guard = ConstExpression(BoolValue(false)),
               effect = ConstExpression(MapValue(Map("step" -> IntValue(3))))
@@ -186,7 +186,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
         )
 
         input = FiberInput.Transition(
-          EventType("start"),
+          "start",
           MapValue(Map.empty)
         )
 
@@ -236,7 +236,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("process"),
+              eventName = "process",
               guard = ConstExpression(BoolValue(true)), // Guard passes
               // Effect that will fail during evaluation (merge with non-map values)
               // This attempts to merge a string with a map, which should error
@@ -273,7 +273,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
 
         // Payload without the expected nested structure
         input = FiberInput.Transition(
-          EventType("process"),
+          "process",
           MapValue(Map("simple" -> StrValue("value")))
         )
 
@@ -322,7 +322,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
                   Map(
                     "from"      -> StrValue("init"),
                     "to"        -> StrValue("done"),
-                    "eventType" -> StrValue("complete"),
+                    "eventName" -> StrValue("complete"),
                     "guard"     -> BoolValue(false), // Always fails
                     "effect"    -> MapValue(Map("completed" -> BoolValue(true)))
                   )
@@ -342,7 +342,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
             Transition(
               from = StateId("ready"),
               to = StateId("spawned"),
-              eventType = EventType("spawn_and_trigger"),
+              eventName = "spawn_and_trigger",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -365,7 +365,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue("child-1"), // References spawned child
-                            "eventType"       -> StrValue("complete"),
+                            "eventName"       -> StrValue("complete"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -397,7 +397,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(parentId -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("spawn_and_trigger"),
+          "spawn_and_trigger",
           MapValue(Map.empty)
         )
 
@@ -462,7 +462,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("unlock"),
+          "unlock",
           MapValue(Map.empty)
         )
 

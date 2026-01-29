@@ -26,7 +26,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       val registry = fixture.registry
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         oracleCid  <- UUIDGen.randomUUID[IO]
         machineCid <- UUIDGen.randomUUID[IO]
@@ -64,7 +64,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
             {
               "from": { "value": "pending" },
               "to": { "value": "validated" },
-              "eventType": { "value": "submit" },
+              "eventName": "submit",
               "guard": true,
               "effect": {
                 "_oracleCall": {
@@ -92,7 +92,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
 
         submitEvent = Updates.TransitionStateMachine(
           machineCid,
-          EventType("submit"),
+          "submit",
           MapValue(Map("amount" -> IntValue(150)))
         )
         submitProof <- registry.generateProofs(submitEvent, Set(Bob))
@@ -138,7 +138,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       val registry = fixture.registry
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         oracleCid  <- UUIDGen.randomUUID[IO]
         machineCid <- UUIDGen.randomUUID[IO]
@@ -176,7 +176,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
             {
               "from": { "value": "pending" },
               "to": { "value": "validated" },
-              "eventType": { "value": "submit" },
+              "eventName": "submit",
               "guard": true,
               "effect": {
                 "_oracleCall": {
@@ -204,7 +204,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
 
         submitEvent = Updates.TransitionStateMachine(
           machineCid,
-          EventType("submit"),
+          "submit",
           MapValue(Map("amount" -> IntValue(50)))
         )
         submitProof <- registry.generateProofs(submitEvent, Set(Bob))
@@ -231,7 +231,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       val registry = fixture.registry
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         oracleCid  <- UUIDGen.randomUUID[IO]
         machineCid <- UUIDGen.randomUUID[IO]
@@ -264,7 +264,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
             {
               "from": { "value": "locked" },
               "to": { "value": "unlocked" },
-              "eventType": { "value": "unlock" },
+              "eventName": "unlock",
               "guard": {
                 ">=": [
                   { "var": "scriptOracles.$oracleCid.state.counter" },
@@ -289,7 +289,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
 
         unlockEvent = Updates.TransitionStateMachine(
           machineCid,
-          EventType("unlock"),
+          "unlock",
           MapValue(Map.empty)
         )
         unlockProof           <- registry.generateProofs(unlockEvent, Set(Bob))
@@ -328,7 +328,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       val registry = fixture.registry
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         oracleCid  <- UUIDGen.randomUUID[IO]
         machineCid <- UUIDGen.randomUUID[IO]
@@ -367,7 +367,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "processing" },
-              "eventType": { "value": "initiate" },
+              "eventName": "initiate",
               "guard": true,
               "effect": {
                 "_oracleCall": {
@@ -384,7 +384,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
             {
               "from": { "value": "processing" },
               "to": { "value": "completed" },
-              "eventType": { "value": "finalize" },
+              "eventName": "finalize",
               "guard": true,
               "effect": [
                 ["totalAmount", { "+": [
@@ -409,7 +409,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
 
         initiateEvent = Updates.TransitionStateMachine(
           machineCid,
-          EventType("initiate"),
+          "initiate",
           MapValue(Map("amount" -> IntValue(1000)))
         )
         initiateProof      <- registry.generateProofs(initiateEvent, Set(Bob))
@@ -417,7 +417,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
 
         finalizeEvent = Updates.TransitionStateMachine(
           machineCid,
-          EventType("finalize"),
+          "finalize",
           MapValue(Map.empty)
         )
         finalizeProof <- registry.generateProofs(finalizeEvent, Set(Bob))
@@ -470,7 +470,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       val registry = fixture.registry
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         oracleCid   <- UUIDGen.randomUUID[IO]
         machine1Cid <- UUIDGen.randomUUID[IO]
@@ -503,7 +503,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "validated" },
-              "eventType": { "value": "validate" },
+              "eventName": "validate",
               "guard": true,
               "effect": {
                 "_oracleCall": {
@@ -532,7 +532,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
 
         validateEvent1 = Updates.TransitionStateMachine(
           machine1Cid,
-          EventType("validate"),
+          "validate",
           MapValue(Map.empty)
         )
         validate1Proof      <- registry.generateProofs(validateEvent1, Set(Bob))
@@ -540,7 +540,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
 
         validateEvent2 = Updates.TransitionStateMachine(
           machine2Cid,
-          EventType("validate"),
+          "validate",
           MapValue(Map.empty)
         )
         validate2Proof <- registry.generateProofs(validateEvent2, Set(Charlie))

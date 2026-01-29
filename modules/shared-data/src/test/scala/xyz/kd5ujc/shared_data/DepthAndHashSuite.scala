@@ -63,7 +63,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
             Transition(
               from = StateId("ready"),
               to = StateId("spawned"),
-              eventType = EventType("spawn"),
+              eventName = "spawn",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -106,7 +106,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(parentId -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("spawn"),
+          "spawn",
           MapValue(Map.empty)
         )
 
@@ -171,7 +171,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("unlock"), // No such transition
+          "unlock", // No such transition
           MapValue(Map.empty)
         )
 
@@ -234,7 +234,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
             Transition(
               from = StateId("a"),
               to = StateId("b"),
-              eventType = EventType("go"),
+              eventName = "go",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -245,7 +245,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(machine2.toString),
-                            "eventType"       -> StrValue("go"),
+                            "eventName"       -> StrValue("go"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -268,7 +268,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
             Transition(
               from = StateId("a"),
               to = StateId("b"),
-              eventType = EventType("go"),
+              eventName = "go",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -279,7 +279,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(machine3.toString),
-                            "eventType"       -> StrValue("go"),
+                            "eventName"       -> StrValue("go"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -302,7 +302,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
             Transition(
               from = StateId("a"),
               to = StateId("b"),
-              eventType = EventType("go"),
+              eventName = "go",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("step" -> IntValue(3))))
             )
@@ -364,7 +364,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
         )
 
         input = FiberInput.Transition(
-          EventType("go"),
+          "go",
           MapValue(Map.empty)
         )
 

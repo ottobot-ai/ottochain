@@ -47,7 +47,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
 
         cid  <- IO.randomUUID
         prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
@@ -89,7 +89,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
 
         cid  <- IO.randomUUID
         prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
@@ -130,7 +130,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
 
         cid  <- IO.randomUUID
         prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
@@ -171,7 +171,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
 
         cid  <- IO.randomUUID
         prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
@@ -212,7 +212,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
 
         cid  <- IO.randomUUID
         prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
@@ -253,7 +253,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
 
         cid  <- IO.randomUUID
         prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
@@ -299,7 +299,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
 
         cid  <- IO.randomUUID
         prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))

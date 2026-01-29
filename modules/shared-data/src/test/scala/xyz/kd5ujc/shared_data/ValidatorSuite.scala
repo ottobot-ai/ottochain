@@ -45,7 +45,7 @@ object ValidatorSuite extends SimpleIOSuite {
           Transition(
             from = stateA,
             to = stateB,
-            eventType = EventType("advance"),
+            eventName = "advance",
             guard = ConstExpression(BoolValue(true)),
             effect = ConstExpression(MapValue(Map("moved" -> BoolValue(true))))
           )
@@ -76,7 +76,7 @@ object ValidatorSuite extends SimpleIOSuite {
         Transition(
           from = states(fromIdx),
           to = states(toIdx),
-          eventType = EventType(s"event$i"),
+          eventName = s"event$i",
           guard = ConstExpression(BoolValue(true)),
           effect = ConstExpression(MapValue(Map.empty))
         )
@@ -96,7 +96,7 @@ object ValidatorSuite extends SimpleIOSuite {
         Transition(
           from = state1,
           to = state2,
-          eventType = EventType(s"event$i"),
+          eventName = s"event$i",
           guard = ConstExpression(BoolValue(true)),
           effect = ConstExpression(MapValue(Map.empty))
         )
@@ -133,7 +133,7 @@ object ValidatorSuite extends SimpleIOSuite {
           Transition(
             from = StateId("nonexistent"),
             to = stateA,
-            eventType = EventType("test"),
+            eventName = "test",
             guard = ConstExpression(BoolValue(true)),
             effect = ConstExpression(MapValue(Map.empty))
           )
@@ -150,7 +150,7 @@ object ValidatorSuite extends SimpleIOSuite {
           Transition(
             from = stateA,
             to = StateId("nonexistent"),
-            eventType = EventType("test"),
+            eventName = "test",
             guard = ConstExpression(BoolValue(true)),
             effect = ConstExpression(MapValue(Map.empty))
           )
@@ -164,7 +164,7 @@ object ValidatorSuite extends SimpleIOSuite {
       val transition = Transition(
         from = stateA,
         to = stateB,
-        eventType = EventType("test"),
+        eventName = "test",
         guard = ConstExpression(BoolValue(true)),
         effect = ConstExpression(MapValue(Map.empty))
       )
@@ -190,14 +190,14 @@ object ValidatorSuite extends SimpleIOSuite {
           Transition(
             from = stateA,
             to = stateB,
-            eventType = EventType("test"),
+            eventName = "test",
             guard = ConstExpression(BoolValue(true)),
             effect = ConstExpression(MapValue(Map.empty))
           ),
           Transition(
             from = stateA,
             to = stateC,
-            eventType = EventType("test"),
+            eventName = "test",
             guard = ConstExpression(BoolValue(true)),
             effect = ConstExpression(MapValue(Map.empty))
           )
@@ -230,7 +230,7 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
-        combiner  <- Combiner.make[IO].pure[IO]
+        combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
         cid       <- UUIDGen.randomUUID[IO]
 
@@ -371,7 +371,7 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
-        combiner  <- Combiner.make[IO].pure[IO]
+        combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
         cid       <- UUIDGen.randomUUID[IO]
 
@@ -381,7 +381,7 @@ object ValidatorSuite extends SimpleIOSuite {
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, EventType("advance"), MapValue(Map.empty))
+        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty))
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isValid)
@@ -397,7 +397,7 @@ object ValidatorSuite extends SimpleIOSuite {
         validator <- Validator.make[IO]
         cid       <- UUIDGen.randomUUID[IO]
 
-        processUpdate = Updates.TransitionStateMachine(cid, EventType("advance"), MapValue(Map.empty))
+        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty))
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result <- validator
           .validateSignedUpdate(
@@ -417,7 +417,7 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
-        combiner  <- Combiner.make[IO].pure[IO]
+        combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
         cid       <- UUIDGen.randomUUID[IO]
 
@@ -428,7 +428,7 @@ object ValidatorSuite extends SimpleIOSuite {
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
         processUpdate = Updates
-          .TransitionStateMachine(cid, EventType("advance"), MapValue(Map("data" -> IntValue(123))))
+          .TransitionStateMachine(cid, "advance", MapValue(Map("data" -> IntValue(123))))
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isValid)
@@ -441,7 +441,7 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
-        combiner  <- Combiner.make[IO].pure[IO]
+        combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
         cid       <- UUIDGen.randomUUID[IO]
 
@@ -451,7 +451,7 @@ object ValidatorSuite extends SimpleIOSuite {
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, EventType("advance"), NullValue)
+        processUpdate = Updates.TransitionStateMachine(cid, "advance", NullValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isInvalid) and
@@ -467,7 +467,7 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
-        combiner  <- Combiner.make[IO].pure[IO]
+        combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
         cid       <- UUIDGen.randomUUID[IO]
 
@@ -477,7 +477,7 @@ object ValidatorSuite extends SimpleIOSuite {
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, EventType("advance"), MapValue(Map.empty))
+        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty))
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isValid)
@@ -490,7 +490,7 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
-        combiner  <- Combiner.make[IO].pure[IO]
+        combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
         cid       <- UUIDGen.randomUUID[IO]
 
@@ -504,7 +504,7 @@ object ValidatorSuite extends SimpleIOSuite {
         archiveProof      <- fixture.registry.generateProofs(archiveUpdate, Set(Alice))
         stateAfterArchive <- combiner.insert(stateAfterCreate, Signed(archiveUpdate, archiveProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, EventType("advance"), MapValue(Map.empty))
+        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty))
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterArchive, Signed(processUpdate, processProof))
       } yield expect(result.isInvalid) and
@@ -520,7 +520,7 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
-        combiner  <- Combiner.make[IO].pure[IO]
+        combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
         cid       <- UUIDGen.randomUUID[IO]
 
@@ -530,7 +530,7 @@ object ValidatorSuite extends SimpleIOSuite {
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, EventType("advance"), MapValue(Map.empty))
+        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty))
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isValid)
@@ -543,7 +543,7 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
-        combiner  <- Combiner.make[IO].pure[IO]
+        combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
         cid       <- UUIDGen.randomUUID[IO]
 
@@ -553,7 +553,7 @@ object ValidatorSuite extends SimpleIOSuite {
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, EventType("advance"), MapValue(Map.empty))
+        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty))
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Bob))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isInvalid) and
@@ -569,7 +569,7 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
-        combiner  <- Combiner.make[IO].pure[IO]
+        combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
         cid       <- UUIDGen.randomUUID[IO]
 
@@ -579,7 +579,7 @@ object ValidatorSuite extends SimpleIOSuite {
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, EventType("advance"), MapValue(Map.empty))
+        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty))
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isValid)
@@ -592,7 +592,7 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
-        combiner  <- Combiner.make[IO].pure[IO]
+        combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
         cid       <- UUIDGen.randomUUID[IO]
 
@@ -602,7 +602,7 @@ object ValidatorSuite extends SimpleIOSuite {
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, EventType("nonexistent"), MapValue(Map.empty))
+        processUpdate = Updates.TransitionStateMachine(cid, "nonexistent", MapValue(Map.empty))
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isInvalid) and
@@ -687,7 +687,7 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
-        combiner  <- Combiner.make[IO].pure[IO]
+        combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
         parentId  <- UUIDGen.randomUUID[IO]
         childId   <- UUIDGen.randomUUID[IO]
@@ -716,7 +716,7 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
-        combiner  <- Combiner.make[IO].pure[IO]
+        combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
         parentId  <- UUIDGen.randomUUID[IO]
         childId   <- UUIDGen.randomUUID[IO]
@@ -742,7 +742,7 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
-        combiner  <- Combiner.make[IO].pure[IO]
+        combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
         oracleId  <- UUIDGen.randomUUID[IO]
 
@@ -765,7 +765,7 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
-        combiner  <- Combiner.make[IO].pure[IO]
+        combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
         oracleId  <- UUIDGen.randomUUID[IO]
         bobAddr   <- fixture.registry.addresses(Bob).pure[IO]
@@ -793,7 +793,7 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
-        combiner  <- Combiner.make[IO].pure[IO]
+        combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
         oracleId  <- UUIDGen.randomUUID[IO]
         bobAddr   <- fixture.registry.addresses(Bob).pure[IO]

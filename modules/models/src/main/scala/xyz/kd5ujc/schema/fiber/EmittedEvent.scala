@@ -6,8 +6,8 @@ import derevo.circe.magnolia.{decoder, encoder}
 import derevo.derive
 
 @derive(encoder, decoder)
-final case class StructuredOutput(
-  outputType:  String,
+final case class EmittedEvent(
+  name:        String,
   data:        JsonLogicValue,
   destination: Option[String] = None
 )

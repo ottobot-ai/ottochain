@@ -20,6 +20,7 @@ import xyz.kd5ujc.schema.{CalculatedState, OnChain}
 import io.circe.Json
 import io.circe.syntax.EncoderOps
 import org.http4s.circe.CirceEntityCodec.{circeEntityDecoder, circeEntityEncoder}
+import org.http4s.server.Router
 import org.http4s.{HttpRoutes, QueryParamDecoder}
 
 class ML0CustomRoutes[F[_]: Async](
@@ -28,8 +29,6 @@ class ML0CustomRoutes[F[_]: Async](
   context: L0NodeContext[F]
 ) extends MetagraphPublicRoutes[F] {
 
-  // todo: add v1 prefix
-
   implicit val fiberStatusDecoder: QueryParamDecoder[FiberStatus] =
     QueryParamDecoder[String].emap { s =>
       FiberStatus.withNameOption(s).toRight(org.http4s.ParseFailure(s, s"Invalid FiberStatus: $s"))
@@ -37,7 +36,7 @@ class ML0CustomRoutes[F[_]: Async](
 
   object StatusQueryParam extends OptionalQueryParamDecoderMatcher[FiberStatus]("status")
 
-  protected val routes: HttpRoutes[F] = HttpRoutes.of[F] {
+  private val v1Routes: HttpRoutes[F] = HttpRoutes.of[F] {
 
     case req @ POST -> Root / "util" / "hash" =>
       req.asR[Signed[OttochainMessage]] { msg =>
@@ -102,4 +101,8 @@ class ML0CustomRoutes[F[_]: Async](
         })
         .toResponse
   }
+
+  protected val routes: HttpRoutes[F] = Router(
+    "/v1" -> v1Routes
+  )
 }

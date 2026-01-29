@@ -15,8 +15,9 @@ import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluat
 import io.constellationnetwork.schema.address.{Address, DAGAddressRefined}
 
 import xyz.kd5ujc.schema.Records
-import xyz.kd5ujc.schema.fiber.{FailureReason, FiberContext, SpawnDirective}
+import xyz.kd5ujc.schema.fiber.{FailureReason, FiberContext, GasExhaustionPhase, SpawnDirective}
 import xyz.kd5ujc.shared_data.fiber.core._
+import xyz.kd5ujc.shared_data.syntax.all._
 
 import eu.timepit.refined.refineV
 
@@ -126,16 +127,15 @@ object SpawnValidator {
                     Validated.invalidNel(
                       FailureReason.InvalidChildIdFormat(
                         other.toString.take(50),
-                        s"Expected string, got ${other.getClass.getSimpleName}"
+                        "Expected string value"
                       )
                     )
                 }
               }
 
-            case Left(err) =>
-              Validated
-                .invalidNel[FailureReason, UUID](FailureReason.ChildIdEvaluationFailed(err.getMessage))
-                .pure[G]
+            case Left(ex) =>
+              ex.toFailureReason[G](GasExhaustionPhase.Spawn)
+                .map(reason => Validated.invalidNel[FailureReason, UUID](reason))
           }
         } yield validated
 
@@ -182,16 +182,15 @@ object SpawnValidator {
                       case other =>
                         Validated.invalidNel(
                           FailureReason.InvalidOwnersExpression(
-                            s"Expected array of addresses, got ${other.getClass.getSimpleName}"
+                            "Expected array of addresses, got non-array value"
                           )
                         )
                     }
                   }
 
-                case Left(err) =>
-                  Validated
-                    .invalidNel[FailureReason, Set[Address]](FailureReason.OwnersEvaluationFailed(err.getMessage))
-                    .pure[G]
+                case Left(ex) =>
+                  ex.toFailureReason[G](GasExhaustionPhase.Spawn)
+                    .map(reason => Validated.invalidNel[FailureReason, Set[Address]](reason))
               }
             } yield validated
         }

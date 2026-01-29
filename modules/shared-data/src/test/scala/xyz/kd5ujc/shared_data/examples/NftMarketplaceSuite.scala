@@ -31,7 +31,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob, Charlie))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
         ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
         // Get royalty oracle ID early to reference in NFT listing definition
@@ -128,7 +128,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
             {
               "from": { "value": "listed" },
               "to": { "value": "sold" },
-              "eventType": { "value": "purchase" },
+              "eventName": "purchase",
               "guard": {
                 ">=": [
                   { "var": "event.offerPrice" },
@@ -148,7 +148,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
                 "_triggers": [
                   {
                     "targetMachineId": "${royaltyOracleId}",
-                    "eventType": "recordRoyalty",
+                    "eventName": "recordRoyalty",
                     "payload": {
                       "nftId": { "var": "state.nftId" },
                       "creator": { "var": "state.creator" },
@@ -168,7 +168,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
             {
               "from": { "value": "listed" },
               "to": { "value": "cancelled" },
-              "eventType": { "value": "cancel" },
+              "eventName": "cancel",
               "guard": {
                 "===": [
                   { "var": "event.cancelledBy" },
@@ -204,7 +204,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
             {
               "from": { "value": "active" },
               "to": { "value": "active" },
-              "eventType": { "value": "createListing" },
+              "eventName": "createListing",
               "guard": true,
               "effect": {
                 "listingCount": {
@@ -245,7 +245,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
                         {
                           "from": { "value": "listed" },
                           "to": { "value": "sold" },
-                          "eventType": { "value": "purchase" },
+                          "eventName": "purchase",
                           "guard": {
                             ">=": [
                               { "var": "event.offerPrice" },
@@ -265,7 +265,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
                             "_triggers": [
                               {
                                 "targetMachineId": "${royaltyOracleId}",
-                                "eventType": "recordRoyalty",
+                                "eventName": "recordRoyalty",
                                 "payload": {
                                   "nftId": { "var": "state.nftId" },
                                   "creator": { "var": "state.creator" },
@@ -285,7 +285,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
                         {
                           "from": { "value": "listed" },
                           "to": { "value": "cancelled" },
-                          "eventType": { "value": "cancel" },
+                          "eventName": "cancel",
                           "guard": {
                             "===": [
                               { "var": "event.cancelledBy" },
@@ -353,7 +353,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
         nftListingId1 <- UUIDGen.randomUUID[IO]
         createListing1Update = Updates.TransitionStateMachine(
           marketplaceCid,
-          EventType("createListing"),
+          "createListing",
           MapValue(
             Map(
               "listingId" -> StrValue(nftListingId1.toString),
@@ -396,7 +396,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
         nftListingId2 <- UUIDGen.randomUUID[IO]
         createListing2Update = Updates.TransitionStateMachine(
           marketplaceCid,
-          EventType("createListing"),
+          "createListing",
           MapValue(
             Map(
               "listingId" -> StrValue(nftListingId2.toString),
@@ -422,7 +422,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
         // Bob purchases Alice's NFT (should trigger royalty oracle)
         purchaseNft1Update = Updates.TransitionStateMachine(
           nftListingId1,
-          EventType("purchase"),
+          "purchase",
           MapValue(
             Map(
               "buyer"      -> StrValue(registry.addresses(Bob).toString),
@@ -487,7 +487,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
         // Bob purchases Charlie's NFT at a lower price
         purchaseNft2Update = Updates.TransitionStateMachine(
           nftListingId2,
-          EventType("purchase"),
+          "purchase",
           MapValue(
             Map(
               "buyer"      -> StrValue(registry.addresses(Bob).toString),

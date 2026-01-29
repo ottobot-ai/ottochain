@@ -25,7 +25,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         machine1Cid <- UUIDGen.randomUUID[IO]
         machine2Cid <- UUIDGen.randomUUID[IO]
@@ -42,13 +42,13 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "pinged" },
-              "eventType": { "value": "ping" },
+              "eventName": "ping",
               "guard": true,
               "effect": {
                 "_triggers": [
                   {
                     "targetMachineId": "$machine2Cid",
-                    "eventType": "pong",
+                    "eventName": "pong",
                     "payload": { "var": "state" }
                   }
                 ],
@@ -72,13 +72,13 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "ponged" },
-              "eventType": { "value": "pong" },
+              "eventName": "pong",
               "guard": true,
               "effect": {
                 "_triggers": [
                   {
                     "targetMachineId": "$machine1Cid",
-                    "eventType": "ping",
+                    "eventName": "ping",
                     "payload": { "var": "state" }
                   }
                 ],
@@ -89,13 +89,13 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
             {
               "from": { "value": "ponged" },
               "to": { "value": "idle" },
-              "eventType": { "value": "pong" },
+              "eventName": "pong",
               "guard": true,
               "effect": {
                 "_triggers": [
                   {
                     "targetMachineId": "$machine1Cid",
-                    "eventType": "ping",
+                    "eventName": "ping",
                     "payload": { "var": "state" }
                   }
                 ],
@@ -126,7 +126,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
         // Send initial ping - should hit depth limit due to ping-pong loop
         pingEvent = Updates.TransitionStateMachine(
           machine1Cid,
-          EventType("ping"),
+          "ping",
           MapValue(Map.empty)
         )
         pingProof  <- fixture.registry.generateProofs(pingEvent, Set(Alice))
@@ -170,7 +170,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         machineCid <- UUIDGen.randomUUID[IO]
 
@@ -214,36 +214,36 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
           },
           "initialState": { "value": "s0" },
           "transitions": [
-            { "from": { "value": "s0" }, "to": { "value": "s1" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 1 }, "dependencies": [] },
-            { "from": { "value": "s1" }, "to": { "value": "s2" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 2 }, "dependencies": [] },
-            { "from": { "value": "s2" }, "to": { "value": "s3" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 3 }, "dependencies": [] },
-            { "from": { "value": "s3" }, "to": { "value": "s4" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 4 }, "dependencies": [] },
-            { "from": { "value": "s4" }, "to": { "value": "s5" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 5 }, "dependencies": [] },
-            { "from": { "value": "s5" }, "to": { "value": "s6" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 6 }, "dependencies": [] },
-            { "from": { "value": "s6" }, "to": { "value": "s7" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 7 }, "dependencies": [] },
-            { "from": { "value": "s7" }, "to": { "value": "s8" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 8 }, "dependencies": [] },
-            { "from": { "value": "s8" }, "to": { "value": "s9" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 9 }, "dependencies": [] },
-            { "from": { "value": "s9" }, "to": { "value": "s10" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 10 }, "dependencies": [] },
-            { "from": { "value": "s10" }, "to": { "value": "s11" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 11 }, "dependencies": [] },
-            { "from": { "value": "s11" }, "to": { "value": "s12" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 12 }, "dependencies": [] },
-            { "from": { "value": "s12" }, "to": { "value": "s13" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 13 }, "dependencies": [] },
-            { "from": { "value": "s13" }, "to": { "value": "s14" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 14 }, "dependencies": [] },
-            { "from": { "value": "s14" }, "to": { "value": "s15" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 15 }, "dependencies": [] },
-            { "from": { "value": "s15" }, "to": { "value": "s16" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 16 }, "dependencies": [] },
-            { "from": { "value": "s16" }, "to": { "value": "s17" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 17 }, "dependencies": [] },
-            { "from": { "value": "s17" }, "to": { "value": "s18" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 18 }, "dependencies": [] },
-            { "from": { "value": "s18" }, "to": { "value": "s19" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 19 }, "dependencies": [] },
-            { "from": { "value": "s19" }, "to": { "value": "s20" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 20 }, "dependencies": [] },
-            { "from": { "value": "s20" }, "to": { "value": "s21" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 21 }, "dependencies": [] },
-            { "from": { "value": "s21" }, "to": { "value": "s22" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 22 }, "dependencies": [] },
-            { "from": { "value": "s22" }, "to": { "value": "s23" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 23 }, "dependencies": [] },
-            { "from": { "value": "s23" }, "to": { "value": "s24" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 24 }, "dependencies": [] },
-            { "from": { "value": "s24" }, "to": { "value": "s25" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 25 }, "dependencies": [] },
-            { "from": { "value": "s25" }, "to": { "value": "s26" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 26 }, "dependencies": [] },
-            { "from": { "value": "s26" }, "to": { "value": "s27" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 27 }, "dependencies": [] },
-            { "from": { "value": "s27" }, "to": { "value": "s28" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 28 }, "dependencies": [] },
-            { "from": { "value": "s28" }, "to": { "value": "s29" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventType": "advance", "payload": {} }], "step": 29 }, "dependencies": [] },
-            { "from": { "value": "s29" }, "to": { "value": "s30" }, "eventType": { "value": "advance" }, "guard": true, "effect": { "step": 30 }, "dependencies": [] }
+            { "from": { "value": "s0" }, "to": { "value": "s1" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 1 }, "dependencies": [] },
+            { "from": { "value": "s1" }, "to": { "value": "s2" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 2 }, "dependencies": [] },
+            { "from": { "value": "s2" }, "to": { "value": "s3" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 3 }, "dependencies": [] },
+            { "from": { "value": "s3" }, "to": { "value": "s4" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 4 }, "dependencies": [] },
+            { "from": { "value": "s4" }, "to": { "value": "s5" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 5 }, "dependencies": [] },
+            { "from": { "value": "s5" }, "to": { "value": "s6" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 6 }, "dependencies": [] },
+            { "from": { "value": "s6" }, "to": { "value": "s7" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 7 }, "dependencies": [] },
+            { "from": { "value": "s7" }, "to": { "value": "s8" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 8 }, "dependencies": [] },
+            { "from": { "value": "s8" }, "to": { "value": "s9" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 9 }, "dependencies": [] },
+            { "from": { "value": "s9" }, "to": { "value": "s10" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 10 }, "dependencies": [] },
+            { "from": { "value": "s10" }, "to": { "value": "s11" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 11 }, "dependencies": [] },
+            { "from": { "value": "s11" }, "to": { "value": "s12" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 12 }, "dependencies": [] },
+            { "from": { "value": "s12" }, "to": { "value": "s13" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 13 }, "dependencies": [] },
+            { "from": { "value": "s13" }, "to": { "value": "s14" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 14 }, "dependencies": [] },
+            { "from": { "value": "s14" }, "to": { "value": "s15" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 15 }, "dependencies": [] },
+            { "from": { "value": "s15" }, "to": { "value": "s16" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 16 }, "dependencies": [] },
+            { "from": { "value": "s16" }, "to": { "value": "s17" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 17 }, "dependencies": [] },
+            { "from": { "value": "s17" }, "to": { "value": "s18" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 18 }, "dependencies": [] },
+            { "from": { "value": "s18" }, "to": { "value": "s19" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 19 }, "dependencies": [] },
+            { "from": { "value": "s19" }, "to": { "value": "s20" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 20 }, "dependencies": [] },
+            { "from": { "value": "s20" }, "to": { "value": "s21" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 21 }, "dependencies": [] },
+            { "from": { "value": "s21" }, "to": { "value": "s22" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 22 }, "dependencies": [] },
+            { "from": { "value": "s22" }, "to": { "value": "s23" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 23 }, "dependencies": [] },
+            { "from": { "value": "s23" }, "to": { "value": "s24" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 24 }, "dependencies": [] },
+            { "from": { "value": "s24" }, "to": { "value": "s25" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 25 }, "dependencies": [] },
+            { "from": { "value": "s25" }, "to": { "value": "s26" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 26 }, "dependencies": [] },
+            { "from": { "value": "s26" }, "to": { "value": "s27" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 27 }, "dependencies": [] },
+            { "from": { "value": "s27" }, "to": { "value": "s28" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 28 }, "dependencies": [] },
+            { "from": { "value": "s28" }, "to": { "value": "s29" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 29 }, "dependencies": [] },
+            { "from": { "value": "s29" }, "to": { "value": "s30" }, "eventName": "advance", "guard": true, "effect": { "step": 30 }, "dependencies": [] }
           ]
         }
         """
@@ -261,7 +261,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
         // Send advance event - should trigger chain but stop when gas exhausted
         advanceEvent = Updates.TransitionStateMachine(
           machineCid,
-          EventType("advance"),
+          "advance",
           MapValue(Map.empty)
         )
         advanceProof <- fixture.registry.generateProofs(advanceEvent, Set(Alice))
@@ -292,7 +292,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         machineCid <- UUIDGen.randomUUID[IO]
 
@@ -308,13 +308,13 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "processing" },
-              "eventType": { "value": "start" },
+              "eventName": "start",
               "guard": true,
               "effect": {
                 "_triggers": [
                   {
                     "targetMachineId": "$machineCid",
-                    "eventType": "start",
+                    "eventName": "start",
                     "payload": {}
                   }
                 ],
@@ -325,13 +325,13 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
             {
               "from": { "value": "processing" },
               "to": { "value": "processing" },
-              "eventType": { "value": "start" },
+              "eventName": "start",
               "guard": true,
               "effect": {
                 "_triggers": [
                   {
                     "targetMachineId": "$machineCid",
-                    "eventType": "start",
+                    "eventName": "start",
                     "payload": {}
                   }
                 ],
@@ -356,7 +356,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
         // Send start event - should detect cycle when trigger tries to send "start" again
         startEvent = Updates.TransitionStateMachine(
           machineCid,
-          EventType("start"),
+          "start",
           MapValue(Map.empty)
         )
         startProof <- fixture.registry.generateProofs(startEvent, Set(Alice))

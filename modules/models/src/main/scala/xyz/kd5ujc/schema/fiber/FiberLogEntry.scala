@@ -6,6 +6,8 @@ import io.constellationnetwork.metagraph_sdk.json_logic.JsonLogicValue
 import io.constellationnetwork.schema.SnapshotOrdinal
 import io.constellationnetwork.schema.address.Address
 
+import xyz.kd5ujc.schema.Records
+
 import derevo.circe.magnolia.{decoder, encoder}
 import derevo.derive
 
@@ -28,17 +30,62 @@ object FiberLogEntry {
   final case class EventReceipt(
     fiberId:        UUID,
     sequenceNumber: Long,
-    eventType:      EventType,
+    eventName:      String,
     ordinal:        SnapshotOrdinal,
     fromState:      StateId,
     toState:        StateId,
     success:        Boolean,
     gasUsed:        Long,
     triggersFired:  Int,
-    outputs:        List[StructuredOutput] = List.empty,
     errorMessage:   Option[String] = None,
-    sourceFiberId:  Option[UUID] = None
+    sourceFiberId:  Option[UUID] = None,
+    emittedEvents:  List[EmittedEvent] = List.empty
   ) extends FiberLogEntry
+
+  object EventReceipt {
+
+    def success(
+      sm:            Records.StateMachineFiberRecord,
+      eventName:     String,
+      ordinal:       SnapshotOrdinal,
+      gasUsed:       Long,
+      newStateId:    Option[StateId],
+      triggers:      List[FiberTrigger],
+      sourceFiberId: Option[UUID] = None,
+      emittedEvents: List[EmittedEvent] = List.empty
+    ): EventReceipt = EventReceipt(
+      fiberId = sm.cid,
+      sequenceNumber = sm.sequenceNumber + 1,
+      eventName = eventName,
+      ordinal = ordinal,
+      fromState = sm.currentState,
+      toState = newStateId.getOrElse(sm.currentState),
+      success = true,
+      gasUsed = gasUsed,
+      triggersFired = triggers.size,
+      sourceFiberId = sourceFiberId,
+      emittedEvents = emittedEvents
+    )
+
+    def failure(
+      sm:        Records.StateMachineFiberRecord,
+      eventName: String,
+      ordinal:   SnapshotOrdinal,
+      gasUsed:   Long,
+      reason:    FailureReason
+    ): EventReceipt = EventReceipt(
+      fiberId = sm.cid,
+      sequenceNumber = sm.sequenceNumber,
+      eventName = eventName,
+      ordinal = ordinal,
+      fromState = sm.currentState,
+      toState = sm.currentState,
+      success = false,
+      gasUsed = gasUsed,
+      triggersFired = 0,
+      errorMessage = Some(reason.toMessage)
+    )
+  }
 
   @derive(encoder, decoder)
   final case class OracleInvocation(

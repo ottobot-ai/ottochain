@@ -5,7 +5,7 @@ import java.util.UUID
 import io.constellationnetwork.currency.dataApplication.DataUpdate
 import io.constellationnetwork.metagraph_sdk.json_logic.{JsonLogicExpression, JsonLogicValue}
 
-import xyz.kd5ujc.schema.fiber.{AccessControlPolicy, EventType, StateMachineDefinition}
+import xyz.kd5ujc.schema.fiber.{AccessControlPolicy, StateMachineDefinition}
 
 import derevo.circe.magnolia.{decoder, encoder}
 import derevo.derive
@@ -34,16 +34,14 @@ object Updates {
    * Event to trigger a state machine transition.
    *
    * @param fiberId Target fiber CID
-   * @param eventType Type of event to trigger
+   * @param eventName Type of event to trigger
    * @param payload Event payload data
-   * @param idempotencyKey Optional key for duplicate detection
    */
   @derive(decoder, encoder)
   final case class TransitionStateMachine(
-    fiberId:        UUID,
-    eventType:      EventType,
-    payload:        JsonLogicValue,
-    idempotencyKey: Option[String] = None
+    fiberId:   UUID,
+    eventName: String,
+    payload:   JsonLogicValue
   ) extends StateMachineFiberOp
       with OttochainMessage
 

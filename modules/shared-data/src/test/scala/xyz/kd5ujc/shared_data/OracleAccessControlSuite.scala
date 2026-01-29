@@ -25,7 +25,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         oracleCid <- UUIDGen.randomUUID[IO]
 
@@ -68,7 +68,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         oracleCid <- UUIDGen.randomUUID[IO]
 
@@ -112,7 +112,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         oracleCid <- UUIDGen.randomUUID[IO]
 
@@ -172,7 +172,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         oracleCid  <- UUIDGen.randomUUID[IO]
         machineCid <- UUIDGen.randomUUID[IO]
@@ -212,7 +212,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "validated" },
-              "eventType": { "value": "validate" },
+              "eventName": "validate",
               "guard": true,
               "effect": {
                 "_oracleCall": {
@@ -237,7 +237,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
 
         validateEvent = Updates.TransitionStateMachine(
           machineCid,
-          EventType("validate"),
+          "validate",
           MapValue(Map.empty)
         )
         validateProof <- fixture.registry.generateProofs(validateEvent, Set(Alice))
@@ -261,7 +261,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         oracleCid  <- UUIDGen.randomUUID[IO]
         machineCid <- UUIDGen.randomUUID[IO]
@@ -301,7 +301,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "validated" },
-              "eventType": { "value": "validate" },
+              "eventName": "validate",
               "guard": true,
               "effect": {
                 "_oracleCall": {
@@ -326,7 +326,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
 
         validateEvent = Updates.TransitionStateMachine(
           machineCid,
-          EventType("validate"),
+          "validate",
           MapValue(Map.empty)
         )
         validateProof <- fixture.registry.generateProofs(validateEvent, Set(Bob))
@@ -358,7 +358,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         oracleCid  <- UUIDGen.randomUUID[IO]
         machineCid <- UUIDGen.randomUUID[IO]
@@ -401,14 +401,14 @@ object OracleAccessControlSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "triggered" },
-              "eventType": { "value": "trigger" },
+              "eventName": "trigger",
               "guard": true,
               "effect": {
                 "status": "triggered",
                 "_triggers": [
                   {
                     "targetMachineId": "$oracleCid",
-                    "eventType": "process",
+                    "eventName": "process",
                     "payload": {}
                   }
                 ]
@@ -429,7 +429,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
 
         triggerEvent = Updates.TransitionStateMachine(
           machineCid,
-          EventType("trigger"),
+          "trigger",
           MapValue(Map.empty)
         )
         triggerProof <- fixture.registry.generateProofs(triggerEvent, Set(Bob))
@@ -463,7 +463,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         oracleCid    <- IO.randomUUID
         ownerFiberId <- IO.randomUUID // Non-existent fiber ID

@@ -33,7 +33,7 @@ object ML0Service {
 
   def make[F[+_]: Async: Parallel: SecurityProvider]: F[BaseDataApplicationL0Service[F]] = for {
     checkpointService        <- CheckpointService.make[F, CalculatedState](CalculatedState.genesis)
-    combiner                 <- Combiner.make[F].pure[F]
+    combiner                 <- Combiner.make[F]().pure[F]
     validator                <- Validator.make[F]
     dataApplicationL0Service <- makeBaseApplicationL0Service(checkpointService, combiner, validator).pure[F]
   } yield dataApplicationL0Service

@@ -11,7 +11,7 @@ import derevo.derive
 case class Transition(
   from:         StateId,
   to:           StateId,
-  eventType:    EventType,
+  eventName:    String,
   guard:        JsonLogicExpression, // Guard condition
   effect:       JsonLogicExpression, // State transformation
   dependencies: Set[UUID] = Set.empty // Other machines this transition reads from

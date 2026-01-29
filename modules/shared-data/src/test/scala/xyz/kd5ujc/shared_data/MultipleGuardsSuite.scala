@@ -25,7 +25,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         machineCid <- UUIDGen.randomUUID[IO]
 
@@ -43,7 +43,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "high_priority" },
-              "eventType": { "value": "process" },
+              "eventName": "process",
               "guard": {
                 ">=": [{ "var": "event.priority" }, 80]
               },
@@ -55,7 +55,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "medium_priority" },
-              "eventType": { "value": "process" },
+              "eventName": "process",
               "guard": {
                 ">=": [{ "var": "event.priority" }, 50]
               },
@@ -67,7 +67,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "low_priority" },
-              "eventType": { "value": "process" },
+              "eventName": "process",
               "guard": true,
               "effect": {
                 "level": "low"
@@ -91,7 +91,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         // Test 1: High priority (>= 80) - should match first guard
         highPriorityEvent = Updates.TransitionStateMachine(
           machineCid,
-          EventType("process"),
+          "process",
           MapValue(Map("priority" -> IntValue(90)))
         )
         highProof      <- fixture.registry.generateProofs(highPriorityEvent, Set(Alice))
@@ -119,7 +119,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         machineCid <- UUIDGen.randomUUID[IO]
 
@@ -137,7 +137,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "result_a" },
-              "eventType": { "value": "check" },
+              "eventName": "check",
               "guard": {
                 ">=": [{ "var": "event.value" }, 10]
               },
@@ -150,7 +150,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "result_b" },
-              "eventType": { "value": "check" },
+              "eventName": "check",
               "guard": {
                 ">=": [{ "var": "event.value" }, 5]
               },
@@ -163,7 +163,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "result_c" },
-              "eventType": { "value": "check" },
+              "eventName": "check",
               "guard": true,
               "effect": {
                 "result": "c",
@@ -188,7 +188,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         // Test with value 15 - matches both first and second guards, should use first
         checkEvent = Updates.TransitionStateMachine(
           machineCid,
-          EventType("check"),
+          "check",
           MapValue(Map("value" -> IntValue(15)))
         )
         checkProof <- fixture.registry.generateProofs(checkEvent, Set(Alice))
@@ -224,7 +224,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         machineCid <- UUIDGen.randomUUID[IO]
 
@@ -242,7 +242,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "tier1" },
-              "eventType": { "value": "upgrade" },
+              "eventName": "upgrade",
               "guard": {
                 ">=": [{ "var": "event.amount" }, 1000]
               },
@@ -254,7 +254,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "tier2" },
-              "eventType": { "value": "upgrade" },
+              "eventName": "upgrade",
               "guard": {
                 ">=": [{ "var": "event.amount" }, 500]
               },
@@ -266,7 +266,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "tier3" },
-              "eventType": { "value": "upgrade" },
+              "eventName": "upgrade",
               "guard": {
                 ">=": [{ "var": "event.amount" }, 100]
               },
@@ -292,7 +292,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         // Send upgrade with insufficient amount - no guard should match
         upgradeEvent = Updates.TransitionStateMachine(
           machineCid,
-          EventType("upgrade"),
+          "upgrade",
           MapValue(Map("amount" -> IntValue(50)))
         )
         upgradeProof <- fixture.registry.generateProofs(upgradeEvent, Set(Alice))
@@ -322,7 +322,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         machineCid <- UUIDGen.randomUUID[IO]
 
@@ -340,7 +340,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "premium" },
-              "eventType": { "value": "qualify" },
+              "eventName": "qualify",
               "guard": {
                 "and": [
                   { ">=": [{ "var": "event.age" }, 25] },
@@ -356,7 +356,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "standard" },
-              "eventType": { "value": "qualify" },
+              "eventName": "qualify",
               "guard": {
                 "and": [
                   { ">=": [{ "var": "event.age" }, 18] },
@@ -371,7 +371,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "basic" },
-              "eventType": { "value": "qualify" },
+              "eventName": "qualify",
               "guard": {
                 ">=": [{ "var": "event.age" }, 18]
               },
@@ -397,7 +397,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         // Test 1: Qualifies for premium (all conditions met)
         premiumEvent = Updates.TransitionStateMachine(
           machineCid,
-          EventType("qualify"),
+          "qualify",
           MapValue(
             Map(
               "age"      -> IntValue(30),
@@ -431,7 +431,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         machineCid <- UUIDGen.randomUUID[IO]
 
@@ -448,7 +448,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
             {
               "from": { "value": "locked" },
               "to": { "value": "admin_unlocked" },
-              "eventType": { "value": "unlock" },
+              "eventName": "unlock",
               "guard": {
                 "===": [{ "var": "event.role" }, "admin"]
               },
@@ -461,7 +461,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
             {
               "from": { "value": "locked" },
               "to": { "value": "unlocked" },
-              "eventType": { "value": "unlock" },
+              "eventName": "unlock",
               "guard": {
                 "and": [
                   { "===": [{ "var": "event.code" }, { "var": "state.secretCode" }] },
@@ -496,7 +496,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         // Test: Admin unlock (first guard should match)
         unlockEvent = Updates.TransitionStateMachine(
           machineCid,
-          EventType("unlock"),
+          "unlock",
           MapValue(
             Map(
               "role" -> StrValue("admin"),

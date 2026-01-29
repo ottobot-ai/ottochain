@@ -8,9 +8,8 @@ import io.constellationnetwork.schema.address.Address
  * Supports both state machine transitions and oracle method calls.
  */
 sealed trait FiberInput {
-
-  /** Key used for cycle detection (eventType or method name) */
-  def inputKey: String
+  val key: String
+  val content: JsonLogicValue
 }
 
 object FiberInput {
@@ -18,18 +17,15 @@ object FiberInput {
   /**
    * State machine transition input.
    *
-   * @param eventType Event type to trigger the transition
+   * @param event Event type to trigger the transitionupdate F
    * @param payload Payload data for the event
-   * @param idempotencyKey Optional key for idempotency tracking.
-   *                       If provided, duplicate transitions with the same key
-   *                       within a time window will be rejected.
    */
   final case class Transition(
-    eventType:      EventType,
-    payload:        JsonLogicValue,
-    idempotencyKey: Option[String] = None
+    event:   String,
+    payload: JsonLogicValue
   ) extends FiberInput {
-    def inputKey: String = eventType.value
+    val key: String = event
+    val content: JsonLogicValue = payload
   }
 
   /**
@@ -38,16 +34,13 @@ object FiberInput {
    * @param method Method name to invoke
    * @param args Arguments for the method
    * @param caller Address of the caller
-   * @param idempotencyKey Optional key for idempotency tracking.
-   *                       If provided, duplicate invocations with the same key
-   *                       within a time window will be rejected.
    */
   final case class MethodCall(
-    method:         String,
-    args:           JsonLogicValue,
-    caller:         Address,
-    idempotencyKey: Option[String] = None
+    method: String,
+    args:   JsonLogicValue,
+    caller: Address
   ) extends FiberInput {
-    def inputKey: String = method
+    val key: String = method
+    val content: JsonLogicValue = args
   }
 }

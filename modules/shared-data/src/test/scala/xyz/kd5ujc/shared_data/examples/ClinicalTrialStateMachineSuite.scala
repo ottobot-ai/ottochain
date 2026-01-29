@@ -30,7 +30,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob, Charlie, Dave, Eve))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
         ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
         trialCid        <- UUIDGen.randomUUID[IO]
@@ -59,7 +59,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "recruiting" },
               "to": { "value": "active" },
-              "eventType": { "value": "start_trial" },
+              "eventName": "start_trial",
               "guard": {
                 "and": [
                   { ">=": [{ "var": "state.enrolledCount" }, { "var": "state.minParticipants" }] },
@@ -75,7 +75,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "active" },
               "to": { "value": "phase_1" },
-              "eventType": { "value": "advance_phase" },
+              "eventName": "advance_phase",
               "guard": {
                 "and": [
                   { ">=": [{ "var": "state.completedVisits" }, 3] },
@@ -92,7 +92,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "phase_1" },
               "to": { "value": "phase_2" },
-              "eventType": { "value": "advance_phase" },
+              "eventName": "advance_phase",
               "guard": {
                 "and": [
                   { ">=": [{ "var": "state.completedVisits" }, 8] },
@@ -110,7 +110,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "phase_2" },
               "to": { "value": "phase_3" },
-              "eventType": { "value": "advance_phase" },
+              "eventName": "advance_phase",
               "guard": {
                 "and": [
                   { ">=": [{ "var": "state.completedVisits" }, 15] },
@@ -127,7 +127,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "phase_3" },
               "to": { "value": "under_review" },
-              "eventType": { "value": "submit_for_review" },
+              "eventName": "submit_for_review",
               "guard": {
                 "and": [
                   { ">=": [{ "var": "state.completedVisits" }, 20] },
@@ -138,7 +138,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
                 ["_triggers", [
                   {
                     "targetMachineId": "${regulatorCid}",
-                    "eventType": "begin_review",
+                    "eventName": "begin_review",
                     "payload": {
                       "trialId": { "var": "machineId" },
                       "submittedAt": { "var": "event.timestamp" },
@@ -154,7 +154,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "under_review" },
               "to": { "value": "completed" },
-              "eventType": { "value": "finalize" },
+              "eventName": "finalize",
               "guard": {
                 "===": [{ "var": "machines.${regulatorCid}.state.reviewResult" }, "approved"]
               },
@@ -167,7 +167,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "active" },
               "to": { "value": "suspended" },
-              "eventType": { "value": "suspend" },
+              "eventName": "suspend",
               "guard": {
                 "===": [{ "var": "machines.${adverseEventCid}.state.hasCriticalEvent" }, true]
               },
@@ -181,7 +181,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "suspended" },
               "to": { "value": "active" },
-              "eventType": { "value": "resume" },
+              "eventName": "resume",
               "guard": {
                 "and": [
                   { "===": [{ "var": "machines.${adverseEventCid}.state.resolved" }, true] },
@@ -197,7 +197,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "suspended" },
               "to": { "value": "terminated" },
-              "eventType": { "value": "terminate" },
+              "eventName": "terminate",
               "guard": {
                 "===": [{ "var": "machines.${regulatorCid}.state.terminationRequired" }, true]
               },
@@ -230,7 +230,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "screening" },
               "to": { "value": "enrolled" },
-              "eventType": { "value": "enroll" },
+              "eventName": "enroll",
               "guard": {
                 "and": [
                   { ">=": [{ "var": "event.age" }, 18] },
@@ -239,9 +239,9 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
                 ]
               },
               "effect": [
-                ["_outputs", [
+                ["_emit", [
                   {
-                    "outputType": "webhook",
+                    "name": "webhook",
                     "data": {
                       "event": "patient.enrolled",
                       "patientId": { "var": "machineId" },
@@ -261,7 +261,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "enrolled" },
               "to": { "value": "active" },
-              "eventType": { "value": "activate" },
+              "eventName": "activate",
               "guard": {
                 "===": [{ "var": "machines.${trialCid}.state.status" }, "active"]
               },
@@ -275,7 +275,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "active" },
               "to": { "value": "paused" },
-              "eventType": { "value": "pause" },
+              "eventName": "pause",
               "guard": true,
               "effect": [
                 ["status", "paused"],
@@ -287,7 +287,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "paused" },
               "to": { "value": "active" },
-              "eventType": { "value": "resume" },
+              "eventName": "resume",
               "guard": {
                 "and": [
                   { "===": [{ "var": "machines.${trialCid}.state.status" }, "active"] },
@@ -303,7 +303,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "active" },
               "to": { "value": "visit_scheduled" },
-              "eventType": { "value": "schedule_visit" },
+              "eventName": "schedule_visit",
               "guard": {
                 "<": [{ "var": "state.visitCount" }, 20]
               },
@@ -316,7 +316,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "visit_scheduled" },
               "to": { "value": "visit_completed" },
-              "eventType": { "value": "complete_visit" },
+              "eventName": "complete_visit",
               "guard": {
                 "===": [{ "var": "machines.${labCid}.state.sampleStatus" }, "collected"]
               },
@@ -324,7 +324,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
                 ["_triggers", [
                   {
                     "targetMachineId": "${labCid}",
-                    "eventType": "process_sample",
+                    "eventName": "process_sample",
                     "payload": {
                       "patientId": { "var": "machineId" },
                       "visitNumber": { "+": [{ "var": "state.visitCount" }, 1] },
@@ -341,7 +341,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "visit_completed" },
               "to": { "value": "active" },
-              "eventType": { "value": "continue" },
+              "eventName": "continue",
               "guard": {
                 "and": [
                   { "===": [{ "var": "machines.${labCid}.state.result" }, "passed"] },
@@ -356,7 +356,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "visit_completed" },
               "to": { "value": "adverse_event" },
-              "eventType": { "value": "continue" },
+              "eventName": "continue",
               "guard": {
                 "or": [
                   { "===": [{ "var": "machines.${labCid}.state.result" }, "failed"] },
@@ -367,7 +367,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
                 ["_triggers", [
                   {
                     "targetMachineId": "${adverseEventCid}",
-                    "eventType": "report_event",
+                    "eventName": "report_event",
                     "payload": {
                       "patientId": { "var": "machineId" },
                       "severity": { "var": "machines.${labCid}.state.result" },
@@ -383,7 +383,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "adverse_event" },
               "to": { "value": "active" },
-              "eventType": { "value": "resolve" },
+              "eventName": "resolve",
               "guard": {
                 "===": [{ "var": "machines.${adverseEventCid}.state.resolved" }, true]
               },
@@ -396,7 +396,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "visit_completed" },
               "to": { "value": "completed" },
-              "eventType": { "value": "complete_trial" },
+              "eventName": "complete_trial",
               "guard": {
                 "and": [
                   { ">=": [{ "var": "state.visitCount" }, 20] },
@@ -404,9 +404,9 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
                 ]
               },
               "effect": [
-                ["_outputs", [
+                ["_emit", [
                   {
-                    "outputType": "email",
+                    "name": "email",
                     "data": {
                       "to": { "var": "state.patientEmail" },
                       "subject": "Trial Completion",
@@ -422,7 +422,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "paused" },
               "to": { "value": "withdrawn" },
-              "eventType": { "value": "withdraw" },
+              "eventName": "withdraw",
               "guard": true,
               "effect": [
                 ["status", "withdrawn"],
@@ -434,7 +434,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "adverse_event" },
               "to": { "value": "withdrawn" },
-              "eventType": { "value": "withdraw" },
+              "eventName": "withdraw",
               "guard": {
                 "===": [{ "var": "machines.${adverseEventCid}.state.severity" }, "critical"]
               },
@@ -466,7 +466,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "sample_received" },
-              "eventType": { "value": "receive_sample" },
+              "eventName": "receive_sample",
               "guard": true,
               "effect": [
                 ["sampleStatus", "collected"],
@@ -477,7 +477,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "sample_received" },
               "to": { "value": "processing" },
-              "eventType": { "value": "process_sample" },
+              "eventName": "process_sample",
               "guard": true,
               "effect": [
                 ["status", "processing"],
@@ -491,7 +491,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "processing" },
               "to": { "value": "passed" },
-              "eventType": { "value": "complete" },
+              "eventName": "complete",
               "guard": {
                 "and": [
                   { ">=": [{ "var": "event.qualityScore" }, 90] },
@@ -511,7 +511,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "processing" },
               "to": { "value": "questionable" },
-              "eventType": { "value": "complete" },
+              "eventName": "complete",
               "guard": {
                 "and": [
                   { ">=": [{ "var": "event.qualityScore" }, 70] },
@@ -532,7 +532,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "processing" },
               "to": { "value": "failed" },
-              "eventType": { "value": "complete" },
+              "eventName": "complete",
               "guard": {
                 "and": [
                   { "<": [{ "var": "event.qualityScore" }, 70] },
@@ -551,7 +551,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "processing" },
               "to": { "value": "critical" },
-              "eventType": { "value": "complete" },
+              "eventName": "complete",
               "guard": {
                 ">=": [{ "var": "event.biomarkerLevel" }, 500]
               },
@@ -568,7 +568,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "processing" },
               "to": { "value": "retest_required" },
-              "eventType": { "value": "complete" },
+              "eventName": "complete",
               "guard": {
                 "===": [{ "var": "event.contaminated" }, true]
               },
@@ -584,7 +584,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "retest_required" },
               "to": { "value": "processing" },
-              "eventType": { "value": "retest" },
+              "eventName": "retest",
               "guard": true,
               "effect": [
                 ["status", "processing"],
@@ -597,7 +597,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "passed" },
               "to": { "value": "idle" },
-              "eventType": { "value": "reset" },
+              "eventName": "reset",
               "guard": true,
               "effect": [
                 ["sampleStatus", "idle"],
@@ -608,7 +608,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "questionable" },
               "to": { "value": "idle" },
-              "eventType": { "value": "reset" },
+              "eventName": "reset",
               "guard": true,
               "effect": [
                 ["sampleStatus", "idle"],
@@ -619,7 +619,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "failed" },
               "to": { "value": "idle" },
-              "eventType": { "value": "reset" },
+              "eventName": "reset",
               "guard": true,
               "effect": [
                 ["sampleStatus", "idle"],
@@ -630,7 +630,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "critical" },
               "to": { "value": "idle" },
-              "eventType": { "value": "reset" },
+              "eventName": "reset",
               "guard": true,
               "effect": [
                 ["sampleStatus", "idle"],
@@ -656,7 +656,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "monitoring" },
               "to": { "value": "event_reported" },
-              "eventType": { "value": "report_event" },
+              "eventName": "report_event",
               "guard": true,
               "effect": [
                 ["hasCriticalEvent", { "===": [{ "var": "event.severity" }, "critical"] }],
@@ -670,7 +670,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "event_reported" },
               "to": { "value": "investigating" },
-              "eventType": { "value": "investigate" },
+              "eventName": "investigate",
               "guard": true,
               "effect": [
                 ["status", "investigating"],
@@ -681,7 +681,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "investigating" },
               "to": { "value": "resolved" },
-              "eventType": { "value": "resolve" },
+              "eventName": "resolve",
               "guard": {
                 "!==": [{ "var": "state.severity" }, "critical"]
               },
@@ -697,7 +697,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "investigating" },
               "to": { "value": "escalated" },
-              "eventType": { "value": "escalate" },
+              "eventName": "escalate",
               "guard": {
                 "===": [{ "var": "state.severity" }, "critical"]
               },
@@ -712,7 +712,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "resolved" },
               "to": { "value": "monitoring" },
-              "eventType": { "value": "clear" },
+              "eventName": "clear",
               "guard": true,
               "effect": [
                 ["status", "monitoring"],
@@ -739,7 +739,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "approved" },
               "to": { "value": "monitoring" },
-              "eventType": { "value": "start_monitoring" },
+              "eventName": "start_monitoring",
               "guard": true,
               "effect": [
                 ["status", "monitoring"],
@@ -752,7 +752,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "monitoring" },
               "to": { "value": "reviewing" },
-              "eventType": { "value": "begin_review" },
+              "eventName": "begin_review",
               "guard": true,
               "effect": [
                 ["status", "reviewing"],
@@ -765,7 +765,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "reviewing" },
               "to": { "value": "final_approved" },
-              "eventType": { "value": "approve" },
+              "eventName": "approve",
               "guard": {
                 ">=": [{ "var": "event.complianceScore" }, 90]
               },
@@ -780,7 +780,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "reviewing" },
               "to": { "value": "rejected" },
-              "eventType": { "value": "approve" },
+              "eventName": "approve",
               "guard": {
                 "<": [{ "var": "event.complianceScore" }, 90]
               },
@@ -811,7 +811,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "active" },
               "to": { "value": "claim_filed" },
-              "eventType": { "value": "file_claim" },
+              "eventName": "file_claim",
               "guard": {
                 ">=": [{ "var": "state.coverage" }, { "var": "event.claimAmount" }]
               },
@@ -825,7 +825,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "claim_filed" },
               "to": { "value": "claim_processing" },
-              "eventType": { "value": "process" },
+              "eventName": "process",
               "guard": true,
               "effect": [
                 ["status", "claim_processing"],
@@ -836,7 +836,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "claim_processing" },
               "to": { "value": "claim_approved" },
-              "eventType": { "value": "approve_claim" },
+              "eventName": "approve_claim",
               "guard": true,
               "effect": [
                 ["status", "claim_approved"],
@@ -847,7 +847,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "claim_approved" },
               "to": { "value": "claim_paid" },
-              "eventType": { "value": "pay" },
+              "eventName": "pay",
               "guard": true,
               "effect": [
                 ["status", "claim_paid"],
@@ -859,7 +859,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "claim_paid" },
               "to": { "value": "active" },
-              "eventType": { "value": "reset" },
+              "eventName": "reset",
               "guard": true,
               "effect": [
                 ["status", "active"]
@@ -1063,7 +1063,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         // Step 1: Enroll patient
         enrollUpdate = Updates.TransitionStateMachine(
           patientCid,
-          EventType("enroll"),
+          "enroll",
           MapValue(
             Map(
               "timestamp"     -> IntValue(1000),
@@ -1079,7 +1079,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         // Step 2: Start trial
         startTrialUpdate = Updates.TransitionStateMachine(
           trialCid,
-          EventType("start_trial"),
+          "start_trial",
           MapValue(Map("timestamp" -> IntValue(1100)))
         )
         startTrialProof <- registry.generateProofs(startTrialUpdate, Set(Alice))
@@ -1088,7 +1088,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         // Step 3: Activate patient
         activateUpdate = Updates.TransitionStateMachine(
           patientCid,
-          EventType("activate"),
+          "activate",
           MapValue(Map("timestamp" -> IntValue(1200)))
         )
         activateProof <- registry.generateProofs(activateUpdate, Set(Bob))
@@ -1097,7 +1097,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         // Step 4: Schedule visit
         scheduleVisitUpdate = Updates.TransitionStateMachine(
           patientCid,
-          EventType("schedule_visit"),
+          "schedule_visit",
           MapValue(Map("visitTime" -> IntValue(2000)))
         )
         scheduleVisitProof <- registry.generateProofs(scheduleVisitUpdate, Set(Bob))
@@ -1106,7 +1106,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         // Step 5: Lab receives sample
         receiveSampleUpdate = Updates.TransitionStateMachine(
           labCid,
-          EventType("receive_sample"),
+          "receive_sample",
           MapValue(Map("timestamp" -> IntValue(2100)))
         )
         receiveSampleProof <- registry.generateProofs(receiveSampleUpdate, Set(Charlie))
@@ -1115,7 +1115,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         // Step 6: Complete visit (triggers lab processing)
         completeVisitUpdate = Updates.TransitionStateMachine(
           patientCid,
-          EventType("complete_visit"),
+          "complete_visit",
           MapValue(Map("timestamp" -> IntValue(2200)))
         )
         completeVisitProof <- registry.generateProofs(completeVisitUpdate, Set(Bob))
@@ -1136,7 +1136,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         // Step 7: Complete lab processing with high quality (passed)
         completeLabUpdate = Updates.TransitionStateMachine(
           labCid,
-          EventType("complete"),
+          "complete",
           MapValue(
             Map(
               "timestamp"      -> IntValue(2300),
@@ -1163,7 +1163,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         // Step 8: Patient continues after passed result
         continueUpdate = Updates.TransitionStateMachine(
           patientCid,
-          EventType("continue"),
+          "continue",
           MapValue(Map("timestamp" -> IntValue(2400)))
         )
         continueProof <- registry.generateProofs(continueUpdate, Set(Bob))

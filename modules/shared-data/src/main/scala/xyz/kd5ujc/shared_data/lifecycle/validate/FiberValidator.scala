@@ -99,7 +99,7 @@ object FiberValidator {
       for {
         fiberActive   <- FiberRules.L0.fiberIsActive(update.fiberId, state.calculated)
         signedByOwner <- FiberRules.L0.updateSignedByOwners(update.fiberId, proofs, state.calculated)
-        transitionOk  <- FiberRules.L0.transitionExists(update.fiberId, update.eventType, state.calculated)
+        transitionOk  <- FiberRules.L0.transitionExists(update.fiberId, update.eventName, state.calculated)
       } yield List(fiberActive, signedByOwner, transitionOk).combineAll
 
     /** Validates an ArchiveFiber update (L0 specific checks) */

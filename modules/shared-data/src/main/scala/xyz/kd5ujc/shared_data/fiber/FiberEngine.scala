@@ -97,10 +97,10 @@ object FiberEngine {
           .make[F, FiberT[F, *]](calculatedState)
           .evaluate(fiber, input, proofs)
           .flatMap {
-            case FiberResult.Success(newStateData, newStateId, fiberTriggers, spawns, outputs, returnValue) =>
+            case FiberResult.Success(newStateData, newStateId, fiberTriggers, spawns, returnValue, emittedEvents) =>
               fiber match {
                 case sm: Records.StateMachineFiberRecord =>
-                  processStateMachineSuccess(sm, input, newStateData, newStateId, fiberTriggers, spawns, outputs)
+                  processStateMachineSuccess(sm, input, newStateData, newStateId, fiberTriggers, spawns, emittedEvents)
 
                 case oracle: Records.ScriptOracleFiberRecord =>
                   processOracleSuccess(oracle, input, newStateData, returnValue)
@@ -126,51 +126,39 @@ object FiberEngine {
           gasUsed <- ExecutionOps.getGasUsed[FiberT[F, *]]
         } yield fiber match {
           case sm: Records.StateMachineFiberRecord =>
-            val eventType = input match {
-              case FiberInput.Transition(et, _, _) => et
-              case _                               => EventType("unknown")
-            }
             TransactionResult.Aborted(
-              FailureReason.NoGuardMatched(sm.currentState, eventType, attemptedCount),
+              FailureReason.NoGuardMatched(sm.currentState, input.key, attemptedCount),
               gasUsed
             ): TransactionResult
 
           case other =>
             TransactionResult.Aborted(
-              FailureReason.FiberInputMismatch(other.cid, other.getClass.getSimpleName, "GuardEvaluation"),
+              FailureReason.FiberInputMismatch(other.cid, FiberKind.ScriptOracle, InputKind.Transition),
               gasUsed
             ): TransactionResult
         }
 
       private def processStateMachineSuccess(
-        sm:           Records.StateMachineFiberRecord,
-        input:        FiberInput,
-        newStateData: JsonLogicValue,
-        newStateId:   Option[StateId],
-        triggers:     List[FiberTrigger],
-        spawns:       List[SpawnDirective],
-        outputs:      List[StructuredOutput]
+        sm:            Records.StateMachineFiberRecord,
+        input:         FiberInput,
+        newStateData:  JsonLogicValue,
+        newStateId:    Option[StateId],
+        triggers:      List[FiberTrigger],
+        spawns:        List[SpawnDirective],
+        emittedEvents: List[EmittedEvent]
       ): FiberT[F, TransactionResult] =
         for {
           hash    <- newStateData.computeDigest.liftFiber
           gasUsed <- ExecutionOps.getGasUsed[FiberT[F, *]]
 
-          eventType = input match {
-            case FiberInput.Transition(et, _, _) => et
-            case _                               => EventType("unknown")
-          }
-
-          receipt = EventReceipt(
-            fiberId = sm.cid,
-            sequenceNumber = sm.sequenceNumber + 1,
-            eventType = eventType,
+          receipt = EventReceipt.success(
+            sm = sm,
+            eventName = input.key,
             ordinal = ordinal,
-            fromState = sm.currentState,
-            toState = newStateId.getOrElse(sm.currentState),
-            success = true,
             gasUsed = gasUsed,
-            triggersFired = triggers.size,
-            outputs = outputs
+            newStateId = newStateId,
+            triggers = triggers,
+            emittedEvents = emittedEvents
           )
 
           _ <- ExecutionOps.appendLog[FiberT[F, *]](receipt)
@@ -312,13 +300,13 @@ object FiberEngine {
           newHash <- newStateData.some.traverse(_.computeDigest).liftFiber
 
           (method, args, caller) <- input match {
-            case FiberInput.MethodCall(m, a, c, _) =>
+            case FiberInput.MethodCall(m, a, c) =>
               (m, a, c).pureFiber[F]
-            case FiberInput.Transition(et, _, _) =>
+            case FiberInput.Transition(et, _) =>
               Async[F]
                 .raiseError[(String, JsonLogicValue, Address)](
                   new RuntimeException(
-                    s"Oracle ${oracle.cid} received Transition input (event: ${et.value}). Oracles only support MethodCall input."
+                    s"Oracle ${oracle.cid} received Transition input (event: ${et}). Oracles only support MethodCall input."
                   )
                 )
                 .liftFiber

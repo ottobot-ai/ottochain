@@ -24,8 +24,9 @@ import xyz.kd5ujc.shared_data.syntax.all._
  * @param ctx     The L0NodeContext for accessing snapshot ordinals
  */
 class OracleCombiner[F[_]: Async: SecurityProvider](
-  current: DataState[OnChain, CalculatedState],
-  ctx:     L0NodeContext[F]
+  current:         DataState[OnChain, CalculatedState],
+  ctx:             L0NodeContext[F],
+  executionLimits: ExecutionLimits
 ) {
 
   /**
@@ -69,14 +70,13 @@ class OracleCombiner[F[_]: Async: SecurityProvider](
     orchestrator = FiberEngine.make[F](
       current.calculated,
       currentOrdinal,
-      ExecutionLimits()
+      executionLimits
     )
 
     input = FiberInput.MethodCall(
       method = update.method,
       args = update.args,
-      caller = caller,
-      idempotencyKey = None
+      caller = caller
     )
 
     outcome <- orchestrator.process(update.fiberId, input, update.proofs.toList)
@@ -104,8 +104,9 @@ object OracleCombiner {
    * Creates a new OracleCombiner instance.
    */
   def apply[F[_]: Async: SecurityProvider](
-    current: DataState[OnChain, CalculatedState],
-    ctx:     L0NodeContext[F]
+    current:         DataState[OnChain, CalculatedState],
+    ctx:             L0NodeContext[F],
+    executionLimits: ExecutionLimits
   ): OracleCombiner[F] =
-    new OracleCombiner[F](current, ctx)
+    new OracleCombiner[F](current, ctx, executionLimits)
 }

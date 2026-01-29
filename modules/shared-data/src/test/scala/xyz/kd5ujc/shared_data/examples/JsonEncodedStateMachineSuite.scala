@@ -31,7 +31,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
         ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
         // Define time lock contract in JSON format
@@ -53,7 +53,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "locked" },
               "to": { "value": "unlocked" },
-              "eventType": { "value": "unlock" },
+              "eventName": "unlock",
               "guard": {
                 ">=": [
                   { "var": "event.currentTime" },
@@ -83,7 +83,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           parsedDef.transitions.size == 1,
           parsedDef.transitions.head.from == StateId("locked"),
           parsedDef.transitions.head.to == StateId("unlocked"),
-          parsedDef.transitions.head.eventType == EventType("unlock")
+          parsedDef.transitions.head.eventName == "unlock"
         )
 
         // Create time lock fiber with unlock time set to timestamp 1000
@@ -116,7 +116,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         // Try to unlock BEFORE time (should fail)
         earlyUpdate = Updates.TransitionStateMachine(
           lockCid,
-          EventType("unlock"),
+          "unlock",
           MapValue(Map("currentTime" -> IntValue(900)))
         )
         earlyProof  <- registry.generateProofs(earlyUpdate, Set(Alice))
@@ -128,7 +128,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         // Try to unlock AFTER time (should succeed)
         validUpdate = Updates.TransitionStateMachine(
           lockCid,
-          EventType("unlock"),
+          "unlock",
           MapValue(Map("currentTime" -> IntValue(1500)))
         )
         validProof <- registry.generateProofs(validUpdate, Set(Alice))
@@ -168,7 +168,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
         ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
         // HTLC: Alice locks funds for Bob with a secret hash
@@ -195,7 +195,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "pending" },
               "to": { "value": "claimed" },
-              "eventType": { "value": "claim" },
+              "eventName": "claim",
               "guard": {
                 "and": [
                   {
@@ -223,7 +223,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "pending" },
               "to": { "value": "refunded" },
-              "eventType": { "value": "refund" },
+              "eventName": "refund",
               "guard": {
                 "and": [
                   {
@@ -291,7 +291,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         // Test 1: Bob tries to claim with WRONG secret (should fail)
         wrongClaimUpdate = Updates.TransitionStateMachine(
           htlcCid,
-          EventType("claim"),
+          "claim",
           MapValue(
             Map(
               "secret"      -> StrValue("wrongsecret"),
@@ -309,7 +309,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         // Test 2: Bob claims with CORRECT secret BEFORE timeout (should succeed)
         correctClaimUpdate = Updates.TransitionStateMachine(
           htlcCid,
-          EventType("claim"),
+          "claim",
           MapValue(
             Map(
               "secret"      -> StrValue("opensesame"),
@@ -386,7 +386,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         // Alice tries to refund BEFORE timeout (should fail)
         earlyRefundUpdate = Updates.TransitionStateMachine(
           htlcCid2,
-          EventType("refund"),
+          "refund",
           MapValue(
             Map(
               "refunder"    -> StrValue(aliceAddr.toString),
@@ -402,7 +402,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         // Alice refunds AFTER timeout (should succeed)
         refundUpdate = Updates.TransitionStateMachine(
           htlcCid2,
-          EventType("refund"),
+          "refund",
           MapValue(
             Map(
               "refunder"    -> StrValue(aliceAddr.toString),
@@ -455,7 +455,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob, Charlie))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
         ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
         orderCid      <- UUIDGen.randomUUID[IO]
@@ -481,7 +481,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "placed" },
               "to": { "value": "funded" },
-              "eventType": { "value": "confirm_funding" },
+              "eventName": "confirm_funding",
               "guard": {
                 "===": [
                   { "var": "machines.${escrowCid}.state.status" },
@@ -497,7 +497,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "funded" },
               "to": { "value": "shipped" },
-              "eventType": { "value": "ship" },
+              "eventName": "ship",
               "guard": true,
               "effect": [
                 ["status", "shipped"],
@@ -508,7 +508,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "shipped" },
               "to": { "value": "in_transit" },
-              "eventType": { "value": "accept_shipment" },
+              "eventName": "accept_shipment",
               "guard": {
                 "===": [
                   { "var": "machines.${shippingCid}.state.status" },
@@ -524,7 +524,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "in_transit" },
               "to": { "value": "delivered" },
-              "eventType": { "value": "confirm_delivery" },
+              "eventName": "confirm_delivery",
               "guard": {
                 "===": [
                   { "var": "machines.${shippingCid}.state.status" },
@@ -540,7 +540,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "delivered" },
               "to": { "value": "inspecting" },
-              "eventType": { "value": "start_inspection" },
+              "eventName": "start_inspection",
               "guard": {
                 "===": [
                   { "var": "machines.${inspectionCid}.state.status" },
@@ -556,7 +556,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "inspecting" },
               "to": { "value": "completed" },
-              "eventType": { "value": "complete_order" },
+              "eventName": "complete_order",
               "guard": {
                 "and": [
                   {
@@ -582,7 +582,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "inspecting" },
               "to": { "value": "disputed" },
-              "eventType": { "value": "dispute" },
+              "eventName": "dispute",
               "guard": {
                 "===": [
                   { "var": "machines.${inspectionCid}.state.result" },
@@ -614,7 +614,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "empty" },
               "to": { "value": "locked" },
-              "eventType": { "value": "lock_funds" },
+              "eventName": "lock_funds",
               "guard": {
                 ">=": [
                   { "var": "event.amount" },
@@ -631,7 +631,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "locked" },
               "to": { "value": "held" },
-              "eventType": { "value": "hold" },
+              "eventName": "hold",
               "guard": {
                 "===": [
                   { "var": "machines.${shippingCid}.state.status" },
@@ -647,7 +647,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "held" },
               "to": { "value": "releasing" },
-              "eventType": { "value": "release" },
+              "eventName": "release",
               "guard": {
                 "and": [
                   {
@@ -691,7 +691,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "releasing" },
               "to": { "value": "released" },
-              "eventType": { "value": "finalize_release" },
+              "eventName": "finalize_release",
               "guard": true,
               "effect": [
                 ["status", "released"],
@@ -702,7 +702,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "held" },
               "to": { "value": "refunding" },
-              "eventType": { "value": "refund" },
+              "eventName": "refund",
               "guard": {
                 "or": [
                   {
@@ -728,7 +728,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "refunding" },
               "to": { "value": "refunded" },
-              "eventType": { "value": "finalize_refund" },
+              "eventName": "finalize_refund",
               "guard": true,
               "effect": [
                 ["status", "refunded"],
@@ -756,7 +756,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "pending" },
               "to": { "value": "picked_up" },
-              "eventType": { "value": "pickup" },
+              "eventName": "pickup",
               "guard": true,
               "effect": [
                 ["status", "picked_up"],
@@ -769,7 +769,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "picked_up" },
               "to": { "value": "in_transit" },
-              "eventType": { "value": "checkpoint" },
+              "eventName": "checkpoint",
               "guard": true,
               "effect": [
                 ["status", "in_transit"],
@@ -780,7 +780,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "in_transit" },
               "to": { "value": "customs" },
-              "eventType": { "value": "enter_customs" },
+              "eventName": "enter_customs",
               "guard": true,
               "effect": [
                 ["status", "customs"],
@@ -791,7 +791,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "customs" },
               "to": { "value": "out_for_delivery" },
-              "eventType": { "value": "clear_customs" },
+              "eventName": "clear_customs",
               "guard": {
                 "===": [
                   { "var": "machines.${insuranceCid}.state.status" },
@@ -807,7 +807,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "out_for_delivery" },
               "to": { "value": "delivered" },
-              "eventType": { "value": "deliver" },
+              "eventName": "deliver",
               "guard": true,
               "effect": [
                 ["status", "delivered"],
@@ -818,7 +818,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "in_transit" },
               "to": { "value": "lost" },
-              "eventType": { "value": "report_lost" },
+              "eventName": "report_lost",
               "guard": {
                 ">": [
                   { "-": [{ "var": "event.timestamp" }, { "var": "state.lastGPS" }] },
@@ -834,7 +834,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "in_transit" },
               "to": { "value": "damaged" },
-              "eventType": { "value": "report_damage" },
+              "eventName": "report_damage",
               "guard": {
                 "===": [
                   { "var": "event.tampered" },
@@ -865,7 +865,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "inactive" },
               "to": { "value": "scheduled" },
-              "eventType": { "value": "schedule" },
+              "eventName": "schedule",
               "guard": true,
               "effect": [
                 ["status", "scheduled"],
@@ -876,7 +876,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "scheduled" },
               "to": { "value": "in_progress" },
-              "eventType": { "value": "begin_inspection" },
+              "eventName": "begin_inspection",
               "guard": true,
               "effect": [
                 ["status", "in_progress"],
@@ -887,7 +887,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "in_progress" },
               "to": { "value": "passed" },
-              "eventType": { "value": "complete_inspection" },
+              "eventName": "complete_inspection",
               "guard": {
                 "and": [
                   {
@@ -915,7 +915,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "in_progress" },
               "to": { "value": "failed" },
-              "eventType": { "value": "complete_inspection" },
+              "eventName": "complete_inspection",
               "guard": {
                 "or": [
                   {
@@ -959,7 +959,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "active" },
               "to": { "value": "claim_filed" },
-              "eventType": { "value": "file_claim" },
+              "eventName": "file_claim",
               "guard": {
                 "or": [
                   {
@@ -992,7 +992,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "claim_filed" },
               "to": { "value": "investigating" },
-              "eventType": { "value": "investigate" },
+              "eventName": "investigate",
               "guard": true,
               "effect": [
                 ["status", "investigating"],
@@ -1003,7 +1003,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "investigating" },
               "to": { "value": "approved" },
-              "eventType": { "value": "decide" },
+              "eventName": "decide",
               "guard": {
                 "or": [
                   {
@@ -1049,7 +1049,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "investigating" },
               "to": { "value": "denied" },
-              "eventType": { "value": "decide" },
+              "eventName": "decide",
               "guard": {
                 "!": [
                   {
@@ -1099,7 +1099,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "approved" },
               "to": { "value": "settled" },
-              "eventType": { "value": "settle" },
+              "eventName": "settle",
               "guard": true,
               "effect": [
                 ["status", "settled"],
@@ -1269,7 +1269,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         lockFundsUpdate = Updates.TransitionStateMachine(
           escrowCid,
-          EventType("lock_funds"),
+          "lock_funds",
           MapValue(
             Map(
               "amount"    -> IntValue(5000),
@@ -1282,7 +1282,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         confirmFundingUpdate = Updates.TransitionStateMachine(
           orderCid,
-          EventType("confirm_funding"),
+          "confirm_funding",
           MapValue(Map("timestamp" -> IntValue(1100)))
         )
         confirmFundingProof <- registry.generateProofs(confirmFundingUpdate, Set(Alice))
@@ -1290,7 +1290,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         shipUpdate = Updates.TransitionStateMachine(
           orderCid,
-          EventType("ship"),
+          "ship",
           MapValue(Map("timestamp" -> IntValue(1200)))
         )
         shipProof <- registry.generateProofs(shipUpdate, Set(Alice))
@@ -1298,7 +1298,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         pickupUpdate = Updates.TransitionStateMachine(
           shippingCid,
-          EventType("pickup"),
+          "pickup",
           MapValue(Map("timestamp" -> IntValue(1300)))
         )
         pickupProof <- registry.generateProofs(pickupUpdate, Set(Alice))
@@ -1306,7 +1306,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         holdUpdate = Updates.TransitionStateMachine(
           escrowCid,
-          EventType("hold"),
+          "hold",
           MapValue(Map("timestamp" -> IntValue(1400)))
         )
         holdProof <- registry.generateProofs(holdUpdate, Set(Alice))
@@ -1314,7 +1314,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         acceptShipmentUpdate = Updates.TransitionStateMachine(
           orderCid,
-          EventType("accept_shipment"),
+          "accept_shipment",
           MapValue(Map("timestamp" -> IntValue(1500)))
         )
         acceptShipmentProof <- registry.generateProofs(acceptShipmentUpdate, Set(Alice))
@@ -1322,7 +1322,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         checkpointUpdate = Updates.TransitionStateMachine(
           shippingCid,
-          EventType("checkpoint"),
+          "checkpoint",
           MapValue(Map("timestamp" -> IntValue(1600)))
         )
         checkpointProof <- registry.generateProofs(checkpointUpdate, Set(Alice))
@@ -1330,7 +1330,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         enterCustomsUpdate = Updates.TransitionStateMachine(
           shippingCid,
-          EventType("enter_customs"),
+          "enter_customs",
           MapValue(Map("timestamp" -> IntValue(2000)))
         )
         enterCustomsProof <- registry.generateProofs(enterCustomsUpdate, Set(Alice))
@@ -1338,7 +1338,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         clearCustomsUpdate = Updates.TransitionStateMachine(
           shippingCid,
-          EventType("clear_customs"),
+          "clear_customs",
           MapValue(Map("timestamp" -> IntValue(3000)))
         )
         clearCustomsProof <- registry.generateProofs(clearCustomsUpdate, Set(Alice))
@@ -1346,7 +1346,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         deliverUpdate = Updates.TransitionStateMachine(
           shippingCid,
-          EventType("deliver"),
+          "deliver",
           MapValue(Map("timestamp" -> IntValue(4000)))
         )
         deliverProof <- registry.generateProofs(deliverUpdate, Set(Alice))
@@ -1354,7 +1354,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         confirmDeliveryUpdate = Updates.TransitionStateMachine(
           orderCid,
-          EventType("confirm_delivery"),
+          "confirm_delivery",
           MapValue(Map("timestamp" -> IntValue(4100)))
         )
         confirmDeliveryProof <- registry.generateProofs(confirmDeliveryUpdate, Set(Alice))
@@ -1362,7 +1362,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         scheduleUpdate = Updates.TransitionStateMachine(
           inspectionCid,
-          EventType("schedule"),
+          "schedule",
           MapValue(Map("timestamp" -> IntValue(4200)))
         )
         scheduleProof <- registry.generateProofs(scheduleUpdate, Set(Charlie))
@@ -1370,7 +1370,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         startInspectionUpdate = Updates.TransitionStateMachine(
           orderCid,
-          EventType("start_inspection"),
+          "start_inspection",
           MapValue(Map("timestamp" -> IntValue(4300)))
         )
         startInspectionProof <- registry.generateProofs(startInspectionUpdate, Set(Alice))
@@ -1378,7 +1378,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         beginInspectionUpdate = Updates.TransitionStateMachine(
           inspectionCid,
-          EventType("begin_inspection"),
+          "begin_inspection",
           MapValue(Map("timestamp" -> IntValue(4400)))
         )
         beginInspectionProof <- registry.generateProofs(beginInspectionUpdate, Set(Charlie))
@@ -1386,7 +1386,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         completeInspectionUpdate = Updates.TransitionStateMachine(
           inspectionCid,
-          EventType("complete_inspection"),
+          "complete_inspection",
           MapValue(
             Map(
               "timestamp"    -> IntValue(5000),
@@ -1400,7 +1400,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         releaseUpdate = Updates.TransitionStateMachine(
           escrowCid,
-          EventType("release"),
+          "release",
           MapValue(Map("timestamp" -> IntValue(90000)))
         )
         releaseProof <- registry.generateProofs(releaseUpdate, Set(Alice))
@@ -1408,7 +1408,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         finalizeReleaseUpdate = Updates.TransitionStateMachine(
           escrowCid,
-          EventType("finalize_release"),
+          "finalize_release",
           MapValue(Map("timestamp" -> IntValue(90100)))
         )
         finalizeReleaseProof <- registry.generateProofs(finalizeReleaseUpdate, Set(Alice))
@@ -1416,7 +1416,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         completeOrderUpdate = Updates.TransitionStateMachine(
           orderCid,
-          EventType("complete_order"),
+          "complete_order",
           MapValue(Map("timestamp" -> IntValue(90200)))
         )
         completeOrderProof <- registry.generateProofs(completeOrderUpdate, Set(Alice))
@@ -1488,7 +1488,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry                            <- ParticipantRegistry.create[IO](Set(Alice, Bob, Charlie))
-        combiner                            <- Combiner.make[IO].pure[IO]
+        combiner                            <- Combiner.make[IO]().pure[IO]
         ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
         // Get proposal CID early so we can reference it in action stream
@@ -1524,7 +1524,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "proposed" },
               "to": { "value": "open" },
-              "eventType": { "value": "collect" },
+              "eventName": "collect",
               "guard": { "var": "state.hasQuorum" },
               "effect": [
                 ["status", "open"],
@@ -1535,7 +1535,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "open" },
               "to": { "value": "closing" },
-              "eventType": { "value": "close" },
+              "eventName": "close",
               "guard": {
                 ">=": [
                   { "var": "event.timestamp" },
@@ -1551,7 +1551,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "closing" },
               "to": { "value": "finalized" },
-              "eventType": { "value": "collect" },
+              "eventName": "collect",
               "guard": {
                 ">=": [
                   { "var": "state.yesVotes" },
@@ -1568,7 +1568,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "proposed" },
               "to": { "value": "aborted" },
-              "eventType": { "value": "abort" },
+              "eventName": "abort",
               "guard": true,
               "effect": [
                 ["status", "aborted"],
@@ -1601,7 +1601,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "pending" },
               "to": { "value": "submitted" },
-              "eventType": { "value": "submit" },
+              "eventName": "submit",
               "guard": {
                 "===": [
                   { "var": "machines.${proposalCid}.state.status" },
@@ -1619,7 +1619,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "pending" },
               "to": { "value": "rejected" },
-              "eventType": { "value": "submit" },
+              "eventName": "submit",
               "guard": {
                 "!==": [
                   { "var": "machines.${proposalCid}.state.status" },
@@ -1653,7 +1653,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "voted" },
-              "eventType": { "value": "vote" },
+              "eventName": "vote",
               "guard": true,
               "effect": [
                 ["hasVoted", true],
@@ -1843,7 +1843,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         // Step 0: Try to submit action BEFORE proposal is open (should transition to rejected)
         earlySubmitUpdate = Updates.TransitionStateMachine(
           earlyActionCid,
-          EventType("submit"),
+          "submit",
           MapValue(
             Map(
               "timestamp"  -> IntValue(900),
@@ -1883,7 +1883,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         // Step 1: Open the proposal (proposed -> open)
         collectUpdate1 = Updates.TransitionStateMachine(
           proposalCid,
-          EventType("collect"),
+          "collect",
           MapValue(Map("timestamp" -> IntValue(1000)))
         )
         collectProof1 <- registry.generateProofs(collectUpdate1, Set(Alice))
@@ -1896,7 +1896,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         // Step 1.5: Submit action AFTER proposal is open (should succeed)
         validSubmitUpdate = Updates.TransitionStateMachine(
           validActionCid,
-          EventType("submit"),
+          "submit",
           MapValue(
             Map(
               "timestamp"  -> IntValue(1050),
@@ -1915,7 +1915,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         // Step 2: Alice votes YES
         aliceVoteUpdate = Updates.TransitionStateMachine(
           aliceCid,
-          EventType("vote"),
+          "vote",
           MapValue(
             Map(
               "vote"       -> StrValue("yes"),
@@ -1934,7 +1934,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         // Step 3: Bob votes YES
         bobVoteUpdate = Updates.TransitionStateMachine(
           bobCid,
-          EventType("vote"),
+          "vote",
           MapValue(
             Map(
               "vote"       -> StrValue("yes"),
@@ -1980,7 +1980,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         // Step 5: Close voting (open -> closing)
         closeUpdate = Updates.TransitionStateMachine(
           proposalCid,
-          EventType("close"),
+          "close",
           MapValue(Map("timestamp" -> IntValue(2100)))
         )
         closeProof <- registry.generateProofs(closeUpdate, Set(Alice))
@@ -1993,7 +1993,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         // Step 6: Finalize (closing -> finalized)
         finalCollectUpdate = Updates.TransitionStateMachine(
           proposalCid,
-          EventType("collect"),
+          "collect",
           MapValue(Map("timestamp" -> IntValue(2200)))
         )
         finalCollectProof <- registry.generateProofs(finalCollectUpdate, Set(Alice))

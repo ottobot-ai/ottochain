@@ -11,14 +11,14 @@ import derevo.derive
 sealed trait FailureReason {
 
   def toMessage: String = this match {
-    case FailureReason.NoTransitionFound(fromState, eventType) =>
-      s"No transition found from ${fromState.value} for event ${eventType.value}"
-    case FailureReason.NoGuardMatched(fromState, eventType, attemptedGuards) =>
-      s"No guard matched from ${fromState.value} on ${eventType.value} ($attemptedGuards guards tried)"
+    case FailureReason.NoTransitionFound(fromState, eventName) =>
+      s"No transition found from ${fromState.value} for event ${eventName}"
+    case FailureReason.NoGuardMatched(fromState, eventName, attemptedGuards) =>
+      s"No guard matched from ${fromState.value} on ${eventName} ($attemptedGuards guards tried)"
     case FailureReason.EvaluationError(phase, msg) =>
       s"${phase.entryName} evaluation error: $msg"
-    case FailureReason.CycleDetected(fiberId, eventType) =>
-      s"Cycle detected: fiber $fiberId, event ${eventType.value}"
+    case FailureReason.CycleDetected(fiberId, eventName) =>
+      s"Cycle detected: fiber $fiberId, event ${eventName}"
     case FailureReason.ValidationFailed(msg, ordinal) =>
       s"Validation failed at ordinal ${ordinal.value.value}: $msg"
     case FailureReason.AccessDenied(caller, resourceId, policyType, details) =>
@@ -27,8 +27,8 @@ sealed trait FailureReason {
       s"Trigger target fiber $targetId not found${sourceId.fold("")(s => s" (source: $s)")}"
     case FailureReason.GasExhaustedFailure(gasUsed, gasLimit, phase) =>
       s"Gas exhausted during ${phase.entryName}: $gasUsed of $gasLimit units consumed"
-    case FailureReason.FiberInputMismatch(fiberId, fiberType, inputType) =>
-      s"Cannot use $inputType input with $fiberType fiber $fiberId"
+    case FailureReason.FiberInputMismatch(fiberId, fiberKind, inputKind) =>
+      s"Cannot use ${inputKind.entryName} input with ${fiberKind.entryName} fiber $fiberId"
     case FailureReason.FiberNotFound(fiberId) =>
       s"Fiber $fiberId not found"
     case FailureReason.FiberNotActive(fiberId, status) =>
@@ -61,17 +61,17 @@ sealed trait FailureReason {
 }
 
 object FailureReason {
-  case class NoTransitionFound(fromState: StateId, eventType: EventType) extends FailureReason
-  case class NoGuardMatched(fromState: StateId, eventType: EventType, attemptedGuards: Int) extends FailureReason
+  case class NoTransitionFound(fromState: StateId, eventName: String) extends FailureReason
+  case class NoGuardMatched(fromState: StateId, eventName: String, attemptedGuards: Int) extends FailureReason
   case class EvaluationError(phase: GasExhaustionPhase, message: String) extends FailureReason
-  case class CycleDetected(fiberId: UUID, eventType: EventType) extends FailureReason
+  case class CycleDetected(fiberId: UUID, eventName: String) extends FailureReason
   case class ValidationFailed(message: String, attemptedAt: SnapshotOrdinal) extends FailureReason
   case class TriggerTargetNotFound(targetFiberId: UUID, sourceFiberId: Option[UUID]) extends FailureReason
 
   case class AccessDenied(caller: String, resourceId: UUID, policyType: String, details: Option[String])
       extends FailureReason
   case class GasExhaustedFailure(gasUsed: Long, gasLimit: Long, phase: GasExhaustionPhase) extends FailureReason
-  case class FiberInputMismatch(fiberId: UUID, fiberType: String, inputType: String) extends FailureReason
+  case class FiberInputMismatch(fiberId: UUID, fiberKind: FiberKind, inputKind: InputKind) extends FailureReason
   case class FiberNotFound(fiberId: UUID) extends FailureReason
   case class FiberNotActive(fiberId: UUID, currentStatus: String) extends FailureReason
   case class DepthExceeded(depth: Int, maxDepth: Int) extends FailureReason

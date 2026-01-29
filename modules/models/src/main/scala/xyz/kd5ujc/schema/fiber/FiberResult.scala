@@ -22,16 +22,15 @@ object FiberResult {
    * @param newStateId New state ID (Some for state machines, None for oracles)
    * @param triggers Triggered events for other fibers
    * @param spawns Child fibers to create (state machines only)
-   * @param outputs Structured outputs for external systems
    * @param returnValue Return value (Some for oracles, None for state machines)
    */
   final case class Success(
-    newStateData: JsonLogicValue,
-    newStateId:   Option[StateId],
-    triggers:     List[FiberTrigger],
-    spawns:       List[SpawnDirective],
-    outputs:      List[StructuredOutput],
-    returnValue:  Option[JsonLogicValue]
+    newStateData:  JsonLogicValue,
+    newStateId:    Option[StateId],
+    triggers:      List[FiberTrigger],
+    spawns:        List[SpawnDirective],
+    returnValue:   Option[JsonLogicValue],
+    emittedEvents: List[EmittedEvent] = List.empty
   ) extends FiberResult
 
   /**

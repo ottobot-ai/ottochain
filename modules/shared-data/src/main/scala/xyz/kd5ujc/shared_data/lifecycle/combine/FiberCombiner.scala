@@ -27,8 +27,9 @@ import xyz.kd5ujc.shared_data.syntax.all._
  * @param ctx     The L0NodeContext for accessing snapshot ordinals
  */
 class FiberCombiner[F[_]: Async: SecurityProvider](
-  current: DataState[OnChain, CalculatedState],
-  ctx:     L0NodeContext[F]
+  current:         DataState[OnChain, CalculatedState],
+  ctx:             L0NodeContext[F],
+  executionLimits: ExecutionLimits
 ) {
 
   /**
@@ -76,13 +77,13 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
   ): CombineResult[F] = for {
     currentOrdinal <- ctx.getCurrentOrdinal
 
-    input = FiberInput.Transition(update.eventType, update.payload, update.idempotencyKey)
+    input = FiberInput.Transition(update.eventName, update.payload)
     proofsList = update.proofs.toList
 
     orchestrator = FiberEngine.make[F](
       current.calculated,
       currentOrdinal,
-      ExecutionLimits()
+      executionLimits
     )
 
     outcome <- orchestrator.process(update.fiberId, input, proofsList)
@@ -92,7 +93,7 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
         handleCommittedOutcome(updatedFibers, updatedOracles, logEntries)
 
       case TransactionResult.Aborted(reason, gasUsed, _) =>
-        handleAbortedOutcome(update.fiberId, update.eventType, reason, gasUsed, currentOrdinal)
+        handleAbortedOutcome(update.fiberId, update.eventName, reason, gasUsed, currentOrdinal)
     }
   } yield newState
 
@@ -147,24 +148,19 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
    */
   private def handleAbortedOutcome(
     fiberId:        UUID,
-    eventType:      EventType,
+    eventName:      String,
     reason:         FailureReason,
     gasUsed:        Long,
     currentOrdinal: SnapshotOrdinal
   ): F[DataState[OnChain, CalculatedState]] =
     current.calculated.stateMachines.get(fiberId) match {
       case Some(fiberRecord) =>
-        val failureReceipt = EventReceipt(
-          fiberId = fiberId,
-          sequenceNumber = fiberRecord.sequenceNumber,
-          eventType = eventType,
+        val failureReceipt = EventReceipt.failure(
+          sm = fiberRecord,
+          eventName = eventName,
           ordinal = currentOrdinal,
-          fromState = fiberRecord.currentState,
-          toState = fiberRecord.currentState,
-          success = false,
           gasUsed = gasUsed,
-          triggersFired = 0,
-          errorMessage = Some(reason.toMessage)
+          reason = reason
         )
 
         val failedFiber = fiberRecord.copy(
@@ -186,8 +182,9 @@ object FiberCombiner {
    * Creates a new FiberCombiner instance.
    */
   def apply[F[_]: Async: SecurityProvider](
-    current: DataState[OnChain, CalculatedState],
-    ctx:     L0NodeContext[F]
+    current:         DataState[OnChain, CalculatedState],
+    ctx:             L0NodeContext[F],
+    executionLimits: ExecutionLimits
   ): FiberCombiner[F] =
-    new FiberCombiner[F](current, ctx)
+    new FiberCombiner[F](current, ctx, executionLimits)
 }

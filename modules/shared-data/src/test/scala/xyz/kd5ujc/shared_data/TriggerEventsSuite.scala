@@ -25,7 +25,7 @@ object TriggerEventsSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         initiatorCid <- UUIDGen.randomUUID[IO]
         targetCid    <- UUIDGen.randomUUID[IO]
@@ -42,13 +42,13 @@ object TriggerEventsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "triggered" },
-              "eventType": { "value": "start" },
+              "eventName": "start",
               "guard": true,
               "effect": {
                 "_triggers": [
                   {
                     "targetMachineId": "$targetCid",
-                    "eventType": "activate",
+                    "eventName": "activate",
                     "payload": {
                       "initiator": ["var", "machineId"],
                       "timestamp": 12345
@@ -75,7 +75,7 @@ object TriggerEventsSuite extends SimpleIOSuite {
             {
               "from": { "value": "inactive" },
               "to": { "value": "active" },
-              "eventType": { "value": "activate" },
+              "eventName": "activate",
               "guard": true,
               "effect": [
                 ["status", "active"],
@@ -106,7 +106,7 @@ object TriggerEventsSuite extends SimpleIOSuite {
         stateAfterTarget <- combiner.insert(stateAfterInitiator, Signed(createTarget, targetProof))
 
         // Send start event to initiator - should trigger target
-        startEvent = Updates.TransitionStateMachine(initiatorCid, EventType("start"), MapValue(Map.empty))
+        startEvent = Updates.TransitionStateMachine(initiatorCid, "start", MapValue(Map.empty))
         startProof <- fixture.registry.generateProofs(startEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterTarget, Signed(startEvent, startProof))
 
@@ -154,7 +154,7 @@ object TriggerEventsSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         machineCid  <- UUIDGen.randomUUID[IO]
         machine2Cid <- UUIDGen.randomUUID[IO]
@@ -172,13 +172,13 @@ object TriggerEventsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "done" },
-              "eventType": { "value": "start" },
+              "eventName": "start",
               "guard": true,
               "effect": {
                 "_triggers": [
                   {
                     "targetMachineId": "$machine2Cid",
-                    "eventType": "continue",
+                    "eventName": "continue",
                     "payload": {
                       "step": 1
                     }
@@ -204,13 +204,13 @@ object TriggerEventsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "done" },
-              "eventType": { "value": "continue" },
+              "eventName": "continue",
               "guard": true,
               "effect": {
                 "_triggers": [
                   {
                     "targetMachineId": "$machine3Cid",
-                    "eventType": "finish",
+                    "eventName": "finish",
                     "payload": {
                       "step": 2
                     }
@@ -236,7 +236,7 @@ object TriggerEventsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "done" },
-              "eventType": { "value": "finish" },
+              "eventName": "finish",
               "guard": true,
               "effect": {
                 "step": 3
@@ -269,7 +269,7 @@ object TriggerEventsSuite extends SimpleIOSuite {
         stateAfterC <- combiner.insert(stateAfterB, Signed(createC, cProof))
 
         // Send start to A - should cascade to B then C
-        startEvent = Updates.TransitionStateMachine(machineCid, EventType("start"), MapValue(Map.empty))
+        startEvent = Updates.TransitionStateMachine(machineCid, "start", MapValue(Map.empty))
         startProof <- fixture.registry.generateProofs(startEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterC, Signed(startEvent, startProof))
 
@@ -323,7 +323,7 @@ object TriggerEventsSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         sourceCid <- UUIDGen.randomUUID[IO]
         targetCid <- UUIDGen.randomUUID[IO]
@@ -340,13 +340,13 @@ object TriggerEventsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "sent" },
-              "eventType": { "value": "send" },
+              "eventName": "send",
               "guard": true,
               "effect": {
                 "_triggers": [
                   {
                     "targetMachineId": "$targetCid",
-                    "eventType": "receive",
+                    "eventName": "receive",
                     "payload": {
                       "amount": ["+", ["var", "state.balance"], ["var", "event.amount"]],
                       "sender": ["var", "machineId"],
@@ -374,7 +374,7 @@ object TriggerEventsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "received" },
-              "eventType": { "value": "receive" },
+              "eventName": "receive",
               "guard": true,
               "effect": [
                 ["amount", { "var": "event.amount" }],
@@ -407,7 +407,7 @@ object TriggerEventsSuite extends SimpleIOSuite {
         // Send event with payload - should compute and pass to target
         sendEvent = Updates.TransitionStateMachine(
           sourceCid,
-          EventType("send"),
+          "send",
           MapValue(
             Map(
               "amount"  -> IntValue(250),
@@ -470,7 +470,7 @@ object TriggerEventsSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         sourceCid      <- UUIDGen.randomUUID[IO]
         nonExistentCid <- UUIDGen.randomUUID[IO]
@@ -487,13 +487,13 @@ object TriggerEventsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "attempted" },
-              "eventType": { "value": "try_trigger" },
+              "eventName": "try_trigger",
               "guard": true,
               "effect": {
                 "_triggers": [
                   {
                     "targetMachineId": "$nonExistentCid",
-                    "eventType": "activate",
+                    "eventName": "activate",
                     "payload": {}
                   }
                 ],
@@ -516,7 +516,7 @@ object TriggerEventsSuite extends SimpleIOSuite {
         )
 
         // Send event - should fail because trigger target doesn't exist
-        triggerEvent = Updates.TransitionStateMachine(sourceCid, EventType("try_trigger"), MapValue(Map.empty))
+        triggerEvent = Updates.TransitionStateMachine(sourceCid, "try_trigger", MapValue(Map.empty))
         triggerProof <- fixture.registry.generateProofs(triggerEvent, Set(Alice))
         finalState   <- combiner.insert(stateAfterSource, Signed(triggerEvent, triggerProof))
 
@@ -542,7 +542,7 @@ object TriggerEventsSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         machineACid <- UUIDGen.randomUUID[IO]
         machineBCid <- UUIDGen.randomUUID[IO]
@@ -559,13 +559,13 @@ object TriggerEventsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "pinged" },
-              "eventType": { "value": "ping" },
+              "eventName": "ping",
               "guard": true,
               "effect": {
                 "_triggers": [
                   {
                     "targetMachineId": "$machineBCid",
-                    "eventType": "pong",
+                    "eventName": "pong",
                     "payload": {}
                   }
                 ],
@@ -576,13 +576,13 @@ object TriggerEventsSuite extends SimpleIOSuite {
             {
               "from": { "value": "pinged" },
               "to": { "value": "idle" },
-              "eventType": { "value": "ping" },
+              "eventName": "ping",
               "guard": true,
               "effect": {
                 "_triggers": [
                   {
                     "targetMachineId": "$machineBCid",
-                    "eventType": "pong",
+                    "eventName": "pong",
                     "payload": {}
                   }
                 ],
@@ -606,13 +606,13 @@ object TriggerEventsSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "ponged" },
-              "eventType": { "value": "pong" },
+              "eventName": "pong",
               "guard": true,
               "effect": {
                 "_triggers": [
                   {
                     "targetMachineId": "$machineACid",
-                    "eventType": "ping",
+                    "eventName": "ping",
                     "payload": {}
                   }
                 ],
@@ -623,13 +623,13 @@ object TriggerEventsSuite extends SimpleIOSuite {
             {
               "from": { "value": "ponged" },
               "to": { "value": "idle" },
-              "eventType": { "value": "pong" },
+              "eventName": "pong",
               "guard": true,
               "effect": {
                 "_triggers": [
                   {
                     "targetMachineId": "$machineACid",
-                    "eventType": "ping",
+                    "eventName": "ping",
                     "payload": {}
                   }
                 ],
@@ -658,7 +658,7 @@ object TriggerEventsSuite extends SimpleIOSuite {
         stateAfterB <- combiner.insert(stateAfterA, Signed(createB, bProof))
 
         // Send ping to A - should trigger B which tries to trigger A again (cycle)
-        pingEvent = Updates.TransitionStateMachine(machineACid, EventType("ping"), MapValue(Map.empty))
+        pingEvent = Updates.TransitionStateMachine(machineACid, "ping", MapValue(Map.empty))
         pingProof  <- fixture.registry.generateProofs(pingEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterB, Signed(pingEvent, pingProof))
 

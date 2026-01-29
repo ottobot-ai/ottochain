@@ -40,7 +40,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         Transition(
           from = waitingState,
           to = countingState,
-          eventType = EventType("start"),
+          eventName = "start",
           guard = ConstExpression(BoolValue(true)),
           effect = ConstExpression(
             MapValue(
@@ -54,7 +54,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         Transition(
           from = countingState,
           to = countingState,
-          eventType = EventType("increment"),
+          eventName = "increment",
           guard = ApplyExpression(
             Lt,
             List(
@@ -88,7 +88,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         Transition(
           from = countingState,
           to = doneState,
-          eventType = EventType("finish"),
+          eventName = "finish",
           guard = ConstExpression(BoolValue(true)),
           effect = ConstExpression(
             ArrayValue(
@@ -118,7 +118,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         cid <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
@@ -146,7 +146,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         cid <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
@@ -161,7 +161,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
         processUpdate = Updates.TransitionStateMachine(
           cid,
-          EventType("start"),
+          "start",
           MapValue(Map.empty[String, JsonLogicValue])
         )
         processProof    <- fixture.registry.generateProofs(processUpdate, Set(Alice))
@@ -189,7 +189,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         cid <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
@@ -220,7 +220,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
         processUpdate = Updates.TransitionStateMachine(
           cid,
-          EventType("increment"),
+          "increment",
           MapValue(Map.empty[String, JsonLogicValue])
         )
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
@@ -255,7 +255,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         cid <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
@@ -286,7 +286,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
         processUpdate = Updates.TransitionStateMachine(
           cid,
-          EventType("finish"),
+          "finish",
           MapValue(Map.empty[String, JsonLogicValue])
         )
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
@@ -321,7 +321,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         cid <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
@@ -352,7 +352,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
         processUpdate = Updates.TransitionStateMachine(
           cid,
-          EventType("increment"),
+          "increment",
           MapValue(Map.empty[String, JsonLogicValue])
         )
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
@@ -375,7 +375,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         cid <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
@@ -416,7 +416,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         cid <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
@@ -447,7 +447,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         // Attempt to process an event on the archived fiber
         processUpdate = Updates.TransitionStateMachine(
           cid,
-          EventType("start"),
+          "start",
           MapValue(Map.empty)
         )
         eventProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
@@ -479,7 +479,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         cid <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
@@ -510,7 +510,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
         processUpdate = Updates.TransitionStateMachine(
           cid,
-          EventType("increment"),
+          "increment",
           MapValue(Map.empty[String, JsonLogicValue])
         )
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
@@ -537,7 +537,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         cid <- UUIDGen.randomUUID[IO]
 
@@ -551,7 +551,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("open"),
               to = StateId("locked"),
-              eventType = EventType("lock"),
+              eventName = "lock",
               guard = ApplyExpression(
                 EqStrictOp,
                 List(
@@ -591,7 +591,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
         processUpdate = Updates.TransitionStateMachine(
           cid,
-          EventType("lock"),
+          "lock",
           MapValue(Map("authorized" -> BoolValue(true)))
         )
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
@@ -611,7 +611,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         cid <- UUIDGen.randomUUID[IO]
 
@@ -625,7 +625,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("open"),
               to = StateId("locked"),
-              eventType = EventType("lock"),
+              eventName = "lock",
               guard = ApplyExpression(
                 EqStrictOp,
                 List(
@@ -659,7 +659,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
         processUpdate = Updates.TransitionStateMachine(
           cid,
-          EventType("lock"),
+          "lock",
           MapValue(Map("authorized" -> BoolValue(false)))
         )
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
@@ -682,7 +682,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         implicit val s: SecurityProvider[IO] = fixture.securityProvider
         implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
         for {
-          combiner <- Combiner.make[IO].pure[IO]
+          combiner <- Combiner.make[IO]().pure[IO]
 
           cid <- UUIDGen.randomUUID[IO]
           definition = createCounterStateMachine()
@@ -714,7 +714,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           finalState <- (1 to increments).toList.foldLeftM(inState) { (state, _) =>
             val processUpdate = Updates.TransitionStateMachine(
               cid,
-              EventType("increment"),
+              "increment",
               MapValue(Map.empty[String, JsonLogicValue])
             )
             for {

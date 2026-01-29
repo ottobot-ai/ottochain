@@ -10,9 +10,9 @@ package xyz.kd5ujc.schema.fiber
 object ReservedKeys {
   // Effect Result Keys - Used in extracting side effects from transition results
   val TRIGGERS = "_triggers"
-  val OUTPUTS = "_outputs"
   val SPAWN = "_spawn"
   val ORACLE_CALL = "_oracleCall"
+  val EMIT = "_emit"
 
   // Oracle Return Convention Keys - Used in extractStateAndResult for oracle results
   val ORACLE_STATE = "_state"
@@ -20,18 +20,13 @@ object ReservedKeys {
 
   // Trigger Event Keys - Used in extractTriggerEvents for cross-machine event firing
   val TARGET_MACHINE_ID = "targetMachineId"
-  val EVENT_TYPE = "eventType"
+  val EVENT_NAME = "eventName"
   val PAYLOAD = "payload"
 
   // Oracle Call Keys - Used in extractOracleCall for oracle invocation
   val CID = "cid"
   val METHOD = "method"
   val ARGS = "args"
-
-  // Output Keys - Used in extractOutputs for external system outputs
-  val OUTPUT_TYPE = "outputType"
-  val DATA = "data"
-  val DESTINATION = "destination"
 
   // Spawn Directive Keys - Used in extractSpawnDirectivesFromExpression for child machine creation
   val CHILD_ID = "childId"
@@ -71,6 +66,11 @@ object ReservedKeys {
   val PARENT = "parent"
   val CHILDREN = "children"
   val SCRIPT_ORACLES = "scriptOracles"
+
+  // Emitted Event Keys - Used in parseEmittedEvent for user-defined event emission
+  val NAME = "name"
+  val DATA = "data"
+  val DESTINATION = "destination"
 
   // Oracle Invocation Log Keys
   val RESULT = "result"

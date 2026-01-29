@@ -29,7 +29,7 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
       val registry = fixture.registry
       val ordinal = fixture.ordinal
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         sellerCid <- UUIDGen.randomUUID[IO]
         sellerDef = StateMachineDefinition(
@@ -74,7 +74,7 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
             Transition(
               from = StateId("pending"),
               to = StateId("purchased"),
-              eventType = EventType("buy"),
+              eventName = "buy",
               guard = ApplyExpression(
                 AndOp,
                 List(
@@ -127,7 +127,7 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
           .flatMap(_.withRecord[IO](buyerCid, buyerFiber))
 
         buyUpdate = Updates
-          .TransitionStateMachine(buyerCid, EventType("buy"), MapValue(Map.empty[String, JsonLogicValue]))
+          .TransitionStateMachine(buyerCid, "buy", MapValue(Map.empty[String, JsonLogicValue]))
         buyProof   <- registry.generateProofs(buyUpdate, Set(Bob))
         finalState <- combiner.insert(inState, Signed(buyUpdate, buyProof))
 

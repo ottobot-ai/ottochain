@@ -53,7 +53,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("check"),
+              eventName = "check",
               // Access non-existent state.missingField and compare to true
               guard = ApplyExpression(
                 EqOp,
@@ -65,7 +65,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("check"),
+              eventName = "check",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("path" -> StrValue("fallback"))))
             )
@@ -92,7 +92,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("check"),
+          "check",
           MapValue(Map.empty)
         )
 
@@ -153,7 +153,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("process"),
+              eventName = "process",
               guard = deepGuard,
               effect = ConstExpression(MapValue(Map("processed" -> BoolValue(true))))
             )
@@ -179,7 +179,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("process"),
+          "process",
           MapValue(Map.empty)
         )
 
@@ -236,7 +236,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("divide"),
+              eventName = "divide",
               guard = divByZeroGuard,
               effect = ConstExpression(MapValue(Map("divided" -> BoolValue(true))))
             ),
@@ -244,7 +244,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("divide"),
+              eventName = "divide",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("fallback" -> BoolValue(true))))
             )
@@ -270,7 +270,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("divide"),
+          "divide",
           MapValue(Map.empty)
         )
 
@@ -313,7 +313,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("process"),
+              eventName = "process",
               guard = ApplyExpression(
                 Gt,
                 List(VarExpression(Left("state.value")), ConstExpression(IntValue(100)))
@@ -324,7 +324,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("process"),
+              eventName = "process",
               guard = ApplyExpression(
                 Gt,
                 List(VarExpression(Left("state.value")), ConstExpression(IntValue(50)))
@@ -335,7 +335,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("process"),
+              eventName = "process",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("path" -> StrValue("low"))))
             )
@@ -362,7 +362,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("process"),
+          "process",
           MapValue(Map.empty)
         )
 
@@ -409,7 +409,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("go"),
+              eventName = "go",
               guard = nonBooleanGuard,
               effect = ConstExpression(MapValue(Map("done" -> BoolValue(true))))
             )
@@ -435,7 +435,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("go"),
+          "go",
           MapValue(Map.empty)
         )
 
@@ -477,7 +477,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("go"),
+              eventName = "go",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("done" -> BoolValue(true))))
             )
@@ -504,7 +504,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("go"),
+          "go",
           MapValue(Map.empty)
         )
 

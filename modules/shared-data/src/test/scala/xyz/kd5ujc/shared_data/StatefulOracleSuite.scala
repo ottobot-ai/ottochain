@@ -26,7 +26,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         cid  <- IO.randomUUID
         prog <- IO.fromEither(parser.parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
@@ -59,7 +59,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         cid  <- IO.randomUUID
         prog <- IO.fromEither(parser.parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
@@ -105,7 +105,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         cid  <- IO.randomUUID
         prog <- IO.fromEither(parser.parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
@@ -151,7 +151,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         cid  <- IO.randomUUID
         prog <- IO.fromEither(parser.parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
@@ -204,7 +204,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         cid  <- IO.randomUUID
         prog <- IO.fromEither(parser.parse(oracleScript).flatMap(_.as[JsonLogicExpression]))

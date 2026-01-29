@@ -12,7 +12,7 @@ import io.constellationnetwork.metagraph_sdk.json_logic.{BoolValue, ConstExpress
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.signature.SignatureProof
 
-import xyz.kd5ujc.schema.fiber.{EventType, FiberStatus, StateId, StateMachineDefinition}
+import xyz.kd5ujc.schema.fiber.{FiberStatus, StateId, StateMachineDefinition}
 import xyz.kd5ujc.schema.{CalculatedState, OnChain}
 import xyz.kd5ujc.shared_data.lifecycle.validate.{Limits, ValidationResult}
 import xyz.kd5ujc.shared_data.syntax.calculatedState._
@@ -73,7 +73,7 @@ object FiberRules {
         // No ambiguous transitions (multiple from same state+event with unconditional guards)
         Validated.condNec(
           !definition.transitions
-            .groupBy(t => (t.from, t.eventType))
+            .groupBy(t => (t.from, t.eventName))
             .exists { case (_, transitions) =>
               transitions.size > 1 && transitions.exists { t =>
                 t.guard match {
@@ -209,15 +209,15 @@ object FiberRules {
     /** Validates that a transition exists for the given state+event combination */
     def transitionExists[F[_]: Monad](
       cid:       UUID,
-      eventType: EventType,
+      eventName: String,
       state:     CalculatedState
     ): F[ValidationResult] = (for {
       record <- state.getFiberRecord(cid)
-      hasTransition = record.definition.transitionMap.contains((record.currentState, eventType))
+      hasTransition = record.definition.transitionMap.contains((record.currentState, eventName))
       result <- EitherT.cond[F](
         hasTransition,
         (),
-        Errors.NoTransitionForEvent(record.currentState, eventType): DataApplicationValidationError
+        Errors.NoTransitionForEvent(record.currentState, eventName): DataApplicationValidationError
       )
     } yield result).fold(
       _.invalidNec[Unit],
@@ -334,9 +334,9 @@ object FiberRules {
 
     final case class NoTransitionForEvent(
       state:     StateId,
-      eventType: EventType
+      eventName: String
     ) extends DataApplicationValidationError {
-      override val message: String = s"No transition from state ${state.value} for event ${eventType.value}"
+      override val message: String = s"No transition from state ${state.value} for event ${eventName}"
     }
   }
 }

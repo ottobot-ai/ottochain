@@ -20,7 +20,7 @@ import xyz.kd5ujc.shared_test.Participant._
  *   implicit val l0ctx = fixture.l0Context
  *   implicit val l1ctx = fixture.l1Context
  *   // Use fixture.registry, fixture.ordinal, etc.
- *   // Create Combiner with: Combiner.make[IO].pure[IO]
+ *   // Create Combiner with: Combiner.make[IO]().pure[IO]
  * }
  * }}}
  *
@@ -31,7 +31,7 @@ import xyz.kd5ujc.shared_test.Participant._
  *
  * Note: Combiner is not included in the fixture because it lives in shared-data
  * which depends on shared-test (would create circular dependency). Tests should
- * create Combiner inline: `combiner <- Combiner.make[IO].pure[IO]`
+ * create Combiner inline: `combiner <- Combiner.make[IO]().pure[IO]`
  */
 final case class TestFixture(
   securityProvider: SecurityProvider[IO],

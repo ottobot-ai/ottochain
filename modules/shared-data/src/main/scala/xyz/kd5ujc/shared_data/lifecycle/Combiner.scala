@@ -8,6 +8,7 @@ import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.Updates.OttochainMessage
+import xyz.kd5ujc.schema.fiber.ExecutionLimits
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.combine.{FiberCombiner, OracleCombiner}
 
@@ -38,15 +39,17 @@ object Combiner {
    *
    * @return A CombinerService that combines OttochainMessage updates into state
    */
-  def make[F[_]: Async: SecurityProvider]: CombinerService[F, OttochainMessage, OnChain, CalculatedState] =
+  def make[F[_]: Async: SecurityProvider](
+    executionLimits: ExecutionLimits = ExecutionLimits()
+  ): CombinerService[F, OttochainMessage, OnChain, CalculatedState] =
     new CombinerService[F, OttochainMessage, OnChain, CalculatedState] {
 
       override def insert(
         previous: DataState[OnChain, CalculatedState],
         update:   Signed[OttochainMessage]
       )(implicit ctx: L0NodeContext[F]): F[DataState[OnChain, CalculatedState]] = {
-        val fiberCombiner = FiberCombiner[F](previous, ctx)
-        val oracleCombiner = OracleCombiner[F](previous, ctx)
+        val fiberCombiner = FiberCombiner[F](previous, ctx, executionLimits)
+        val oracleCombiner = OracleCombiner[F](previous, ctx, executionLimits)
 
         update.value match {
           case u: Updates.CreateStateMachine     => fiberCombiner.createStateMachineFiber(Signed(u, update.proofs))

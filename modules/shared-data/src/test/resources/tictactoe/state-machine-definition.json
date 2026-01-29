@@ -26,7 +26,7 @@
     {
       "from": {"value": "setup"},
       "to": {"value": "playing"},
-      "eventType": {"value": "start_game"},
+      "eventName": "start_game",
       "guard": {
         "and": [
           {"!!": [{"var": "event.playerX"}]},
@@ -54,7 +54,7 @@
     {
       "from": {"value": "playing"},
       "to": {"value": "playing"},
-      "eventType": {"value": "make_move"},
+      "eventName": "make_move",
       "guard": {
         "===": [{"var": "scriptOracles.11111111-1111-1111-1111-111111111111.state.status"}, "InProgress"]
       },
@@ -77,7 +77,7 @@
     {
       "from": {"value": "playing"},
       "to": {"value": "finished"},
-      "eventType": {"value": "make_move"},
+      "eventName": "make_move",
       "guard": {
         "or": [
           {"===": [{"var": "scriptOracles.11111111-1111-1111-1111-111111111111.state.status"}, "Won"]},
@@ -96,9 +96,9 @@
         "finalStatus": {"var": "scriptOracles.11111111-1111-1111-1111-111111111111.state.status"},
         "winner": {"var": "scriptOracles.11111111-1111-1111-1111-111111111111.state.winner"},
         "finalBoard": {"var": "scriptOracles.11111111-1111-1111-1111-111111111111.state.board"},
-        "_outputs": [
+        "_emit": [
           {
-            "outputType": "game_completed",
+            "name": "game_completed",
             "data": {
               "gameId": {"var": "state.gameId"},
               "winner": {"var": "scriptOracles.11111111-1111-1111-1111-111111111111.state.winner"},
@@ -113,7 +113,7 @@
     {
       "from": {"value": "playing"},
       "to": {"value": "playing"},
-      "eventType": {"value": "reset_board"},
+      "eventName": "reset_board",
       "guard": {
         "or": [
           {"===": [{"var": "scriptOracles.11111111-1111-1111-1111-111111111111.state.status"}, "Won"]},
@@ -133,7 +133,7 @@
     {
       "from": {"value": "playing"},
       "to": {"value": "cancelled"},
-      "eventType": {"value": "cancel_game"},
+      "eventName": "cancel_game",
       "guard": {"==": [1, 1]},
       "effect": {
         "_oracleCall": {
@@ -152,7 +152,7 @@
     {
       "from": {"value": "setup"},
       "to": {"value": "cancelled"},
-      "eventType": {"value": "cancel_game"},
+      "eventName": "cancel_game",
       "guard": {"==": [1, 1]},
       "effect": {
         "cancelledBy": {"var": "event.requestedBy"},

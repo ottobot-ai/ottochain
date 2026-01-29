@@ -30,7 +30,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
       for {
         implicit0(l0ctx: L0NodeContext[IO]) <- MockL0NodeContext.make[IO]
         registry <- ParticipantRegistry.create[IO](Set(Alice, Bob, Charlie, Dave, Eve, Faythe, Grace, Heidi))
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
         ordinal  <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
         propertyCid           <- UUIDGen.randomUUID[IO]
@@ -61,7 +61,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "for_sale" },
               "to": { "value": "under_contract" },
-              "eventType": { "value": "accept_offer" },
+              "eventName": "accept_offer",
               "guard": {
                 "and": [
                   { ">=": [{ "var": "event.offerAmount" }, { "var": "state.minPrice" }] },
@@ -80,7 +80,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "under_contract" },
               "to": { "value": "for_sale" },
-              "eventType": { "value": "cancel_contract" },
+              "eventName": "cancel_contract",
               "guard": {
                 "or": [
                   { "===": [{ "var": "machines.${contractCid}.state.status" }, "buyer_default"] },
@@ -99,7 +99,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "under_contract" },
               "to": { "value": "pending_sale" },
-              "eventType": { "value": "pass_contingencies" },
+              "eventName": "pass_contingencies",
               "guard": {
                 "and": [
                   { "===": [{ "var": "machines.${inspectionCid}.state.result" }, "passed"] },
@@ -118,7 +118,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "pending_sale" },
               "to": { "value": "owned" },
-              "eventType": { "value": "close_sale" },
+              "eventName": "close_sale",
               "guard": {
                 "and": [
                   { "===": [{ "var": "machines.${titleCid}.state.status" }, "transferred"] },
@@ -129,7 +129,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
                 ["_triggers", [
                   {
                     "targetMachineId": "${mortgageCid}",
-                    "eventType": "activate",
+                    "eventName": "activate",
                     "payload": {
                       "propertyId": { "var": "machineId" },
                       "closingDate": { "var": "event.timestamp" }
@@ -148,7 +148,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "owned" },
               "to": { "value": "rented" },
-              "eventType": { "value": "lease_property" },
+              "eventName": "lease_property",
               "guard": {
                 "===": [{ "var": "machines.${propertyManagementCid}.state.status" }, "lease_active"]
               },
@@ -162,7 +162,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "rented" },
               "to": { "value": "owned" },
-              "eventType": { "value": "end_lease" },
+              "eventName": "end_lease",
               "guard": {
                 "===": [{ "var": "machines.${propertyManagementCid}.state.status" }, "lease_ended"]
               },
@@ -175,7 +175,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "owned" },
               "to": { "value": "in_default" },
-              "eventType": { "value": "default" },
+              "eventName": "default",
               "guard": {
                 "and": [
                   { "===": [{ "var": "state.hasMortgage" }, true] },
@@ -191,7 +191,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "rented" },
               "to": { "value": "in_default" },
-              "eventType": { "value": "default" },
+              "eventName": "default",
               "guard": {
                 "and": [
                   { "===": [{ "var": "state.hasMortgage" }, true] },
@@ -202,7 +202,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
                 ["_triggers", [
                   {
                     "targetMachineId": "${propertyManagementCid}",
-                    "eventType": "terminate_lease",
+                    "eventName": "terminate_lease",
                     "payload": {
                       "reason": "foreclosure",
                       "terminationDate": { "var": "event.timestamp" }
@@ -217,7 +217,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "in_default" },
               "to": { "value": "owned" },
-              "eventType": { "value": "cure_default" },
+              "eventName": "cure_default",
               "guard": {
                 "===": [{ "var": "machines.${mortgageCid}.state.status" }, "current"]
               },
@@ -230,7 +230,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "in_default" },
               "to": { "value": "in_foreclosure" },
-              "eventType": { "value": "foreclose" },
+              "eventName": "foreclose",
               "guard": {
                 "===": [{ "var": "machines.${mortgageCid}.state.status" }, "foreclosure"]
               },
@@ -243,14 +243,14 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "in_foreclosure" },
               "to": { "value": "foreclosed" },
-              "eventType": { "value": "complete_foreclosure" },
+              "eventName": "complete_foreclosure",
               "guard": {
                 "===": [{ "var": "machines.${mortgageCid}.state.status" }, "foreclosed"]
               },
               "effect": [
-                ["_outputs", [
+                ["_emit", [
                   {
-                    "outputType": "legal_notice",
+                    "name": "legal_notice",
                     "data": {
                       "noticeType": "foreclosure_complete",
                       "propertyId": { "var": "machineId" },
@@ -270,7 +270,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "foreclosed" },
               "to": { "value": "reo" },
-              "eventType": { "value": "bank_owned" },
+              "eventName": "bank_owned",
               "guard": true,
               "effect": [
                 ["status", "reo"],
@@ -281,7 +281,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "reo" },
               "to": { "value": "for_sale" },
-              "eventType": { "value": "list_for_sale" },
+              "eventName": "list_for_sale",
               "guard": true,
               "effect": [
                 ["status", "for_sale"],
@@ -310,7 +310,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "draft" },
               "to": { "value": "signed" },
-              "eventType": { "value": "sign" },
+              "eventName": "sign",
               "guard": {
                 "and": [
                   { "===": [{ "var": "event.buyerSigned" }, true] },
@@ -331,7 +331,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "signed" },
               "to": { "value": "contingent" },
-              "eventType": { "value": "enter_contingency" },
+              "eventName": "enter_contingency",
               "guard": true,
               "effect": [
                 ["status", "contingent"],
@@ -342,7 +342,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "contingent" },
               "to": { "value": "contingency_failed" },
-              "eventType": { "value": "fail_contingency" },
+              "eventName": "fail_contingency",
               "guard": {
                 "or": [
                   { "===": [{ "var": "machines.${inspectionCid}.state.result" }, "failed"] },
@@ -354,7 +354,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
                 ["_triggers", [
                   {
                     "targetMachineId": "${escrowCid}",
-                    "eventType": "release_to_buyer",
+                    "eventName": "release_to_buyer",
                     "payload": {
                       "reason": "contingency_failed",
                       "amount": { "var": "state.earnestMoney" }
@@ -370,7 +370,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "contingent" },
               "to": { "value": "buyer_default" },
-              "eventType": { "value": "buyer_breach" },
+              "eventName": "buyer_breach",
               "guard": {
                 ">": [{ "var": "event.timestamp" }, { "var": "state.closingDate" }]
               },
@@ -378,7 +378,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
                 ["_triggers", [
                   {
                     "targetMachineId": "${escrowCid}",
-                    "eventType": "release_to_seller",
+                    "eventName": "release_to_seller",
                     "payload": {
                       "reason": "buyer_default",
                       "amount": { "var": "state.earnestMoney" }
@@ -393,7 +393,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "contingent" },
               "to": { "value": "seller_default" },
-              "eventType": { "value": "seller_breach" },
+              "eventName": "seller_breach",
               "guard": {
                 "===": [{ "var": "event.sellerRefusedToClose" }, true]
               },
@@ -401,7 +401,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
                 ["_triggers", [
                   {
                     "targetMachineId": "${escrowCid}",
-                    "eventType": "release_to_buyer",
+                    "eventName": "release_to_buyer",
                     "payload": {
                       "reason": "seller_default",
                       "amount": { "*": [{ "var": "state.earnestMoney" }, 2] }
@@ -416,7 +416,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "contingent" },
               "to": { "value": "executed" },
-              "eventType": { "value": "close" },
+              "eventName": "close",
               "guard": {
                 "and": [
                   { "===": [{ "var": "machines.${escrowCid}.state.status" }, "closed"] },
@@ -449,7 +449,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "empty" },
               "to": { "value": "funded" },
-              "eventType": { "value": "deposit" },
+              "eventName": "deposit",
               "guard": {
                 ">=": [{ "var": "event.amount" }, { "var": "state.requiredAmount" }]
               },
@@ -463,7 +463,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "funded" },
               "to": { "value": "held" },
-              "eventType": { "value": "hold" },
+              "eventName": "hold",
               "guard": true,
               "effect": [
                 ["status", "held"],
@@ -474,12 +474,12 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "held" },
               "to": { "value": "released_to_buyer" },
-              "eventType": { "value": "release_to_buyer" },
+              "eventName": "release_to_buyer",
               "guard": true,
               "effect": [
-                ["_outputs", [
+                ["_emit", [
                   {
-                    "outputType": "payment",
+                    "name": "payment",
                     "data": {
                       "payee": { "var": "state.buyer" },
                       "amount": { "var": "event.amount" },
@@ -496,12 +496,12 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "held" },
               "to": { "value": "released_to_seller" },
-              "eventType": { "value": "release_to_seller" },
+              "eventName": "release_to_seller",
               "guard": true,
               "effect": [
-                ["_outputs", [
+                ["_emit", [
                   {
-                    "outputType": "payment",
+                    "name": "payment",
                     "data": {
                       "payee": { "var": "state.seller" },
                       "amount": { "var": "event.amount" },
@@ -518,7 +518,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "held" },
               "to": { "value": "disbursed" },
-              "eventType": { "value": "disburse" },
+              "eventName": "disburse",
               "guard": true,
               "effect": [
                 ["status", "disbursed"],
@@ -529,7 +529,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "disbursed" },
               "to": { "value": "closed" },
-              "eventType": { "value": "close" },
+              "eventName": "close",
               "guard": true,
               "effect": [
                 ["status", "closed"],
@@ -556,7 +556,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "pending" },
               "to": { "value": "scheduled" },
-              "eventType": { "value": "schedule" },
+              "eventName": "schedule",
               "guard": true,
               "effect": [
                 ["status", "scheduled"],
@@ -567,7 +567,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "scheduled" },
               "to": { "value": "completed" },
-              "eventType": { "value": "complete" },
+              "eventName": "complete",
               "guard": true,
               "effect": [
                 ["status", "completed"],
@@ -579,7 +579,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "completed" },
               "to": { "value": "passed" },
-              "eventType": { "value": "approve" },
+              "eventName": "approve",
               "guard": {
                 "===": [{ "var": "state.issues" }, 0]
               },
@@ -592,7 +592,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "completed" },
               "to": { "value": "passed_with_repairs" },
-              "eventType": { "value": "approve" },
+              "eventName": "approve",
               "guard": {
                 "and": [
                   { ">": [{ "var": "state.issues" }, 0] },
@@ -610,7 +610,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "completed" },
               "to": { "value": "failed" },
-              "eventType": { "value": "reject" },
+              "eventName": "reject",
               "guard": {
                 ">": [{ "var": "state.issues" }, 3]
               },
@@ -638,7 +638,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "pending" },
               "to": { "value": "ordered" },
-              "eventType": { "value": "order" },
+              "eventName": "order",
               "guard": true,
               "effect": [
                 ["status", "ordered"],
@@ -650,7 +650,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "ordered" },
               "to": { "value": "completed" },
-              "eventType": { "value": "complete" },
+              "eventName": "complete",
               "guard": true,
               "effect": [
                 ["status", "completed"],
@@ -662,7 +662,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "completed" },
               "to": { "value": "approved" },
-              "eventType": { "value": "review" },
+              "eventName": "review",
               "guard": {
                 ">=": [{ "var": "state.appraisedValue" }, { "var": "state.expectedValue" }]
               },
@@ -675,7 +675,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "completed" },
               "to": { "value": "rejected" },
-              "eventType": { "value": "review" },
+              "eventName": "review",
               "guard": {
                 "<": [{ "var": "state.appraisedValue" }, { "var": "state.expectedValue" }]
               },
@@ -712,7 +712,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "application" },
               "to": { "value": "underwriting" },
-              "eventType": { "value": "submit" },
+              "eventName": "submit",
               "guard": true,
               "effect": [
                 ["status", "underwriting"],
@@ -726,7 +726,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "underwriting" },
               "to": { "value": "approved" },
-              "eventType": { "value": "underwrite" },
+              "eventName": "underwrite",
               "guard": {
                 "and": [
                   { ">=": [{ "var": "event.creditScore" }, 620] },
@@ -744,7 +744,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "underwriting" },
               "to": { "value": "denied" },
-              "eventType": { "value": "underwrite" },
+              "eventName": "underwrite",
               "guard": {
                 "or": [
                   { "<": [{ "var": "event.creditScore" }, 620] },
@@ -761,7 +761,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "approved" },
               "to": { "value": "active" },
-              "eventType": { "value": "activate" },
+              "eventName": "activate",
               "guard": true,
               "effect": [
                 ["status", "active"],
@@ -776,7 +776,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "active" },
               "to": { "value": "current" },
-              "eventType": { "value": "first_payment" },
+              "eventName": "first_payment",
               "guard": true,
               "effect": [
                 ["status", "current"],
@@ -790,7 +790,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "current" },
               "to": { "value": "current" },
-              "eventType": { "value": "make_payment" },
+              "eventName": "make_payment",
               "guard": {
                 "<=": [{ "-": [{ "var": "event.timestamp" }, { "var": "state.lastPaymentDate" }] }, 2678400]
               },
@@ -806,7 +806,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "current" },
               "to": { "value": "current" },
-              "eventType": { "value": "transfer_servicing" },
+              "eventName": "transfer_servicing",
               "guard": true,
               "effect": [
                 ["status", "current"],
@@ -818,7 +818,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "current" },
               "to": { "value": "current" },
-              "eventType": { "value": "sell_loan" },
+              "eventName": "sell_loan",
               "guard": true,
               "effect": [
                 ["status", "current"],
@@ -831,7 +831,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "current" },
               "to": { "value": "delinquent_30" },
-              "eventType": { "value": "check_payment" },
+              "eventName": "check_payment",
               "guard": {
                 "and": [
                   { ">": [{ "-": [{ "var": "event.timestamp" }, { "var": "state.lastPaymentDate" }] }, 2678400] },
@@ -848,7 +848,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "delinquent_30" },
               "to": { "value": "current" },
-              "eventType": { "value": "make_payment" },
+              "eventName": "make_payment",
               "guard": true,
               "effect": [
                 ["status", "current"],
@@ -863,7 +863,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "delinquent_30" },
               "to": { "value": "delinquent_60" },
-              "eventType": { "value": "check_payment" },
+              "eventName": "check_payment",
               "guard": {
                 "and": [
                   { ">": [{ "-": [{ "var": "event.timestamp" }, { "var": "state.lastPaymentDate" }] }, 5270400] },
@@ -879,7 +879,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "delinquent_60" },
               "to": { "value": "current" },
-              "eventType": { "value": "make_payment" },
+              "eventName": "make_payment",
               "guard": true,
               "effect": [
                 ["status", "current"],
@@ -894,7 +894,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "delinquent_60" },
               "to": { "value": "delinquent_90" },
-              "eventType": { "value": "check_payment" },
+              "eventName": "check_payment",
               "guard": {
                 ">": [{ "-": [{ "var": "event.timestamp" }, { "var": "state.lastPaymentDate" }] }, 7862400]
               },
@@ -907,14 +907,14 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "delinquent_90" },
               "to": { "value": "defaulted" },
-              "eventType": { "value": "declare_default" },
+              "eventName": "declare_default",
               "guard": {
                 ">=": [{ "var": "state.missedPayments" }, 3]
               },
               "effect": [
-                ["_outputs", [
+                ["_emit", [
                   {
-                    "outputType": "notice",
+                    "name": "notice",
                     "data": {
                       "noticeType": "default",
                       "borrower": { "var": "state.borrower" },
@@ -930,7 +930,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "defaulted" },
               "to": { "value": "current" },
-              "eventType": { "value": "reinstate" },
+              "eventName": "reinstate",
               "guard": {
                 "===": [{ "var": "event.paidPastDue" }, true]
               },
@@ -945,7 +945,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "defaulted" },
               "to": { "value": "foreclosure" },
-              "eventType": { "value": "initiate_foreclosure" },
+              "eventName": "initiate_foreclosure",
               "guard": {
                 ">": [{ "-": [{ "var": "event.timestamp" }, { "var": "state.defaultDate" }] }, 7862400]
               },
@@ -958,7 +958,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "foreclosure" },
               "to": { "value": "foreclosed" },
-              "eventType": { "value": "complete_foreclosure" },
+              "eventName": "complete_foreclosure",
               "guard": true,
               "effect": [
                 ["status", "foreclosed"],
@@ -969,7 +969,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "current" },
               "to": { "value": "paid_off" },
-              "eventType": { "value": "payoff" },
+              "eventName": "payoff",
               "guard": {
                 "<=": [{ "var": "state.principalBalance" }, 0]
               },
@@ -999,7 +999,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "pending" },
               "to": { "value": "searching" },
-              "eventType": { "value": "search" },
+              "eventName": "search",
               "guard": true,
               "effect": [
                 ["status", "searching"],
@@ -1010,7 +1010,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "searching" },
               "to": { "value": "clear" },
-              "eventType": { "value": "complete_search" },
+              "eventName": "complete_search",
               "guard": {
                 "===": [{ "var": "event.issuesFound" }, 0]
               },
@@ -1023,7 +1023,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "searching" },
               "to": { "value": "issues_found" },
-              "eventType": { "value": "complete_search" },
+              "eventName": "complete_search",
               "guard": {
                 ">": [{ "var": "event.issuesFound" }, 0]
               },
@@ -1037,7 +1037,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "issues_found" },
               "to": { "value": "clear" },
-              "eventType": { "value": "resolve_issues" },
+              "eventName": "resolve_issues",
               "guard": true,
               "effect": [
                 ["status", "clear"],
@@ -1048,7 +1048,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "clear" },
               "to": { "value": "insured" },
-              "eventType": { "value": "insure" },
+              "eventName": "insure",
               "guard": true,
               "effect": [
                 ["status", "insured"],
@@ -1059,7 +1059,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "insured" },
               "to": { "value": "transferred" },
-              "eventType": { "value": "transfer" },
+              "eventName": "transfer",
               "guard": true,
               "effect": [
                 ["status", "transferred"],
@@ -1089,7 +1089,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "available" },
               "to": { "value": "showing" },
-              "eventType": { "value": "schedule_showing" },
+              "eventName": "schedule_showing",
               "guard": true,
               "effect": [
                 ["status", "showing"],
@@ -1100,7 +1100,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "showing" },
               "to": { "value": "lease_pending" },
-              "eventType": { "value": "accept_application" },
+              "eventName": "accept_application",
               "guard": {
                 ">=": [{ "var": "event.creditScore" }, 650]
               },
@@ -1115,7 +1115,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "lease_pending" },
               "to": { "value": "lease_active" },
-              "eventType": { "value": "sign_lease" },
+              "eventName": "sign_lease",
               "guard": true,
               "effect": [
                 ["status", "lease_active"],
@@ -1127,7 +1127,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "lease_active" },
               "to": { "value": "lease_ended" },
-              "eventType": { "value": "end_lease" },
+              "eventName": "end_lease",
               "guard": {
                 ">=": [{ "var": "event.timestamp" }, { "var": "state.leaseEndDate" }]
               },
@@ -1140,7 +1140,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "lease_active" },
               "to": { "value": "eviction" },
-              "eventType": { "value": "evict" },
+              "eventName": "evict",
               "guard": {
                 ">=": [{ "var": "event.missedPayments" }, 3]
               },
@@ -1153,7 +1153,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "lease_active" },
               "to": { "value": "terminated" },
-              "eventType": { "value": "terminate_lease" },
+              "eventName": "terminate_lease",
               "guard": {
                 "===": [{ "var": "event.reason" }, "foreclosure"]
               },
@@ -1167,7 +1167,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "eviction" },
               "to": { "value": "available" },
-              "eventType": { "value": "complete_eviction" },
+              "eventName": "complete_eviction",
               "guard": true,
               "effect": [
                 ["status", "available"],
@@ -1178,7 +1178,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "lease_ended" },
               "to": { "value": "available" },
-              "eventType": { "value": "reset" },
+              "eventName": "reset",
               "guard": true,
               "effect": [
                 ["status", "available"],
@@ -1435,7 +1435,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         // Step 1: Sign contract
         signContractUpdate = Updates.TransitionStateMachine(
           contractCid,
-          EventType("sign"),
+          "sign",
           MapValue(
             Map(
               "timestamp"     -> IntValue(1000),
@@ -1455,7 +1455,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         // Step 2: Accept offer on property
         acceptOfferUpdate = Updates.TransitionStateMachine(
           propertyCid,
-          EventType("accept_offer"),
+          "accept_offer",
           MapValue(
             Map(
               "timestamp"   -> IntValue(1100),
@@ -1470,7 +1470,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         // Step 3: Deposit earnest money
         depositUpdate = Updates.TransitionStateMachine(
           escrowCid,
-          EventType("deposit"),
+          "deposit",
           MapValue(
             Map(
               "timestamp" -> IntValue(1200),
@@ -1484,7 +1484,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         // Step 4: Hold escrow
         holdEscrowUpdate = Updates.TransitionStateMachine(
           escrowCid,
-          EventType("hold"),
+          "hold",
           MapValue(Map("timestamp" -> IntValue(1300)))
         )
         holdEscrowProof <- registry.generateProofs(holdEscrowUpdate, Set(Charlie))
@@ -1493,7 +1493,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         // Step 5: Enter contingency period
         enterContingencyUpdate = Updates.TransitionStateMachine(
           contractCid,
-          EventType("enter_contingency"),
+          "enter_contingency",
           MapValue(Map("timestamp" -> IntValue(1400)))
         )
         enterContingencyProof <- registry.generateProofs(enterContingencyUpdate, Set(Alice, Bob))
@@ -1503,7 +1503,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         // Step 6: Schedule and complete inspection
         scheduleInspectionUpdate = Updates.TransitionStateMachine(
           inspectionCid,
-          EventType("schedule"),
+          "schedule",
           MapValue(Map("inspectionDate" -> IntValue(1500)))
         )
         scheduleInspectionProof <- registry.generateProofs(scheduleInspectionUpdate, Set(Dave))
@@ -1511,7 +1511,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
 
         completeInspectionUpdate = Updates.TransitionStateMachine(
           inspectionCid,
-          EventType("complete"),
+          "complete",
           MapValue(
             Map(
               "timestamp" -> IntValue(1600),
@@ -1524,7 +1524,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
 
         approveInspectionUpdate = Updates.TransitionStateMachine(
           inspectionCid,
-          EventType("approve"),
+          "approve",
           MapValue(
             Map(
               "timestamp"     -> IntValue(1700),
@@ -1538,7 +1538,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         // Step 7: Order and complete appraisal
         orderAppraisalUpdate = Updates.TransitionStateMachine(
           appraisalCid,
-          EventType("order"),
+          "order",
           MapValue(
             Map(
               "timestamp"     -> IntValue(1800),
@@ -1551,7 +1551,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
 
         completeAppraisalUpdate = Updates.TransitionStateMachine(
           appraisalCid,
-          EventType("complete"),
+          "complete",
           MapValue(
             Map(
               "timestamp"      -> IntValue(1900),
@@ -1564,7 +1564,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
 
         reviewAppraisalUpdate = Updates.TransitionStateMachine(
           appraisalCid,
-          EventType("review"),
+          "review",
           MapValue(Map("timestamp" -> IntValue(2000)))
         )
         reviewAppraisalProof <- registry.generateProofs(reviewAppraisalUpdate, Set(Eve))
@@ -1573,7 +1573,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         // Step 8: Submit and approve mortgage
         submitMortgageUpdate = Updates.TransitionStateMachine(
           mortgageCid,
-          EventType("submit"),
+          "submit",
           MapValue(
             Map(
               "timestamp"  -> IntValue(2100),
@@ -1588,7 +1588,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
 
         underwriteMortgageUpdate = Updates.TransitionStateMachine(
           mortgageCid,
-          EventType("underwrite"),
+          "underwrite",
           MapValue(
             Map(
               "timestamp"    -> IntValue(2200),
@@ -1605,7 +1605,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         // Step 9: Pass all contingencies
         passContingenciesUpdate = Updates.TransitionStateMachine(
           propertyCid,
-          EventType("pass_contingencies"),
+          "pass_contingencies",
           MapValue(Map("timestamp" -> IntValue(2300)))
         )
         passContingenciesProof <- registry.generateProofs(passContingenciesUpdate, Set(Alice))
@@ -1615,7 +1615,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         // Step 10: Title search and transfer
         searchTitleUpdate = Updates.TransitionStateMachine(
           titleCid,
-          EventType("search"),
+          "search",
           MapValue(Map("timestamp" -> IntValue(2400)))
         )
         searchTitleProof <- registry.generateProofs(searchTitleUpdate, Set(Grace))
@@ -1623,7 +1623,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
 
         completeSearchUpdate = Updates.TransitionStateMachine(
           titleCid,
-          EventType("complete_search"),
+          "complete_search",
           MapValue(
             Map(
               "timestamp"   -> IntValue(2500),
@@ -1636,7 +1636,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
 
         insureTitleUpdate = Updates.TransitionStateMachine(
           titleCid,
-          EventType("insure"),
+          "insure",
           MapValue(Map("timestamp" -> IntValue(2600)))
         )
         insureTitleProof <- registry.generateProofs(insureTitleUpdate, Set(Grace))
@@ -1644,7 +1644,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
 
         transferTitleUpdate = Updates.TransitionStateMachine(
           titleCid,
-          EventType("transfer"),
+          "transfer",
           MapValue(
             Map(
               "timestamp" -> IntValue(2700),
@@ -1659,7 +1659,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         // Step 11: Disburse and close escrow
         disburseEscrowUpdate = Updates.TransitionStateMachine(
           escrowCid,
-          EventType("disburse"),
+          "disburse",
           MapValue(Map("timestamp" -> IntValue(2800)))
         )
         disburseEscrowProof <- registry.generateProofs(disburseEscrowUpdate, Set(Charlie))
@@ -1667,7 +1667,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
 
         closeEscrowUpdate = Updates.TransitionStateMachine(
           escrowCid,
-          EventType("close"),
+          "close",
           MapValue(Map("timestamp" -> IntValue(2900)))
         )
         closeEscrowProof <- registry.generateProofs(closeEscrowUpdate, Set(Charlie))
@@ -1676,7 +1676,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         // Step 12: Close sale on property (triggers mortgage activation)
         closeSaleUpdate = Updates.TransitionStateMachine(
           propertyCid,
-          EventType("close_sale"),
+          "close_sale",
           MapValue(Map("timestamp" -> IntValue(3000)))
         )
         closeSaleProof <- registry.generateProofs(closeSaleUpdate, Set(Alice))
@@ -1697,7 +1697,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         // Step 13: Close contract
         closeContractUpdate = Updates.TransitionStateMachine(
           contractCid,
-          EventType("close"),
+          "close",
           MapValue(Map("timestamp" -> IntValue(3100)))
         )
         closeContractProof <- registry.generateProofs(closeContractUpdate, Set(Alice, Bob))
@@ -1706,7 +1706,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         // PHASE 4: OWNERSHIP PHASE - Make first mortgage payment
         firstPaymentUpdate = Updates.TransitionStateMachine(
           mortgageCid,
-          EventType("first_payment"),
+          "first_payment",
           MapValue(
             Map(
               "timestamp"     -> IntValue(5000),

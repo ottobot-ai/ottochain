@@ -48,7 +48,7 @@ object FailureReasonSuite extends SimpleIOSuite {
             Transition(
               from = StateId("idle"),
               to = StateId("active"),
-              eventType = EventType("activate"),
+              eventName = "activate",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("activated" -> BoolValue(true))))
             )
@@ -76,7 +76,7 @@ object FailureReasonSuite extends SimpleIOSuite {
 
         // Send an event type that doesn't exist in the transitionMap
         input = FiberInput.Transition(
-          EventType("unknown_event"),
+          "unknown_event",
           MapValue(Map.empty)
         )
 
@@ -88,11 +88,11 @@ object FailureReasonSuite extends SimpleIOSuite {
       } yield result match {
         case TransactionResult.Aborted(reason, _, _) =>
           reason match {
-            case FailureReason.NoTransitionFound(state, eventType) =>
+            case FailureReason.NoTransitionFound(state, en) =>
               expect(state == StateId("idle"), s"Expected state 'idle', got $state") and
               expect(
-                eventType == EventType("unknown_event"),
-                s"Expected event 'unknown_event', got $eventType"
+                en == "unknown_event",
+                s"Expected event 'unknown_event', got $en"
               )
             case other =>
               failure(s"Expected NoTransitionFound but got: ${other.getClass.getSimpleName}")
@@ -123,14 +123,14 @@ object FailureReasonSuite extends SimpleIOSuite {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("go"),
+              eventName = "go",
               guard = ConstExpression(BoolValue(false)), // Always false
               effect = ConstExpression(MapValue(Map("path" -> StrValue("first"))))
             ),
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("go"),
+              eventName = "go",
               guard = ConstExpression(BoolValue(false)), // Always false
               effect = ConstExpression(MapValue(Map("path" -> StrValue("second"))))
             )
@@ -156,7 +156,7 @@ object FailureReasonSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("go"),
+          "go",
           MapValue(Map.empty)
         )
 
@@ -200,7 +200,7 @@ object FailureReasonSuite extends SimpleIOSuite {
             Transition(
               from = StateId("idle"),
               to = StateId("triggered"),
-              eventType = EventType("fire"),
+              eventName = "fire",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -211,7 +211,7 @@ object FailureReasonSuite extends SimpleIOSuite {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(nonExistentId.toString),
-                            "eventType"       -> StrValue("receive"),
+                            "eventName"       -> StrValue("receive"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -244,7 +244,7 @@ object FailureReasonSuite extends SimpleIOSuite {
         // Only the source fiber exists, target doesn't
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("fire"),
+          "fire",
           MapValue(Map.empty)
         )
 
@@ -287,7 +287,7 @@ object FailureReasonSuite extends SimpleIOSuite {
             Transition(
               from = StateId("a"),
               to = StateId("b"),
-              eventType = EventType("loop"),
+              eventName = "loop",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -298,7 +298,7 @@ object FailureReasonSuite extends SimpleIOSuite {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(fiberId.toString),
-                            "eventType"       -> StrValue("loop"),
+                            "eventName"       -> StrValue("loop"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -311,7 +311,7 @@ object FailureReasonSuite extends SimpleIOSuite {
             Transition(
               from = StateId("b"),
               to = StateId("a"),
-              eventType = EventType("loop"),
+              eventName = "loop",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -322,7 +322,7 @@ object FailureReasonSuite extends SimpleIOSuite {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(fiberId.toString),
-                            "eventType"       -> StrValue("loop"),
+                            "eventName"       -> StrValue("loop"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -354,7 +354,7 @@ object FailureReasonSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("loop"),
+          "loop",
           MapValue(Map.empty)
         )
 
@@ -398,7 +398,7 @@ object FailureReasonSuite extends SimpleIOSuite {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("go"),
+              eventName = "go",
               guard = ApplyExpression(EqOp, List(expensiveGuard, ConstExpression(IntValue(100)))),
               effect = ConstExpression(MapValue(Map("done" -> BoolValue(true))))
             )
@@ -424,7 +424,7 @@ object FailureReasonSuite extends SimpleIOSuite {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("go"),
+          "go",
           MapValue(Map.empty)
         )
 
@@ -479,7 +479,7 @@ object FailureReasonSuite extends SimpleIOSuite {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("process"),
+              eventName = "process",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("done" -> BoolValue(true))))
             )
@@ -513,7 +513,7 @@ object FailureReasonSuite extends SimpleIOSuite {
         )
 
         input = FiberInput.Transition(
-          EventType("process"),
+          "process",
           validPayload
         )
 
@@ -573,8 +573,7 @@ object FailureReasonSuite extends SimpleIOSuite {
         input = FiberInput.MethodCall(
           method = "someMethod",
           args = MapValue(Map.empty),
-          caller = registry.addresses(Alice),
-          idempotencyKey = None
+          caller = registry.addresses(Alice)
         )
 
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
@@ -588,10 +587,10 @@ object FailureReasonSuite extends SimpleIOSuite {
             case FailureReason.FiberInputMismatch(fid, fiberType, inputType) =>
               expect(fid == fiberId, s"Expected fiber $fiberId, got $fid") and
               expect(
-                fiberType == "StateMachineFiberRecord",
-                s"Expected fiberType 'StateMachineFiberRecord', got $fiberType"
+                fiberType == FiberKind.StateMachine,
+                s"Expected fiberType StateMachine, got $fiberType"
               ) and
-              expect(inputType == "MethodCall", s"Expected inputType 'MethodCall', got $inputType")
+              expect(inputType == InputKind.MethodCall, s"Expected inputType MethodCall, got $inputType")
             case other =>
               failure(s"Expected FiberInputMismatch but got: ${other.getClass.getSimpleName}")
           }
@@ -634,7 +633,7 @@ object FailureReasonSuite extends SimpleIOSuite {
 
         // Use Transition input (state machine-style) with oracle - type mismatch
         input = FiberInput.Transition(
-          EventType("someEvent"),
+          "someEvent",
           MapValue(Map.empty)
         )
 
@@ -649,10 +648,10 @@ object FailureReasonSuite extends SimpleIOSuite {
             case FailureReason.FiberInputMismatch(oid, fiberType, inputType) =>
               expect(oid == oracleId, s"Expected oracle $oracleId, got $oid") and
               expect(
-                fiberType == "ScriptOracleFiberRecord",
-                s"Expected fiberType 'ScriptOracleFiberRecord', got $fiberType"
+                fiberType == FiberKind.ScriptOracle,
+                s"Expected fiberType ScriptOracle, got $fiberType"
               ) and
-              expect(inputType == "Transition", s"Expected inputType 'Transition', got $inputType")
+              expect(inputType == InputKind.Transition, s"Expected inputType Transition, got $inputType")
             case other =>
               failure(s"Expected FiberInputMismatch but got: ${other.getClass.getSimpleName}")
           }

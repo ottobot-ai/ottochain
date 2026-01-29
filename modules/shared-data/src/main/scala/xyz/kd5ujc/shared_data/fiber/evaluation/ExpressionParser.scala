@@ -43,7 +43,7 @@ object ExpressionParser {
       case _ => none
     }
 
-  def parseInitialState(expr: JsonLogicExpression): Option[StateId] =
+  private def parseInitialState(expr: JsonLogicExpression): Option[StateId] =
     expr match {
       case ConstExpression(StrValue(s)) => StateId(s).some
       case MapExpression(m) =>
@@ -54,7 +54,7 @@ object ExpressionParser {
       case _ => none
     }
 
-  def parseStatesFromExpression(
+  private def parseStatesFromExpression(
     statesExpr: JsonLogicExpression
   ): Option[Map[StateId, State]] =
     statesExpr match {
@@ -86,7 +86,7 @@ object ExpressionParser {
       case _ => none
     }
 
-  def parseTransitionsFromExpression(
+  private def parseTransitionsFromExpression(
     transitionsExpr: JsonLogicExpression
   ): Option[List[Transition]] =
     transitionsExpr match {
@@ -98,8 +98,8 @@ object ExpressionParser {
               from          <- OptionT.fromOption[cats.Id](parseStateId(fromExpr))
               toExpr        <- OptionT.fromOption[cats.Id](transMap.get(ReservedKeys.TO))
               to            <- OptionT.fromOption[cats.Id](parseStateId(toExpr))
-              eventTypeExpr <- OptionT.fromOption[cats.Id](transMap.get(ReservedKeys.EVENT_TYPE))
-              eventType     <- OptionT.fromOption[cats.Id](parseEventType(eventTypeExpr))
+              eventNameExpr <- OptionT.fromOption[cats.Id](transMap.get(ReservedKeys.EVENT_NAME))
+              eventName     <- OptionT.fromOption[cats.Id](parseEventName(eventNameExpr))
               guard         <- OptionT.fromOption[cats.Id](transMap.get(ReservedKeys.GUARD))
               effect        <- OptionT.fromOption[cats.Id](transMap.get(ReservedKeys.EFFECT))
             } yield {
@@ -118,14 +118,14 @@ object ExpressionParser {
                 }
                 .getOrElse(Set.empty)
 
-              Transition(from, to, eventType, guard, effect, dependencies)
+              Transition(from, to, eventName, guard, effect, dependencies)
             }).value
           case _ => none
         }
       case _ => none
     }
 
-  def parseStateId(expr: JsonLogicExpression): Option[StateId] =
+  private def parseStateId(expr: JsonLogicExpression): Option[StateId] =
     expr match {
       case ConstExpression(StrValue(s)) => StateId(s).some
       case MapExpression(m) =>
@@ -136,12 +136,12 @@ object ExpressionParser {
       case _ => none
     }
 
-  def parseEventType(expr: JsonLogicExpression): Option[EventType] =
+  private def parseEventName(expr: JsonLogicExpression): Option[String] =
     expr match {
-      case ConstExpression(StrValue(et)) => EventType(et).some
+      case ConstExpression(StrValue(et)) => et.some
       case MapExpression(m) =>
         m.get(ReservedKeys.VALUE).flatMap {
-          case ConstExpression(StrValue(et)) => EventType(et).some
+          case ConstExpression(StrValue(et)) => et.some
           case _                             => none
         }
       case _ => none
@@ -166,7 +166,7 @@ object ExpressionParser {
       case _ => none
     }
 
-  def parseInitialStateValue(value: JsonLogicValue): Option[StateId] =
+  private def parseInitialStateValue(value: JsonLogicValue): Option[StateId] =
     value match {
       case StrValue(s) => StateId(s).some
       case MapValue(m) => m.get(ReservedKeys.VALUE).collect { case StrValue(s) => StateId(s) }
@@ -187,7 +187,7 @@ object ExpressionParser {
     case other         => ConstExpression(other)
   }
 
-  def parseStates(statesValue: JsonLogicValue): Option[Map[StateId, State]] =
+  private def parseStates(statesValue: JsonLogicValue): Option[Map[StateId, State]] =
     statesValue match {
       case MapValue(statesMap) =>
         statesMap.toList
@@ -212,7 +212,7 @@ object ExpressionParser {
       case _ => none
     }
 
-  def parseTransitions(transitionsValue: JsonLogicValue): Option[List[Transition]] =
+  private def parseTransitions(transitionsValue: JsonLogicValue): Option[List[Transition]] =
     transitionsValue match {
       case ArrayValue(transitionsList) =>
         transitionsList.traverse {
@@ -222,8 +222,8 @@ object ExpressionParser {
               from           <- OptionT.fromOption[cats.Id](parseStateIdValue(fromValue))
               toValue        <- OptionT.fromOption[cats.Id](transMap.get(ReservedKeys.TO))
               to             <- OptionT.fromOption[cats.Id](parseStateIdValue(toValue))
-              eventTypeValue <- OptionT.fromOption[cats.Id](transMap.get(ReservedKeys.EVENT_TYPE))
-              eventType      <- OptionT.fromOption[cats.Id](parseEventTypeValue(eventTypeValue))
+              eventTypeValue <- OptionT.fromOption[cats.Id](transMap.get(ReservedKeys.EVENT_NAME))
+              eventType      <- OptionT.fromOption[cats.Id](parseEventNameValue(eventTypeValue))
               guardValue     <- OptionT.fromOption[cats.Id](transMap.get(ReservedKeys.GUARD))
               effectValue    <- OptionT.fromOption[cats.Id](transMap.get(ReservedKeys.EFFECT))
             } yield {
@@ -240,7 +240,7 @@ object ExpressionParser {
               Transition(
                 from = from,
                 to = to,
-                eventType = eventType,
+                eventName = eventType,
                 guard = valueToExpression(guardValue),
                 effect = valueToExpression(effectValue),
                 dependencies = dependencies
@@ -251,17 +251,17 @@ object ExpressionParser {
       case _ => none
     }
 
-  def parseStateIdValue(value: JsonLogicValue): Option[StateId] =
+  private def parseStateIdValue(value: JsonLogicValue): Option[StateId] =
     value match {
       case StrValue(s) => StateId(s).some
       case MapValue(m) => m.get(ReservedKeys.VALUE).collect { case StrValue(s) => StateId(s) }
       case _           => none
     }
 
-  def parseEventTypeValue(value: JsonLogicValue): Option[EventType] =
+  private def parseEventNameValue(value: JsonLogicValue): Option[String] =
     value match {
-      case StrValue(et) => EventType(et).some
-      case MapValue(m)  => m.get(ReservedKeys.VALUE).collect { case StrValue(et) => EventType(et) }
+      case StrValue(et) => et.some
+      case MapValue(m)  => m.get(ReservedKeys.VALUE).collect { case StrValue(et) => et }
       case _            => none
     }
 }

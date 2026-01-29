@@ -26,7 +26,7 @@ object ProofValidationSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       val registry: ParticipantRegistry[IO] = fixture.registry
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         machineCid <- UUIDGen.randomUUID[IO]
 
@@ -45,7 +45,7 @@ object ProofValidationSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "approved" },
-              "eventType": { "value": "approve" },
+              "eventName": "approve",
               "guard": true,
               "effect": [
                 ["approved", true],
@@ -75,7 +75,7 @@ object ProofValidationSuite extends SimpleIOSuite {
         // Send approve event with proofs from both Alice and Bob
         approveEvent = Updates.TransitionStateMachine(
           machineCid,
-          EventType("approve"),
+          "approve",
           MapValue(Map.empty)
         )
         approveProof <- registry.generateProofs(approveEvent, Set(Alice, Bob))
@@ -123,7 +123,7 @@ object ProofValidationSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       val registry: ParticipantRegistry[IO] = fixture.registry
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         machineCid <- UUIDGen.randomUUID[IO]
 
@@ -142,7 +142,7 @@ object ProofValidationSuite extends SimpleIOSuite {
             {
               "from": { "value": "pending" },
               "to": { "value": "approved" },
-              "eventType": { "value": "approve" },
+              "eventName": "approve",
               "guard": {
                 "in": [
                   "$aliceAddress",
@@ -172,7 +172,7 @@ object ProofValidationSuite extends SimpleIOSuite {
         // Test 1: Bob tries to approve (should fail guard)
         approveBobEvent = Updates.TransitionStateMachine(
           machineCid,
-          EventType("approve"),
+          "approve",
           MapValue(Map.empty)
         )
         bobProof      <- registry.generateProofs(approveBobEvent, Set(Bob))
@@ -185,7 +185,7 @@ object ProofValidationSuite extends SimpleIOSuite {
         // Test 2: Alice approves (should succeed)
         approveAliceEvent = Updates.TransitionStateMachine(
           machineCid,
-          EventType("approve"),
+          "approve",
           MapValue(Map.empty)
         )
         aliceProof      <- registry.generateProofs(approveAliceEvent, Set(Alice))
@@ -216,7 +216,7 @@ object ProofValidationSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       val registry: ParticipantRegistry[IO] = fixture.registry
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         machineCid <- UUIDGen.randomUUID[IO]
 
@@ -232,7 +232,7 @@ object ProofValidationSuite extends SimpleIOSuite {
             {
               "from": { "value": "pending" },
               "to": { "value": "approved" },
-              "eventType": { "value": "approve" },
+              "eventName": "approve",
               "guard": {
                 "and": [
                   { "exists": [{ "var": "proofs.0" }] },
@@ -262,7 +262,7 @@ object ProofValidationSuite extends SimpleIOSuite {
         // Test 1: Only Alice signs (should fail - need 2 signatures)
         approveAliceOnly = Updates.TransitionStateMachine(
           machineCid,
-          EventType("approve"),
+          "approve",
           MapValue(Map.empty)
         )
         aliceOnlyProof      <- registry.generateProofs(approveAliceOnly, Set(Alice))
@@ -275,7 +275,7 @@ object ProofValidationSuite extends SimpleIOSuite {
         // Test 2: Alice and Bob sign (should succeed)
         approveAliceBob = Updates.TransitionStateMachine(
           machineCid,
-          EventType("approve"),
+          "approve",
           MapValue(Map.empty)
         )
         aliceBobProof      <- registry.generateProofs(approveAliceBob, Set(Alice, Bob))
@@ -306,7 +306,7 @@ object ProofValidationSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       val registry: ParticipantRegistry[IO] = fixture.registry
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         machineCid <- UUIDGen.randomUUID[IO]
 
@@ -326,7 +326,7 @@ object ProofValidationSuite extends SimpleIOSuite {
             {
               "from": { "value": "pending" },
               "to": { "value": "approved" },
-              "eventType": { "value": "approve" },
+              "eventName": "approve",
               "guard": {
                 "and": [
                   { "exists": [{ "var": "proofs.0" }] },
@@ -362,7 +362,7 @@ object ProofValidationSuite extends SimpleIOSuite {
         // Test: Alice and Bob sign (should succeed - 2 signatures and Alice is included)
         approveEvent = Updates.TransitionStateMachine(
           machineCid,
-          EventType("approve"),
+          "approve",
           MapValue(Map.empty)
         )
         approveProof <- registry.generateProofs(approveEvent, Set(Alice, Bob))
@@ -401,7 +401,7 @@ object ProofValidationSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       val registry: ParticipantRegistry[IO] = fixture.registry
       for {
-        combiner <- Combiner.make[IO].pure[IO]
+        combiner <- Combiner.make[IO]().pure[IO]
 
         machineCid <- UUIDGen.randomUUID[IO]
 
@@ -417,7 +417,7 @@ object ProofValidationSuite extends SimpleIOSuite {
             {
               "from": { "value": "idle" },
               "to": { "value": "logged" },
-              "eventType": { "value": "log" },
+              "eventName": "log",
               "guard": true,
               "effect": [
                 ["hasProofs", { "exists": [{ "var": "proofs.0" }] }],
@@ -444,7 +444,7 @@ object ProofValidationSuite extends SimpleIOSuite {
         // Send log event
         logEvent = Updates.TransitionStateMachine(
           machineCid,
-          EventType("log"),
+          "log",
           MapValue(Map.empty)
         )
         logProof   <- registry.generateProofs(logEvent, Set(Alice))

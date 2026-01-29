@@ -49,7 +49,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("idle"),
               to = StateId("active"),
-              eventType = EventType("activate"),
+              eventName = "activate",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("activated" -> BoolValue(true))))
             )
@@ -75,7 +75,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("activate"),
+          "activate",
           MapValue(Map.empty)
         )
 
@@ -137,7 +137,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("idle"),
               to = StateId("idle"),
-              eventType = EventType("process"),
+              eventName = "process",
               guard = guardExpr,
               effect = ConstExpression(MapValue(Map("processed" -> BoolValue(true))))
             )
@@ -163,7 +163,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("process"),
+          "process",
           MapValue(Map.empty)
         )
 
@@ -243,7 +243,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("loop1"),
               to = StateId("loop2"),
-              eventType = EventType("loop"),
+              eventName = "loop",
               guard = ConstExpression(BoolValue(true)),
               // Effect triggers the same fiber with the same event type (creates cycle)
               effect = ConstExpression(
@@ -255,7 +255,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(fiberId.toString),
-                            "eventType"       -> StrValue("loop"),
+                            "eventName"       -> StrValue("loop"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -268,7 +268,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("loop2"),
               to = StateId("loop1"),
-              eventType = EventType("loop"),
+              eventName = "loop",
               guard = ConstExpression(BoolValue(true)),
               // This transition ALSO triggers, creating an infinite loop
               effect = ConstExpression(
@@ -280,7 +280,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(fiberId.toString),
-                            "eventType"       -> StrValue("loop"),
+                            "eventName"       -> StrValue("loop"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -312,7 +312,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("loop"),
+          "loop",
           MapValue(Map.empty)
         )
 
@@ -354,7 +354,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
               Transition(
                 from = StateId("s1"),
                 to = StateId("s2"),
-                eventType = EventType("ping"),
+                eventName = "ping",
                 guard = ConstExpression(BoolValue(true)),
                 effect = ConstExpression(
                   MapValue(
@@ -365,7 +365,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                           MapValue(
                             Map(
                               "targetMachineId" -> StrValue(targetId.toString),
-                              "eventType"       -> StrValue("ping"),
+                              "eventName"       -> StrValue("ping"),
                               "payload"         -> MapValue(Map.empty)
                             )
                           )
@@ -378,7 +378,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
               Transition(
                 from = StateId("s2"),
                 to = StateId("s1"),
-                eventType = EventType("ping"),
+                eventName = "ping",
                 guard = ConstExpression(BoolValue(true)),
                 effect = ConstExpression(
                   MapValue(
@@ -389,7 +389,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                           MapValue(
                             Map(
                               "targetMachineId" -> StrValue(targetId.toString),
-                              "eventType"       -> StrValue("ping"),
+                              "eventName"       -> StrValue("ping"),
                               "payload"         -> MapValue(Map.empty)
                             )
                           )
@@ -442,7 +442,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         input = FiberInput.Transition(
-          EventType("ping"),
+          "ping",
           MapValue(Map.empty)
         )
 
@@ -486,7 +486,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("state1"),
               to = StateId("state2"),
-              eventType = EventType("advance"),
+              eventName = "advance",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("advanced" -> BoolValue(true))))
             )
@@ -538,12 +538,12 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         triggers = List(
           FiberTrigger(
             targetFiberId = fiber1Id,
-            input = FiberInput.Transition(EventType("advance"), MapValue(Map.empty)),
+            input = FiberInput.Transition("advance", MapValue(Map.empty)),
             sourceFiberId = None
           ),
           FiberTrigger(
             targetFiberId = fiber2Id,
-            input = FiberInput.Transition(EventType("advance"), MapValue(Map.empty)),
+            input = FiberInput.Transition("advance", MapValue(Map.empty)),
             sourceFiberId = None
           )
         )
@@ -612,7 +612,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("invalid"),
+          "invalid",
           MapValue(Map.empty)
         )
 
@@ -655,7 +655,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("go"),
+              eventName = "go",
               guard = ApplyExpression(
                 EqOp,
                 List(
@@ -669,7 +669,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("go"),
+              eventName = "go",
               guard = ApplyExpression(
                 EqOp,
                 List(
@@ -683,7 +683,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("go"),
+              eventName = "go",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("path" -> StrValue("third"))))
             )
@@ -709,7 +709,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("go"),
+          "go",
           MapValue(Map.empty)
         )
 
@@ -773,7 +773,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("go"),
+              eventName = "go",
               guard = ApplyExpression(EqOp, List(expensiveGuard, ConstExpression(IntValue(50)))),
               effect = ConstExpression(MapValue(Map("done" -> BoolValue(true))))
             )
@@ -799,7 +799,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
 
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("go"),
+          "go",
           MapValue(Map.empty)
         )
 
@@ -848,7 +848,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("idle"),
               to = StateId("triggered"),
-              eventType = EventType("start"),
+              eventName = "start",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -859,7 +859,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(machineB.toString),
-                            "eventType"       -> StrValue("continue"),
+                            "eventName"       -> StrValue("continue"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -873,7 +873,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("triggered"),
               to = StateId("idle"),
-              eventType = EventType("loop"),
+              eventName = "loop",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -884,7 +884,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(machineB.toString),
-                            "eventType"       -> StrValue("continue"),
+                            "eventName"       -> StrValue("continue"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -898,7 +898,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("idle"),
               to = StateId("triggered"),
-              eventType = EventType("loop"),
+              eventName = "loop",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -909,7 +909,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(machineB.toString),
-                            "eventType"       -> StrValue("continue"),
+                            "eventName"       -> StrValue("continue"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -933,7 +933,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("waiting"),
               to = StateId("continued"),
-              eventType = EventType("continue"),
+              eventName = "continue",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -944,7 +944,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(machineC.toString),
-                            "eventType"       -> StrValue("finish"),
+                            "eventName"       -> StrValue("finish"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -958,7 +958,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("continued"),
               to = StateId("continued"),
-              eventType = EventType("continue"),
+              eventName = "continue",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -969,7 +969,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(machineC.toString),
-                            "eventType"       -> StrValue("finish"),
+                            "eventName"       -> StrValue("finish"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -993,7 +993,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("pending"),
               to = StateId("finished"),
-              eventType = EventType("finish"),
+              eventName = "finish",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1004,7 +1004,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(machineA.toString),
-                            "eventType"       -> StrValue("loop"), // Back to A!
+                            "eventName"       -> StrValue("loop"), // Back to A!
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -1018,7 +1018,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("finished"),
               to = StateId("finished"),
-              eventType = EventType("finish"),
+              eventName = "finish",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1029,7 +1029,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(machineA.toString),
-                            "eventType"       -> StrValue("loop"),
+                            "eventName"       -> StrValue("loop"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -1099,7 +1099,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         input = FiberInput.Transition(
-          EventType("start"),
+          "start",
           MapValue(Map.empty)
         )
 
@@ -1143,7 +1143,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("s1"),
               to = StateId("s2"),
-              eventType = EventType("start"),
+              eventName = "start",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1154,7 +1154,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(machineB.toString),
-                            "eventType"       -> StrValue("ping"),
+                            "eventName"       -> StrValue("ping"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -1167,7 +1167,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("s2"),
               to = StateId("s1"),
-              eventType = EventType("pong"),
+              eventName = "pong",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1178,7 +1178,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(machineB.toString),
-                            "eventType"       -> StrValue("ping"),
+                            "eventName"       -> StrValue("ping"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -1201,7 +1201,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("idle"),
               to = StateId("received"),
-              eventType = EventType("ping"),
+              eventName = "ping",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1212,7 +1212,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(machineA.toString),
-                            "eventType"       -> StrValue("pong"),
+                            "eventName"       -> StrValue("pong"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -1225,7 +1225,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("received"),
               to = StateId("idle"),
-              eventType = EventType("ping"),
+              eventName = "ping",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1236,7 +1236,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(machineA.toString),
-                            "eventType"       -> StrValue("pong"),
+                            "eventName"       -> StrValue("pong"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -1289,7 +1289,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         input = FiberInput.Transition(
-          EventType("start"),
+          "start",
           MapValue(Map.empty)
         )
 
@@ -1336,7 +1336,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("init"),
               to = StateId("triggered"),
-              eventType = EventType("activate"),
+              eventName = "activate",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1347,7 +1347,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(parentId.toString),
-                            "eventType"       -> StrValue("child_callback"),
+                            "eventName"       -> StrValue("child_callback"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -1361,7 +1361,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("triggered"),
               to = StateId("init"),
-              eventType = EventType("activate"),
+              eventName = "activate",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1372,7 +1372,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(parentId.toString),
-                            "eventType"       -> StrValue("child_callback"),
+                            "eventName"       -> StrValue("child_callback"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -1398,7 +1398,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("ready"),
               to = StateId("active"),
-              eventType = EventType("start"),
+              eventName = "start",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1409,7 +1409,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(childId.toString),
-                            "eventType"       -> StrValue("activate"),
+                            "eventName"       -> StrValue("activate"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -1423,7 +1423,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("active"),
               to = StateId("callback"),
-              eventType = EventType("child_callback"),
+              eventName = "child_callback",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1434,7 +1434,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(childId.toString),
-                            "eventType"       -> StrValue("activate"),
+                            "eventName"       -> StrValue("activate"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -1448,7 +1448,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("callback"),
               to = StateId("active"),
-              eventType = EventType("child_callback"),
+              eventName = "child_callback",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(
                 MapValue(
@@ -1459,7 +1459,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
                         MapValue(
                           Map(
                             "targetMachineId" -> StrValue(childId.toString),
-                            "eventType"       -> StrValue("activate"),
+                            "eventName"       -> StrValue("activate"),
                             "payload"         -> MapValue(Map.empty)
                           )
                         )
@@ -1509,7 +1509,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         // Both fibers exist from the start
         calculatedState = CalculatedState(SortedMap(parentId -> parentFiber, childId -> childFiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("start"),
+          "start",
           MapValue(Map.empty)
         )
 
@@ -1554,7 +1554,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
             Transition(
               from = StateId("start"),
               to = StateId("end"),
-              eventType = EventType("go"),
+              eventName = "go",
               guard = ConstExpression(BoolValue(true)),
               effect = ConstExpression(MapValue(Map("done" -> BoolValue(true)))),
               dependencies = Set(missingId) // Dependency on non-existent machine
@@ -1582,7 +1582,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         // Calculated state only contains the main fiber, not the dependency
         calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
-          EventType("go"),
+          "go",
           MapValue(Map.empty)
         )
 
