@@ -147,8 +147,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           stateDataHash = hashA,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         fiberB = Records.StateMachineFiberRecord(
@@ -162,8 +161,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           stateDataHash = hashB,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         fiberC = Records.StateMachineFiberRecord(
@@ -177,8 +175,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           stateDataHash = hashC,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(
@@ -267,8 +264,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           stateDataHash = initialHash,
           sequenceNumber = 5,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -394,8 +390,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(parentId -> parentFiber), Map.empty)
@@ -460,8 +455,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           stateDataHash = initialHash,
           sequenceNumber = originalSeqNum,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)

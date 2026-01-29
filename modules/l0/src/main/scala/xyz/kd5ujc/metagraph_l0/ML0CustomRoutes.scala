@@ -27,6 +27,8 @@ class ML0CustomRoutes[F[_]: Async](
   context: L0NodeContext[F]
 ) extends MetagraphPublicRoutes[F] {
 
+  // todo: add v1 prefix
+
   implicit val fiberStatusDecoder: QueryParamDecoder[FiberStatus] =
     QueryParamDecoder[String].emap { s =>
       FiberStatus.withNameOption(s).toRight(org.http4s.ParseFailure(s, s"Invalid FiberStatus: $s"))

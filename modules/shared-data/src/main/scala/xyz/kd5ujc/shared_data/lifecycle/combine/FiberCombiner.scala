@@ -57,17 +57,18 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
       sequenceNumber = 0,
       owners = owners,
       status = FiberStatus.Active,
-      lastEventStatus = EventProcessingStatus.Initialized,
       parentFiberId = update.parentFiberId
     )
-  } yield current.withFiber(update.cid, record, initialDataHash)
+
+    result <- current.withRecord[F](update.cid, record)
+  } yield result
 
   /**
    * Processes a fiber event through the fiber orchestrator.
    *
    * Handles both successful transitions and failures:
    * - Committed: Applies all fiber and oracle updates
-   * - Aborted: Records failure status on the fiber
+   * - Aborted: Records failure receipt on the fiber
    */
   def processFiberEvent(
     update: Signed[Updates.TransitionStateMachine]
@@ -86,8 +87,8 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
     outcome <- orchestrator.process(update.cid, input, proofsList)
 
     newState <- outcome match {
-      case TransactionResult.Committed(updatedFibers, updatedOracles, statuses, _, _, _) =>
-        handleCommittedOutcome(updatedFibers, updatedOracles, statuses)
+      case TransactionResult.Committed(updatedFibers, updatedOracles, _, _, _, _) =>
+        handleCommittedOutcome(updatedFibers, updatedOracles)
 
       case TransactionResult.Aborted(reason, gasUsed, _) =>
         handleAbortedOutcome(update.cid, update.eventType, reason, gasUsed, currentOrdinal)
@@ -119,10 +120,8 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
       status = FiberStatus.Archived
     )
 
-    newCalculated = current.calculated.copy(
-      stateMachines = current.calculated.stateMachines.updated(update.cid, updatedFiber)
-    )
-  } yield DataState(current.onChain, newCalculated)
+    result <- current.withRecord[F](update.cid, updatedFiber)
+  } yield result
 
   // ============================================================================
   // Private Helpers
@@ -131,28 +130,18 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
   /**
    * Handles a committed transaction outcome.
    *
-   * Applies event batch statuses to fibers before updating state.
+   * Fiber records already have their eventLog and lastReceipt updated by the engine.
    */
   private def handleCommittedOutcome(
     updatedFibers:  Map[UUID, Records.StateMachineFiberRecord],
-    updatedOracles: Map[UUID, Records.ScriptOracleFiberRecord],
-    statuses:       List[(UUID, EventProcessingStatus)]
-  ): F[DataState[OnChain, CalculatedState]] = {
-    // Apply event batch statuses to each fiber
-    val fibersWithBatches = updatedFibers.map { case (fiberId, fiber) =>
-      val fiberStatuses = statuses.filter(_._1 == fiberId).map(_._2)
-      fiberId -> fiber.copy(eventBatch = fiberStatuses)
-    }
-
-    current.withFibersAndOracles(fibersWithBatches, updatedOracles).pure[F]
-  }
+    updatedOracles: Map[UUID, Records.ScriptOracleFiberRecord]
+  ): F[DataState[OnChain, CalculatedState]] =
+    current.withFibersAndOracles[F](updatedFibers, updatedOracles)
 
   /**
    * Handles an aborted transaction outcome.
    *
-   * Records the failure status on the fiber, distinguishing between:
-   * - NoGuardMatched: Records as GuardFailed if from this fiber's guard
-   * - Other failures (including FiberNotActive): Records as ExecutionFailed
+   * Builds a failure EventReceipt and records it on the fiber.
    */
   private def handleAbortedOutcome(
     fiberId:        UUID,
@@ -163,50 +152,30 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
   ): F[DataState[OnChain, CalculatedState]] =
     current.calculated.stateMachines.get(fiberId) match {
       case Some(fiberRecord) =>
-        fiberRecord.stateData.computeDigest.map { statusHash =>
-          val failedStatus = createFailedStatus(fiberRecord, eventType, reason, gasUsed, currentOrdinal)
+        val failureReceipt = EventReceipt(
+          fiberId = fiberId,
+          sequenceNumber = fiberRecord.sequenceNumber,
+          eventType = eventType,
+          ordinal = currentOrdinal,
+          fromState = fiberRecord.currentState,
+          toState = fiberRecord.currentState,
+          success = false,
+          gasUsed = gasUsed,
+          triggersFired = 0,
+          errorMessage = Some(reason.toMessage)
+        )
 
-          val failedFiber = fiberRecord.copy(
-            previousUpdateOrdinal = fiberRecord.latestUpdateOrdinal,
-            latestUpdateOrdinal = currentOrdinal,
-            lastEventStatus = failedStatus,
-            eventBatch = List(failedStatus)
-          )
+        val failedFiber = fiberRecord.copy(
+          previousUpdateOrdinal = fiberRecord.latestUpdateOrdinal,
+          latestUpdateOrdinal = currentOrdinal,
+          lastReceipt = Some(failureReceipt),
+          eventLog = (failureReceipt :: fiberRecord.eventLog).take(100)
+        )
 
-          current.withFiber(fiberId, failedFiber, statusHash)
-        }
+        current.withRecord[F](fiberId, failedFiber)
 
       case None =>
         Async[F].raiseError(new RuntimeException(s"Fiber $fiberId not found"))
-    }
-
-  /**
-   * Creates the appropriate failed status based on the failure reason.
-   */
-  private def createFailedStatus(
-    fiberRecord:    Records.StateMachineFiberRecord,
-    eventType:      EventType,
-    reason:         FailureReason,
-    gasUsed:        Long,
-    currentOrdinal: SnapshotOrdinal
-  ): EventProcessingStatus =
-    reason match {
-      case FailureReason.NoGuardMatched(fromState, evtType, attemptedGuards)
-          if fromState == fiberRecord.currentState && evtType == eventType =>
-        EventProcessingStatus.GuardFailed(
-          reason = s"No guard matched from ${fromState.value} on ${evtType.value} ($attemptedGuards guards tried)",
-          attemptedAt = currentOrdinal,
-          attemptedEventType = eventType
-        )
-
-      case _ =>
-        EventProcessingStatus.ExecutionFailed(
-          reason = reason.toMessage,
-          attemptedAt = currentOrdinal,
-          attemptedEventType = eventType,
-          gasUsed = gasUsed,
-          depth = 0
-        )
     }
 }
 

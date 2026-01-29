@@ -218,10 +218,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
 
       } yield expect(machine.isDefined) and
       expect(machine.map(_.currentState).contains(StateId("pending"))) and
-      expect(machine.map(_.lastEventStatus).exists {
-        case EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
-        case _                                                    => false
-      }) and
+      expect(machine.exists(_.lastReceipt.exists(r => !r.success))) and
       expect(oracle.isDefined) and
       expect(oracle.map(_.invocationCount).contains(0L)) and
       expect(oracle.map(_.invocationLog.isEmpty).contains(true))
@@ -319,10 +316,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
 
       } yield expect(machineAfterFirstUnlock.isDefined) and
       expect(machineAfterFirstUnlock.map(_.currentState).contains(StateId("locked"))) and
-      expect(machineAfterFirstUnlock.map(_.lastEventStatus).exists {
-        case EventProcessingStatus.GuardFailed(_, _, _) => true
-        case _                                          => false
-      }) and
+      expect(machineAfterFirstUnlock.exists(_.lastReceipt.exists(r => !r.success))) and
       expect(machineAfterSecondUnlock.isDefined) and
       expect(machineAfterSecondUnlock.map(_.currentState).contains(StateId("unlocked")))
     }

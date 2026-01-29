@@ -525,12 +525,11 @@ object TriggerEventsSuite extends SimpleIOSuite {
           .get(sourceCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        // Event should be recorded with ExecutionFailed status in the fiber's lastEventStatus
-        isTriggerTargetNotFound = source.map(_.lastEventStatus).exists {
-          case EventProcessingStatus.ExecutionFailed(reason, _, _, _, _) =>
-            reason.contains("Trigger target fiber") && reason.contains(nonExistentCid.toString)
-          case _ => false
-        }
+        // Event should be recorded with failed receipt containing trigger target error
+        isTriggerTargetNotFound = source.exists(_.lastReceipt.exists { r =>
+          !r.success &&
+          r.errorMessage.exists(msg => msg.contains("Trigger target fiber") && msg.contains(nonExistentCid.toString))
+        })
 
       } yield expect(source.isDefined) and
       expect(source.map(_.currentState).contains(StateId("idle"))) and // Stayed in idle
@@ -692,11 +691,8 @@ object TriggerEventsSuite extends SimpleIOSuite {
       expect(countB.contains(BigInt(0))) and
       expect(machineA.map(_.currentState).contains(StateId("idle"))) and // Original states
       expect(machineB.map(_.currentState).contains(StateId("idle"))) and
-      // Parent fiber should have ExecutionFailed status
-      expect(machineA.map(_.lastEventStatus).exists {
-        case EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
-        case _                                                    => false
-      })
+      // Parent fiber should have failed receipt
+      expect(machineA.exists(_.lastReceipt.exists(r => !r.success)))
     }
   }
 }

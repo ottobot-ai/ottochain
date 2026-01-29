@@ -1,7 +1,5 @@
 package xyz.kd5ujc.shared_data.fiber.triggers
 
-import java.util.UUID
-
 import cats.data.EitherT
 import cats.effect.Async
 import cats.mtl.{Ask, Stateful}
@@ -20,37 +18,6 @@ import xyz.kd5ujc.schema.{CalculatedState, Records}
 import xyz.kd5ujc.shared_data.fiber.core._
 import xyz.kd5ujc.shared_data.fiber.evaluation.{FiberEvaluator, OracleProcessor}
 import xyz.kd5ujc.shared_data.syntax.all._
-
-sealed trait TriggerHandlerResult
-
-object TriggerHandlerResult {
-
-  /**
-   * Trigger processed successfully.
-   *
-   * Gas is tracked via StateT and not carried in the result.
-   *
-   * @param updatedState   State with the target fiber updated
-   * @param statuses       Processing status updates (fiberId -> status)
-   * @param cascadeTriggers Additional triggers to process
-   */
-  final case class Success(
-    updatedState:    CalculatedState,
-    statuses:        List[(UUID, EventProcessingStatus)],
-    cascadeTriggers: List[FiberTrigger]
-  ) extends TriggerHandlerResult
-
-  /**
-   * Trigger processing failed.
-   *
-   * Gas consumed before failure is tracked via StateT.
-   *
-   * @param reason Why the trigger failed
-   */
-  final case class Failed(
-    reason: FailureReason
-  ) extends TriggerHandlerResult
-}
 
 /**
  * Handles individual trigger processing in G[_] with gas tracked via StateT
@@ -114,12 +81,27 @@ class StateMachineTriggerHandler[F[_]: Async: SecurityProvider, G[_]: Monad](
   ): G[TriggerHandlerResult] =
     for {
       ordinal <- ExecutionOps.askOrdinal[G]
+      maxLog  <- ExecutionOps.askLimits[G].map(_.maxLogSize)
       outcome <- FiberEvaluator.make[F, G](calculatedState).evaluate(sm, trigger.input, List.empty)
     } yield outcome match {
-      case FiberOutcome.Success(newStateData, newStateId, triggers, _, _, _) =>
-        val status = EventProcessingStatus.Success(
+      case FiberResult.Success(newStateData, newStateId, triggers, _, outputs, _) =>
+        val eventType = trigger.input match {
+          case FiberInput.Transition(et, _, _)   => et
+          case FiberInput.MethodCall(m, _, _, _) => EventType(m)
+        }
+
+        val receipt = EventReceipt(
+          fiberId = sm.cid,
           sequenceNumber = sm.sequenceNumber + 1,
-          processedAt = ordinal
+          eventType = eventType,
+          ordinal = ordinal,
+          fromState = sm.currentState,
+          toState = newStateId.getOrElse(sm.currentState),
+          success = true,
+          gasUsed = 0L,
+          triggersFired = triggers.size,
+          outputs = outputs,
+          sourceFiberId = trigger.sourceFiberId
         )
 
         val updatedFiber = sm.copy(
@@ -127,19 +109,19 @@ class StateMachineTriggerHandler[F[_]: Async: SecurityProvider, G[_]: Monad](
           stateData = newStateData,
           sequenceNumber = sm.sequenceNumber + 1,
           latestUpdateOrdinal = ordinal,
-          lastEventStatus = status,
-          eventBatch = (sm.eventBatch :+ status).takeRight(sm.maxEventBatchSize)
+          lastReceipt = Some(receipt),
+          eventLog = (receipt :: sm.eventLog).take(maxLog)
         )
 
         val updatedState = state.updateFiber(updatedFiber)
 
         TriggerHandlerResult.Success(
           updatedState = updatedState,
-          statuses = List((sm.cid, status)),
+          receipts = List(receipt),
           cascadeTriggers = triggers
         ): TriggerHandlerResult
 
-      case FiberOutcome.GuardFailed(attemptedCount) =>
+      case FiberResult.GuardFailed(attemptedCount) =>
         val eventType = trigger.input match {
           case FiberInput.Transition(et, _, _)   => et
           case FiberInput.MethodCall(m, _, _, _) => EventType(m)
@@ -148,7 +130,7 @@ class StateMachineTriggerHandler[F[_]: Async: SecurityProvider, G[_]: Monad](
           FailureReason.NoGuardMatched(sm.currentState, eventType, attemptedCount)
         ): TriggerHandlerResult
 
-      case FiberOutcome.Failed(reason) =>
+      case FiberResult.Failed(reason) =>
         TriggerHandlerResult.Failed(reason): TriggerHandlerResult
     }
 }
@@ -272,6 +254,10 @@ class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
         ExecutionOps.askOrdinal[G]
       )
 
+      maxLog <- EitherT.liftF[G, TriggerHandlerResult, Int](
+        ExecutionOps.askLimits[G].map(_.maxLogSize)
+      )
+
       invocation = OracleInvocation(
         method = method,
         args = args,
@@ -281,7 +267,7 @@ class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
         invokedBy = callerAddress
       )
 
-      newLog = (invocation :: oracle.invocationLog).take(oracle.maxLogSize)
+      newLog = (invocation :: oracle.invocationLog).take(maxLog)
 
       updatedOracle = oracle.copy(
         stateData = newStateData,
@@ -295,7 +281,7 @@ class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
 
     } yield TriggerHandlerResult.Success(
       updatedState = updatedState,
-      statuses = List.empty,
+      receipts = List.empty,
       cascadeTriggers = List.empty
     ): TriggerHandlerResult
 

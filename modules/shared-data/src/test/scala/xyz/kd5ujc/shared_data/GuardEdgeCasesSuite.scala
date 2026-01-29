@@ -85,8 +85,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -173,8 +172,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -265,8 +263,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -358,8 +355,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -432,8 +428,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -502,8 +497,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)

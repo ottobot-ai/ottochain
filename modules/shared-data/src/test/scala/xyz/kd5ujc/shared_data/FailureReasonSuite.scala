@@ -67,8 +67,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -150,8 +149,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -238,8 +236,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         // Only the source fiber exists, target doesn't
@@ -350,8 +347,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -421,8 +417,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -503,8 +498,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -568,8 +562,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)

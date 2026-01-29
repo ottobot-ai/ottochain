@@ -5,12 +5,15 @@ import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
 import io.constellationnetwork.metagraph_sdk.json_logic._
+import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.fiber._
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Updates}
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
+import xyz.kd5ujc.shared_data.fiber.FiberEngine
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_data.syntax.all._
 import xyz.kd5ujc.shared_test.Participant._
 import xyz.kd5ujc.shared_test.TestFixture
 
@@ -18,10 +21,11 @@ import io.circe.parser
 import weaver.SimpleIOSuite
 
 /**
- * Tests for eventBatch behavior and maxEventBatchSize field.
+ * Tests for eventLog behavior and bounding by ExecutionLimits.maxLogSize.
  *
- * The eventBatch tracks the event processing status from the most recent transaction.
- * It is replaced (not accumulated) with each new transaction.
+ * The eventLog accumulates EventReceipt entries (most recent first) and is
+ * bounded by maxLogSize from ExecutionLimits at the protocol level.
+ * lastReceipt holds the receipt from the most recent event.
  */
 object EventBatchBoundingSuite extends SimpleIOSuite {
 
@@ -41,7 +45,7 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
        |      "effect": {
        |        "merge": [
        |          { "var": "state" },
-       |          { "count": { "+": [{ "var": "state.count" }, 1] } }
+       |          { "counter": { "+": [{ "var": "state.counter" }, 1] } }
        |        ]
        |      },
        |      "dependencies": []
@@ -49,7 +53,7 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
        |  ]
        |}""".stripMargin
 
-  test("eventBatch contains status from most recent transaction") {
+  test("eventLog is populated after processing events") {
     TestFixture.resource(Set(Alice)).use { fixture =>
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
@@ -59,7 +63,7 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
         cid  <- IO.randomUUID
         def_ <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
 
-        createSM = Updates.CreateStateMachine(cid, def_, MapValue(Map("count" -> IntValue(0))))
+        createSM = Updates.CreateStateMachine(cid, def_, MapValue(Map("counter" -> IntValue(0))))
 
         createProof <- fixture.registry.generateProofs(createSM, Set(Alice))
         state0 <- combiner.insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createSM, createProof))
@@ -69,24 +73,103 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
         proof1 <- fixture.registry.generateProofs(event1, Set(Alice))
         state1 <- combiner.insert(state0, Signed(event1, proof1))
 
-        machine1 = state1.calculated.stateMachines.get(cid)
+        machine1 = state1.calculated.stateMachines
+          .get(cid)
+          .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Process second event
         event2 = Updates.TransitionStateMachine(cid, EventType("increment"), MapValue(Map.empty))
         proof2 <- fixture.registry.generateProofs(event2, Set(Alice))
         state2 <- combiner.insert(state1, Signed(event2, proof2))
 
-        machine2 = state2.calculated.stateMachines.get(cid)
+        machine2 = state2.calculated.stateMachines
+          .get(cid)
+          .collect { case r: Records.StateMachineFiberRecord => r }
       } yield expect(machine1.isDefined) and
       expect(machine2.isDefined) and
-      // After first event, batch contains status for that event
-      expect(machine1.exists(_.eventBatch.nonEmpty)) and
-      // After second event, batch is replaced with new status
-      expect(machine2.exists(_.eventBatch.nonEmpty))
+      // After first event, eventLog contains a receipt for that event
+      expect(machine1.exists(_.eventLog.nonEmpty)) and
+      expect(machine1.exists(_.lastReceipt.isDefined)) and
+      // After second event, eventLog grows and lastReceipt is updated
+      expect(machine2.exists(_.eventLog.size == 2)) and
+      expect(machine2.exists(_.lastReceipt.isDefined))
     }
   }
 
-  test("maxEventBatchSize field has sensible default") {
+  test("eventLog is bounded by maxLogSize from ExecutionLimits") {
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      for {
+        cid  <- IO.randomUUID
+        def_ <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
+
+        initialData = MapValue(Map("counter" -> IntValue(0)))
+        initialHash <- (initialData: JsonLogicValue).computeDigest
+
+        owners = Set(Alice).map(fixture.registry.addresses)
+
+        // Seed with a fiber that already has 4 events in its log
+        seedReceipts = (1 to 4).toList.map { i =>
+          EventReceipt(
+            fiberId = cid,
+            sequenceNumber = i.toLong,
+            eventType = EventType("increment"),
+            ordinal = fixture.ordinal,
+            fromState = StateId("counting"),
+            toState = StateId("counting"),
+            success = true,
+            gasUsed = 0L,
+            triggersFired = 0
+          )
+        }
+
+        fiber = Records.StateMachineFiberRecord(
+          cid = cid,
+          creationOrdinal = fixture.ordinal,
+          previousUpdateOrdinal = fixture.ordinal,
+          latestUpdateOrdinal = fixture.ordinal,
+          definition = def_,
+          currentState = StateId("counting"),
+          stateData = initialData,
+          stateDataHash = initialHash,
+          sequenceNumber = 4L,
+          owners = owners,
+          status = FiberStatus.Active,
+          eventLog = seedReceipts
+        )
+
+        baseState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
+
+        // Use FiberEngine directly with maxLogSize = 5
+        engine = FiberEngine.make[IO](
+          baseState.calculated,
+          fixture.ordinal,
+          limits = ExecutionLimits(maxLogSize = 5)
+        )
+
+        // Generate valid proofs via the registry
+        dummyUpdate = Updates.TransitionStateMachine(cid, EventType("increment"), MapValue(Map.empty))
+        proofs <- fixture.registry.generateProofs(dummyUpdate, Set(Alice)).map(_.toList)
+
+        input = FiberInput.Transition(EventType("increment"), MapValue(Map.empty), None)
+
+        result <- engine.process(cid, input, proofs)
+
+        updatedFiber = result match {
+          case TransactionResult.Committed(machines, _, _, _, _, _) =>
+            machines.get(cid)
+          case _ => None
+        }
+
+      } yield expect(updatedFiber.isDefined) and
+      // Log had 4 entries, added 1 more = 5, bounded at maxLogSize = 5
+      expect(updatedFiber.exists(_.eventLog.size == 5)) and
+      // Most recent receipt is first in the list
+      expect(updatedFiber.exists(_.eventLog.headOption.exists(_.sequenceNumber == 5L)))
+    }
+  }
+
+  test("lastReceipt is set after processing") {
     TestFixture.resource(Set(Alice)).use { fixture =>
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
@@ -96,15 +179,29 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
         cid  <- IO.randomUUID
         def_ <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
 
-        createSM = Updates.CreateStateMachine(cid, def_, MapValue(Map("count" -> IntValue(0))))
+        createSM = Updates.CreateStateMachine(cid, def_, MapValue(Map("counter" -> IntValue(0))))
 
         createProof <- fixture.registry.generateProofs(createSM, Set(Alice))
         state0 <- combiner.insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createSM, createProof))
 
-        machine = state0.calculated.stateMachines.get(cid)
-      } yield expect(machine.isDefined) and
-      // Default maxEventBatchSize should be 100
-      expect(machine.exists(_.maxEventBatchSize == 100))
+        machine0 = state0.calculated.stateMachines
+          .get(cid)
+          .collect { case r: Records.StateMachineFiberRecord => r }
+
+        // Process event
+        event1 = Updates.TransitionStateMachine(cid, EventType("increment"), MapValue(Map.empty))
+        proof1 <- fixture.registry.generateProofs(event1, Set(Alice))
+        state1 <- combiner.insert(state0, Signed(event1, proof1))
+
+        machine1 = state1.calculated.stateMachines
+          .get(cid)
+          .collect { case r: Records.StateMachineFiberRecord => r }
+      } yield
+      // Before any event, lastReceipt should be None
+      expect(machine0.exists(_.lastReceipt.isEmpty)) and
+      // After processing, lastReceipt should be set with success
+      expect(machine1.exists(_.lastReceipt.exists(_.success))) and
+      expect(machine1.exists(_.lastReceipt.exists(_.eventType == EventType("increment"))))
     }
   }
 }

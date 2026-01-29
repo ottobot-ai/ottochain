@@ -15,7 +15,7 @@ import io.constellationnetwork.metagraph_sdk.std.JsonBinaryCodec
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.signature.SignatureProof
 
-import xyz.kd5ujc.schema.fiber.FiberOutcome.FailureReasonOps
+import xyz.kd5ujc.schema.fiber.FiberResult.FailureReasonOps
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, Records}
 import xyz.kd5ujc.shared_data.fiber.core._
@@ -38,7 +38,7 @@ trait FiberEvaluator[G[_]] {
     fiber:  Records.FiberRecord,
     input:  FiberInput,
     proofs: List[SignatureProof]
-  ): G[FiberOutcome]
+  ): G[FiberResult]
 }
 
 object FiberEvaluator {
@@ -61,7 +61,7 @@ object FiberEvaluator {
         fiber:  Records.FiberRecord,
         input:  FiberInput,
         proofs: List[SignatureProof]
-      ): G[FiberOutcome] = (fiber, input) match {
+      ): G[FiberResult] = (fiber, input) match {
         case (sm: Records.StateMachineFiberRecord, FiberInput.Transition(eventType, payload, _)) =>
           evaluateStateMachine(sm, eventType, payload, proofs)
 
@@ -88,7 +88,7 @@ object FiberEvaluator {
         eventType: EventType,
         payload:   JsonLogicValue,
         proofs:    List[SignatureProof]
-      ): G[FiberOutcome] = {
+      ): G[FiberResult] = {
         val input = FiberInput.Transition(eventType, payload)
 
         fiber.definition.transitionMap
@@ -106,9 +106,9 @@ object FiberEvaluator {
         proofs:          List[SignatureProof],
         transitions:     List[Transition],
         attemptedGuards: Int
-      ): G[FiberOutcome] =
+      ): G[FiberResult] =
         transitions match {
-          case Nil => (FiberOutcome.GuardFailed(attemptedGuards): FiberOutcome).pure[G]
+          case Nil => (FiberResult.GuardFailed(attemptedGuards): FiberResult).pure[G]
           case transition :: rest =>
             for {
               contextProvider <- ContextProvider.make[F](calculatedState).pure[G]
@@ -140,7 +140,7 @@ object FiberEvaluator {
         proofs:          List[SignatureProof],
         rest:            List[Transition],
         attemptedGuards: Int
-      ): G[FiberOutcome] =
+      ): G[FiberResult] =
         for {
           remainingGas <- ExecutionOps.remainingGas[G]
           gasConfig    <- ExecutionOps.askGasConfig[G]
@@ -178,7 +178,7 @@ object FiberEvaluator {
         fiber:       Records.StateMachineFiberRecord,
         transition:  Transition,
         contextData: JsonLogicValue
-      ): G[FiberOutcome] =
+      ): G[FiberResult] =
         fiber.stateData match {
           case currentMap: MapValue =>
             evaluateEffectExpression(transition, contextData).flatMap {
@@ -217,7 +217,7 @@ object FiberEvaluator {
         transition:   Transition,
         effectResult: JsonLogicValue,
         contextData:  JsonLogicValue
-      ): G[FiberOutcome] =
+      ): G[FiberResult] =
         for {
           limits    <- ExecutionOps.askLimits[G]
           sizeCheck <- validateStateSize(effectResult, limits).liftTo[G]
@@ -246,12 +246,11 @@ object FiberEvaluator {
         transition:   Transition,
         effectResult: JsonLogicValue,
         contextData:  JsonLogicValue
-      ): G[FiberOutcome] =
+      ): G[FiberResult] =
         for {
           fiberGasConfig <- A.reader(_.fiberGasConfig)
           limits         <- ExecutionOps.askLimits[G]
 
-          // Extract side effects - gas charged via StateT
           outputs <- EffectExtractor.extractOutputs(effectResult).pure[G]
           spawnMachines = EffectExtractor.extractSpawnDirectivesFromExpression(transition.effect)
           triggers <- EffectExtractor.extractTriggerEvents[F, G](
@@ -281,9 +280,9 @@ object FiberEvaluator {
                 .GasExhaustedFailure(totalGasUsed, limits.maxGas, GasExhaustionPhase.Effect)
                 .pureOutcome[G]
             else
-              StateMerger.make[F].mergeEffectIntoState(currentMap, effectResult).liftTo[G].map[FiberOutcome] {
+              StateMerger.make[F].mergeEffectIntoState(currentMap, effectResult).liftTo[G].map[FiberResult] {
                 case Right(newStateData) =>
-                  FiberOutcome.Success(
+                  FiberResult.Success(
                     newStateData = newStateData,
                     newStateId = Some(transition.to),
                     triggers = allTriggers,
@@ -304,7 +303,7 @@ object FiberEvaluator {
         method: String,
         args:   JsonLogicValue,
         caller: io.constellationnetwork.schema.address.Address
-      ): G[FiberOutcome] =
+      ): G[FiberResult] =
         for {
           result <- OracleProcessor
             .validateAccess[F](oracle.accessControl, caller, oracle.cid, calculatedState)
@@ -334,14 +333,14 @@ object FiberEvaluator {
                         _              <- ExecutionOps.chargeGas[G](gasUsed.amount)
                         stateAndResult <- OracleProcessor.extractStateAndResult[F](evaluationResult).liftTo[G]
                         (newStateData, returnValue) = stateAndResult
-                      } yield FiberOutcome.Success(
+                      } yield FiberResult.Success(
                         newStateData = newStateData.getOrElse(oracle.stateData.getOrElse(NullValue)),
                         newStateId = None,
                         triggers = List.empty,
                         spawns = List.empty,
                         outputs = List.empty,
                         returnValue = Some(returnValue)
-                      ): FiberOutcome
+                      ): FiberResult
 
                     case Left(ex) =>
                       ex.toFailureReason[G](GasExhaustionPhase.Oracle).map(_.asOutcome)

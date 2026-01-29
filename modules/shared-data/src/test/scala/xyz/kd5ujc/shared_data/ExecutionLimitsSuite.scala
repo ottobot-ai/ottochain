@@ -161,10 +161,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
       expect(machine2Count.contains(BigInt(0))) and
       expect(machine1.map(_.currentState).contains(StateId("idle"))) and
       expect(machine2.map(_.currentState).contains(StateId("idle"))) and
-      expect(machine1.map(_.lastEventStatus).exists {
-        case EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
-        case _                                                    => false
-      })
+      expect(machine1.exists(_.lastReceipt.exists(r => !r.success)))
     }
   }
 
@@ -286,10 +283,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
       expect(step.contains(BigInt(0))) and // No state changes
       expect(machine.map(_.currentState).contains(StateId("s0"))) and // Original state
       expect(machine.map(_.sequenceNumber).contains(0L)) and // Sequence not incremented
-      expect(machine.map(_.lastEventStatus).exists {
-        case EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
-        case _                                                    => false
-      })
+      expect(machine.exists(_.lastReceipt.exists(r => !r.success)))
     }
   }
 
@@ -384,10 +378,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
       expect(count.contains(BigInt(0))) and // No state changes
       expect(machine.map(_.currentState).contains(StateId("idle"))) and // Original state
       expect(machine.map(_.sequenceNumber).contains(0L)) and // Sequence not incremented
-      expect(machine.map(_.lastEventStatus).exists {
-        case EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
-        case _                                                    => false
-      })
+      expect(machine.exists(_.lastReceipt.exists(r => !r.success)))
     }
   }
 }

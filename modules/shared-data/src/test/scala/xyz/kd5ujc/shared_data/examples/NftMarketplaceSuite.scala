@@ -14,6 +14,7 @@ import io.constellationnetwork.security.signature.Signed
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_data.syntax.all._
 import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
 import xyz.kd5ujc.shared_test.Participant._
 
@@ -341,14 +342,12 @@ object NftMarketplaceSuite extends SimpleIOSuite {
           stateDataHash = marketplaceHash,
           sequenceNumber = 0,
           owners = Set(registry.addresses(Alice)),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        inState = DataState(
-          OnChain(Map(marketplaceCid -> marketplaceHash, royaltyOracleId -> royaltyHash)),
-          CalculatedState(Map(marketplaceCid -> marketplaceFiber), Map(royaltyOracleId -> royaltyOracle))
-        )
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis)
+          .withRecord[IO](marketplaceCid, marketplaceFiber)
+          .flatMap(_.withRecord[IO](royaltyOracleId, royaltyOracle))
 
         // Alice creates an NFT listing (spawns child)
         nftListingId1 <- UUIDGen.randomUUID[IO]

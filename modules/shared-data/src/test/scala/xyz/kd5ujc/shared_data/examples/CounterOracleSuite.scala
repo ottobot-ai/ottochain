@@ -497,8 +497,8 @@ object CounterOracleSuite extends SimpleIOSuite {
           Signed(createOracle, createProof)
         )
 
-        // Check onChain has hash for this oracle
-        initialOnChainHash = state1.onChain.latest.get(cid)
+        // Check onChain has hashes for this oracle
+        initialOnChainHashes = state1.onChain.latest.get(cid)
         initialStateHash = state1.calculated.scriptOracles.get(cid).flatMap(_.stateDataHash)
 
         invokeOracle = Updates.InvokeScriptOracle(
@@ -510,17 +510,17 @@ object CounterOracleSuite extends SimpleIOSuite {
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
-        // Check onChain hash was updated
-        updatedOnChainHash = state2.onChain.latest.get(cid)
+        // Check onChain hashes were updated
+        updatedOnChainHashes = state2.onChain.latest.get(cid)
         updatedStateHash = state2.calculated.scriptOracles.get(cid).flatMap(_.stateDataHash)
       } yield expect.all(
-        initialOnChainHash.isDefined,
+        initialOnChainHashes.isDefined,
         initialStateHash.isDefined,
-        initialOnChainHash == initialStateHash,
-        updatedOnChainHash.isDefined,
+        initialOnChainHashes.flatMap(_.stateDataHash) == initialStateHash,
+        updatedOnChainHashes.isDefined,
         updatedStateHash.isDefined,
-        updatedOnChainHash == updatedStateHash,
-        initialOnChainHash != updatedOnChainHash
+        updatedOnChainHashes.flatMap(_.stateDataHash) == updatedStateHash,
+        initialOnChainHashes != updatedOnChainHashes
       )
     }
   }

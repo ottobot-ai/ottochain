@@ -9,12 +9,12 @@ import io.constellationnetwork.ext.cats.syntax.next.catsSyntaxNext
 import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
-import io.constellationnetwork.security.hash.Hash
 import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_data.syntax.all._
 import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
 import xyz.kd5ujc.shared_test.Participant._
 
@@ -108,14 +108,10 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           stateDataHash = lockHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        inState = DataState(
-          OnChain(Map(lockCid -> lockHash)),
-          CalculatedState(Map(lockCid -> lockFiber), Map.empty)
-        )
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](lockCid, lockFiber)
 
         // Try to unlock BEFORE time (should fail)
         earlyUpdate = Updates.TransitionStateMachine(
@@ -287,14 +283,10 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           stateDataHash = htlcHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        inState = DataState(
-          OnChain(Map(htlcCid -> htlcHash)),
-          CalculatedState(Map(htlcCid -> htlcFiber), Map.empty)
-        )
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](htlcCid, htlcFiber)
 
         // Test 1: Bob tries to claim with WRONG secret (should fail)
         wrongClaimUpdate = Updates.TransitionStateMachine(
@@ -386,14 +378,10 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           stateDataHash = htlcHash2,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        inState2 = DataState(
-          OnChain(Map(htlcCid2 -> htlcHash2)),
-          CalculatedState(Map(htlcCid2 -> htlcFiber2), Map.empty)
-        )
+        inState2 <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](htlcCid2, htlcFiber2)
 
         // Alice tries to refund BEFORE timeout (should fail)
         earlyRefundUpdate = Updates.TransitionStateMachine(
@@ -1210,8 +1198,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           stateDataHash = orderHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         escrowFiber = Records.StateMachineFiberRecord(
@@ -1225,8 +1212,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           stateDataHash = escrowHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         shippingFiber = Records.StateMachineFiberRecord(
@@ -1240,8 +1226,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           stateDataHash = shippingHash,
           sequenceNumber = 0,
           owners = Set(Alice).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         inspectionFiber = Records.StateMachineFiberRecord(
@@ -1255,8 +1240,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           stateDataHash = inspectionHash,
           sequenceNumber = 0,
           owners = Set(Charlie).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         insuranceFiber = Records.StateMachineFiberRecord(
@@ -1270,29 +1254,16 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           stateDataHash = insuranceHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        inState = DataState(
-          OnChain(
-            Map(
-              orderCid      -> orderHash,
-              escrowCid     -> escrowHash,
-              shippingCid   -> shippingHash,
-              inspectionCid -> inspectionHash,
-              insuranceCid  -> insuranceHash
-            )
-          ),
-          CalculatedState(
-            Map(
-              orderCid      -> orderFiber,
-              escrowCid     -> escrowFiber,
-              shippingCid   -> shippingFiber,
-              inspectionCid -> inspectionFiber,
-              insuranceCid  -> insuranceFiber
-            ),
-            Map.empty
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecords[IO](
+          Map(
+            orderCid      -> orderFiber,
+            escrowCid     -> escrowFiber,
+            shippingCid   -> shippingFiber,
+            inspectionCid -> inspectionFiber,
+            insuranceCid  -> insuranceFiber
           )
         )
 
@@ -1736,8 +1707,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           stateDataHash = proposalHash,
           sequenceNumber = 0,
           owners = Set(Alice).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         // Create voter fibers for Alice, Bob, and Charlie
@@ -1761,8 +1731,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           stateDataHash = aliceVoterHash,
           sequenceNumber = 0,
           owners = Set(Alice).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         bobCid <- UUIDGen.randomUUID[IO]
@@ -1785,8 +1754,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           stateDataHash = bobVoterHash,
           sequenceNumber = 0,
           owners = Set(Bob).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         charlieCid <- UUIDGen.randomUUID[IO]
@@ -1809,8 +1777,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           stateDataHash = charlieVoterHash,
           sequenceNumber = 0,
           owners = Set(Charlie).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         // Create first action fiber (for early submission test - will be rejected)
@@ -1834,8 +1801,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           stateDataHash = earlyActionHash,
           sequenceNumber = 0,
           owners = Set(Charlie).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         // Create second action fiber (for valid submission test)
@@ -1859,32 +1825,18 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           stateDataHash = validActionHash,
           sequenceNumber = 0,
           owners = Set(Charlie).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         // Initial state with all machines (proposal, voters, and both action fibers)
-        inState = DataState(
-          OnChain(
-            Map(
-              proposalCid    -> proposalHash,
-              aliceCid       -> aliceVoterHash,
-              bobCid         -> bobVoterHash,
-              charlieCid     -> charlieVoterHash,
-              earlyActionCid -> earlyActionHash,
-              validActionCid -> validActionHash
-            )
-          ),
-          CalculatedState(
-            Map(
-              proposalCid    -> proposalFiber,
-              aliceCid       -> aliceVoterFiber,
-              bobCid         -> bobVoterFiber,
-              charlieCid     -> charlieVoterFiber,
-              earlyActionCid -> earlyActionFiber,
-              validActionCid -> validActionFiberInit
-            ),
-            Map.empty
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecords[IO](
+          Map(
+            proposalCid    -> proposalFiber,
+            aliceCid       -> aliceVoterFiber,
+            bobCid         -> bobVoterFiber,
+            charlieCid     -> charlieVoterFiber,
+            earlyActionCid -> earlyActionFiber,
+            validActionCid -> validActionFiberInit
           )
         )
 
@@ -2018,24 +1970,12 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             p.copy(stateData = updatedData)
           }
 
-        updatedProposalHash <- proposalWithVotes.traverse[IO, Hash](p => p.stateData.computeDigest)
-
-        state4 = proposalWithVotes
-          .zip(updatedProposalHash)
-          .map { case (p, h) =>
-            state3.copy(
-              onChain = state3.onChain.copy(
-                latest = state3.onChain.latest.updated(proposalCid, h)
-              ),
-              calculated = state3.calculated.copy(
-                stateMachines = state3.calculated.stateMachines.updated(
-                  proposalCid,
-                  p.copy(stateDataHash = h)
-                )
-              )
-            )
-          }
-          .getOrElse(state3)
+        state4 <- proposalWithVotes.fold(state3.pure[IO]) { p =>
+          for {
+            h      <- p.stateData.computeDigest
+            result <- state3.withRecord[IO](proposalCid, p.copy(stateDataHash = h))
+          } yield result
+        }
 
         // Step 5: Close voting (open -> closing)
         closeUpdate = Updates.TransitionStateMachine(

@@ -75,8 +75,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -177,8 +176,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           stateDataHash = hash1,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         fiber2 = Records.StateMachineFiberRecord(
@@ -192,8 +190,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           stateDataHash = hash2,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(machine1Id -> fiber1, machine2Id -> fiber2), Map.empty)
@@ -276,8 +273,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -349,8 +345,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -424,8 +419,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -531,8 +525,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(parentId -> parentFiber), Map.empty)
@@ -659,8 +652,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           stateDataHash = hash1,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         fiber2 = Records.StateMachineFiberRecord(
@@ -674,8 +666,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           stateDataHash = hash2,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(machine1Id -> fiber1, machine2Id -> fiber2), Map.empty)
@@ -788,8 +779,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           stateDataHash = hash1,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         fiber2 = Records.StateMachineFiberRecord(
@@ -803,8 +793,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           stateDataHash = hash2,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(machine1Id -> fiber1, machine2Id -> fiber2), Map.empty)

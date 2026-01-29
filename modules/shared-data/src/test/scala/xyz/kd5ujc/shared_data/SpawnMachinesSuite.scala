@@ -990,10 +990,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
 
       } yield expect(parent.isDefined) and
       expect(parent.map(_.currentState).contains(StateId("init"))) and
-      expect(parent.map(_.lastEventStatus).exists {
-        case EventProcessingStatus.ExecutionFailed(_, _, _, _, _) => true
-        case _                                                    => false
-      }) and
+      expect(parent.exists(_.lastReceipt.exists(r => !r.success))) and
       expect(child1.isEmpty) and
       expect(child2.isEmpty) and
       expect(child3.isEmpty)
@@ -1069,8 +1066,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
@@ -1167,8 +1163,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
@@ -1197,8 +1192,122 @@ object SpawnMachinesSuite extends SimpleIOSuite {
     }
   }
 
-  // Note: childId collision test removed - the spawn directive parsing and behavior
-  // requires more investigation to test properly
+  test("spawn validation: childId collision with existing fiber rejected") {
+    TestFixture.resource(Set(Alice)).use { fixture =>
+      implicit val s: SecurityProvider[IO] = fixture.securityProvider
+      implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
+      for {
+        implicit0(jle: JsonLogicEvaluator[IO]) <- JsonLogicEvaluator.tailRecursive[IO].pure[IO]
+
+        parentCid   <- UUIDGen.randomUUID[IO]
+        existingCid <- UUIDGen.randomUUID[IO] // Already exists in CalculatedState
+
+        // Parent tries to spawn a child with the same ID as existingCid
+        parentJson = s"""
+        {
+          "states": {
+            "init": { "id": { "value": "init" }, "isFinal": false },
+            "spawned": { "id": { "value": "spawned" }, "isFinal": false }
+          },
+          "initialState": { "value": "init" },
+          "transitions": [
+            {
+              "from": { "value": "init" },
+              "to": { "value": "spawned" },
+              "eventType": { "value": "spawn_colliding" },
+              "guard": true,
+              "effect": {
+                "_spawn": [
+                  {
+                    "childId": "$existingCid",
+                    "definition": {
+                      "states": {
+                        "active": { "id": { "value": "active" }, "isFinal": false }
+                      },
+                      "initialState": { "value": "active" },
+                      "transitions": []
+                    },
+                    "initialData": { "value": 1 }
+                  }
+                ],
+                "status": "spawned"
+              },
+              "dependencies": []
+            }
+          ]
+        }
+        """
+
+        parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
+        parentData = MapValue(Map("status" -> StrValue("init")))
+        parentHash <- (parentData: JsonLogicValue).computeDigest
+
+        parentFiber = Records.StateMachineFiberRecord(
+          cid = parentCid,
+          creationOrdinal = fixture.ordinal,
+          previousUpdateOrdinal = fixture.ordinal,
+          latestUpdateOrdinal = fixture.ordinal,
+          definition = parentDef,
+          currentState = StateId("init"),
+          stateData = parentData,
+          stateDataHash = parentHash,
+          sequenceNumber = 0,
+          owners = Set.empty,
+          status = FiberStatus.Active
+        )
+
+        // Existing fiber that occupies existingCid
+        existingDef <- IO.fromEither(decode[StateMachineDefinition]("""
+        {
+          "states": { "idle": { "id": { "value": "idle" }, "isFinal": false } },
+          "initialState": { "value": "idle" },
+          "transitions": []
+        }
+        """))
+        existingData = MapValue(Map("name" -> StrValue("occupied")))
+        existingHash <- (existingData: JsonLogicValue).computeDigest
+
+        existingFiber = Records.StateMachineFiberRecord(
+          cid = existingCid,
+          creationOrdinal = fixture.ordinal,
+          previousUpdateOrdinal = fixture.ordinal,
+          latestUpdateOrdinal = fixture.ordinal,
+          definition = existingDef,
+          currentState = StateId("idle"),
+          stateData = existingData,
+          stateDataHash = existingHash,
+          sequenceNumber = 0,
+          owners = Set.empty,
+          status = FiberStatus.Active
+        )
+
+        // Both fibers exist in CalculatedState
+        calculatedState = CalculatedState(
+          Map(parentCid -> parentFiber, existingCid -> existingFiber),
+          Map.empty
+        )
+
+        input = FiberInput.Transition(
+          EventType("spawn_colliding"),
+          MapValue(Map.empty)
+        )
+
+        limits = ExecutionLimits(maxDepth = 10, maxGas = 100_000L)
+        orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
+
+        result <- orchestrator.process(parentCid, input, List.empty)
+
+      } yield result match {
+        case TransactionResult.Aborted(reason, _, _) =>
+          expect(
+            reason.isInstanceOf[FailureReason.ChildIdCollision],
+            s"Expected ChildIdCollision but got: ${reason.getClass.getSimpleName}: ${reason.toMessage}"
+          )
+        case TransactionResult.Committed(_, _, _, _, _, _) =>
+          failure("Expected Aborted with ChildIdCollision, but transaction was committed")
+      }
+    }
+  }
 
   test("spawn validation: oversized initialData rejected") {
     // Use a small string but set a tiny maxStateSizeBytes limit
@@ -1264,8 +1373,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
@@ -1540,8 +1648,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set(fixture.registry.addresses(Alice)),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
@@ -1647,8 +1754,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set(fixture.registry.addresses(Alice)),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
@@ -1752,8 +1858,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set(fixture.registry.addresses(Alice)),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
@@ -1857,8 +1962,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set(fixture.registry.addresses(Alice)),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)

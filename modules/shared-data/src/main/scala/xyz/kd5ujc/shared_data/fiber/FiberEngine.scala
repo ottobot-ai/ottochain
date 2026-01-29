@@ -6,10 +6,11 @@ import cats.data.NonEmptyList
 import cats.effect.Async
 import cats.syntax.all._
 
-import io.constellationnetwork.metagraph_sdk.json_logic.JsonLogicValue
 import io.constellationnetwork.metagraph_sdk.json_logic.gas.GasConfig
+import io.constellationnetwork.metagraph_sdk.json_logic.{JsonLogicValue, NullValue}
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.schema.SnapshotOrdinal
+import io.constellationnetwork.schema.address.Address
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.signature.SignatureProof
 
@@ -91,27 +92,29 @@ object FiberEngine {
         input:  FiberInput,
         proofs: List[SignatureProof]
       ): FiberT[F, TransactionResult] =
-        for {
-          outcomeResult <- FiberEvaluator.make[F, FiberT[F, *]](calculatedState).evaluate(fiber, input, proofs)
-          result <- outcomeResult match {
-            case FiberOutcome.Success(newStateData, newStateId, fiberTriggers, spawns, _, returnValue) =>
+        FiberEvaluator
+          .make[F, FiberT[F, *]](calculatedState)
+          .evaluate(fiber, input, proofs)
+          .flatMap {
+            case FiberResult.Success(newStateData, newStateId, fiberTriggers, spawns, outputs, returnValue) =>
               fiber match {
                 case sm: Records.StateMachineFiberRecord =>
-                  processStateMachineSuccess(sm, input, newStateData, newStateId, fiberTriggers, spawns)
+                  processStateMachineSuccess(sm, input, newStateData, newStateId, fiberTriggers, spawns, outputs)
 
                 case oracle: Records.ScriptOracleFiberRecord =>
                   processOracleSuccess(oracle, input, newStateData, returnValue)
               }
 
-            case FiberOutcome.GuardFailed(attemptedCount) =>
+            case FiberResult.GuardFailed(attemptedCount) =>
               handleGuardFailed(fiber, input, attemptedCount)
 
-            case FiberOutcome.Failed(reason) =>
-              for {
-                gasUsed <- ExecutionOps.getGasUsed[FiberT[F, *]]
-              } yield TransactionResult.Aborted(reason, gasUsed): TransactionResult
+            case FiberResult.Failed(reason) =>
+              ExecutionOps
+                .getGasUsed[FiberT[F, *]]
+                .map(
+                  TransactionResult.Aborted(reason, _): TransactionResult
+                )
           }
-        } yield result
 
       private def handleGuardFailed(
         fiber:          Records.FiberRecord,
@@ -144,14 +147,30 @@ object FiberEngine {
         newStateData: JsonLogicValue,
         newStateId:   Option[StateId],
         triggers:     List[FiberTrigger],
-        spawns:       List[SpawnDirective]
+        spawns:       List[SpawnDirective],
+        outputs:      List[StructuredOutput]
       ): FiberT[F, TransactionResult] =
         for {
-          hash <- newStateData.computeDigest.liftFiber
+          hash    <- newStateData.computeDigest.liftFiber
+          gasUsed <- ExecutionOps.getGasUsed[FiberT[F, *]]
+          maxLog  <- ExecutionOps.askLimits[FiberT[F, *]].map(_.maxLogSize)
 
-          status = EventProcessingStatus.Success(
+          eventType = input match {
+            case FiberInput.Transition(et, _, _) => et
+            case _                               => EventType("unknown")
+          }
+
+          receipt = EventReceipt(
+            fiberId = sm.cid,
             sequenceNumber = sm.sequenceNumber + 1,
-            processedAt = ordinal
+            eventType = eventType,
+            ordinal = ordinal,
+            fromState = sm.currentState,
+            toState = newStateId.getOrElse(sm.currentState),
+            success = true,
+            gasUsed = gasUsed,
+            triggersFired = triggers.size,
+            outputs = outputs
           )
 
           updatedFiber = sm.copy(
@@ -161,24 +180,20 @@ object FiberEngine {
             stateData = newStateData,
             stateDataHash = hash,
             sequenceNumber = sm.sequenceNumber + 1,
-            lastEventStatus = status,
-            eventBatch = List(status)
+            lastReceipt = Some(receipt),
+            eventLog = (receipt :: sm.eventLog).take(maxLog)
           )
 
-          // Process spawns - gas is charged via StateT automatically
           spawnResult <- processSpawnsValidated(spawns, updatedFiber, input)
 
           result <- spawnResult match {
             case Left(errors) =>
-              // Take the first error as the primary failure reason
-              // Get current gas from state (includes spawn gas already charged)
               for {
                 currentGas <- ExecutionOps.getGasUsed[FiberT[F, *]]
               } yield TransactionResult.Aborted(errors.head, currentGas): TransactionResult
 
             case Right(spawnedFibers) =>
-              // Gas for spawns already charged via StateT
-              completeStateMachineTransaction(sm, updatedFiber, spawnedFibers, triggers, status)
+              completeStateMachineTransaction(sm, updatedFiber, spawnedFibers, triggers, receipt)
           }
         } yield result
 
@@ -212,31 +227,28 @@ object FiberEngine {
         updatedFiber:  Records.StateMachineFiberRecord,
         spawnedFibers: List[Records.StateMachineFiberRecord],
         triggers:      List[FiberTrigger],
-        status:        EventProcessingStatus
+        receipt:       EventReceipt
       ): FiberT[F, TransactionResult] = {
-        // Update parent's childFiberIds
         val parentWithChildren = updatedFiber.copy(
           childFiberIds = updatedFiber.childFiberIds ++ spawnedFibers.map(_.cid)
         )
 
-        // Build state with spawns visible to triggers
         val stateWithSpawns = spawnedFibers.foldLeft(
           calculatedState.updateFiber(parentWithChildren)
         ) { case (state, child) =>
           state.updateFiber(child)
         }
 
-        // Process triggers if any
         triggers.isEmpty
           .pure[FiberT[F, *]]
           .ifM(
-            ifTrue = commitWithoutTriggers(originalFiber.cid, parentWithChildren, spawnedFibers, status),
+            ifTrue = commitWithoutTriggers(originalFiber.cid, parentWithChildren, spawnedFibers, receipt),
             ifFalse = dispatchTriggers(
               originalFiber.cid,
               spawnedFibers,
               triggers,
               stateWithSpawns,
-              status
+              receipt
             )
           )
       }
@@ -245,7 +257,7 @@ object FiberEngine {
         primaryFiberId: UUID,
         updatedFiber:   Records.StateMachineFiberRecord,
         spawnedFibers:  List[Records.StateMachineFiberRecord],
-        status:         EventProcessingStatus
+        receipt:        EventReceipt
       ): FiberT[F, TransactionResult] =
         for {
           gasUsed <- ExecutionOps.getGasUsed[FiberT[F, *]]
@@ -255,7 +267,7 @@ object FiberEngine {
           TransactionResult.Committed(
             updatedStateMachines = allMachines,
             updatedOracles = Map.empty,
-            statuses = List((primaryFiberId, status)),
+            receipts = List(receipt),
             totalGasUsed = gasUsed,
             maxDepth = depth
           ): TransactionResult
@@ -266,27 +278,26 @@ object FiberEngine {
         spawnedFibers:   List[Records.StateMachineFiberRecord],
         triggers:        List[FiberTrigger],
         stateWithSpawns: CalculatedState,
-        status:          EventProcessingStatus
-      ): FiberT[F, TransactionResult] = {
-        val dispatcher = TriggerDispatcher.make[F, FiberT[F, *]]
+        receipt:         EventReceipt
+      ): FiberT[F, TransactionResult] =
+        TriggerDispatcher
+          .make[F, FiberT[F, *]]
+          .dispatch(triggers, stateWithSpawns)
+          .map {
+            case TransactionResult.Committed(machines, oracles, triggerReceipts, totalGas, maxDepth, opCount) =>
+              val allMachines = spawnedFibers.map(f => f.cid -> f).toMap ++ machines
+              TransactionResult.Committed(
+                updatedStateMachines = allMachines,
+                updatedOracles = oracles,
+                receipts = receipt :: triggerReceipts,
+                totalGasUsed = totalGas,
+                maxDepth = maxDepth,
+                operationCount = opCount
+              ): TransactionResult
 
-        dispatcher.dispatch(triggers, stateWithSpawns).map {
-          case TransactionResult.Committed(machines, oracles, statuses, totalGas, maxDepth, opCount) =>
-            // Merge spawned fibers - trigger results may have updated them
-            val allMachines = spawnedFibers.map(f => f.cid -> f).toMap ++ machines
-            TransactionResult.Committed(
-              updatedStateMachines = allMachines,
-              updatedOracles = oracles,
-              statuses = (primaryFiberId, status) :: statuses,
-              totalGasUsed = totalGas, // Gas is cumulative — no manual addition needed
-              maxDepth = maxDepth,
-              operationCount = opCount
-            ): TransactionResult
-
-          case aborted: TransactionResult.Aborted =>
-            aborted
-        }
-      }
+            case aborted: TransactionResult.Aborted =>
+              aborted
+          }
 
       private def processOracleSuccess(
         oracle:       Records.ScriptOracleFiberRecord,
@@ -297,17 +308,16 @@ object FiberEngine {
         for {
           gasUsed <- ExecutionOps.getGasUsed[FiberT[F, *]]
           depth   <- ExecutionOps.getDepth[FiberT[F, *]]
+          maxLog  <- ExecutionOps.askLimits[FiberT[F, *]].map(_.maxLogSize)
 
           newHash <- newStateData.some.traverse(_.computeDigest).liftFiber
 
-          // Extract method, args, and caller from input
-          // Oracles are invoked via MethodCall; Transition is for state machines
           (method, args, caller) <- input match {
             case FiberInput.MethodCall(m, a, c, _) =>
               (m, a, c).pureFiber[F]
             case FiberInput.Transition(et, _, _) =>
               Async[F]
-                .raiseError[(String, JsonLogicValue, io.constellationnetwork.schema.address.Address)](
+                .raiseError[(String, JsonLogicValue, Address)](
                   new RuntimeException(
                     s"Oracle ${oracle.cid} received Transition input (event: ${et.value}). Oracles only support MethodCall input."
                   )
@@ -315,17 +325,16 @@ object FiberEngine {
                 .liftFiber
           }
 
-          // Create invocation log entry with actual return value
           invocation = OracleInvocation(
             method = method,
             args = args,
-            result = returnValue.getOrElse(io.constellationnetwork.metagraph_sdk.json_logic.NullValue),
+            result = returnValue.getOrElse(NullValue),
             gasUsed = gasUsed,
             invokedAt = ordinal,
             invokedBy = caller
           )
 
-          updatedLog = (invocation :: oracle.invocationLog).take(oracle.maxLogSize)
+          updatedLog = (invocation :: oracle.invocationLog).take(maxLog)
 
           updatedOracle = oracle.copy(
             stateData = Some(newStateData),
@@ -337,7 +346,7 @@ object FiberEngine {
         } yield TransactionResult.Committed(
           updatedStateMachines = Map.empty,
           updatedOracles = Map(oracle.cid -> updatedOracle),
-          statuses = List.empty,
+          receipts = List.empty,
           totalGasUsed = gasUsed,
           maxDepth = depth
         )

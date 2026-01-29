@@ -14,6 +14,7 @@ import io.constellationnetwork.security.signature.Signed
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_data.syntax.all._
 import xyz.kd5ujc.shared_test.Participant._
 import xyz.kd5ujc.shared_test.TestFixture
 
@@ -212,14 +213,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(fixture.registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        inState = DataState(
-          OnChain(Map(cid -> initialHash)),
-          CalculatedState(Map(cid -> fiber), Map.empty)
-        )
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
 
         processUpdate = Updates.TransitionStateMachine(
           cid,
@@ -282,14 +279,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(fixture.registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        inState = DataState(
-          OnChain(Map(cid -> initialHash)),
-          CalculatedState(Map(cid -> fiber), Map.empty)
-        )
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
 
         processUpdate = Updates.TransitionStateMachine(
           cid,
@@ -352,14 +345,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(fixture.registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        inState = DataState(
-          OnChain(Map(cid -> initialHash)),
-          CalculatedState(Map(cid -> fiber), Map.empty)
-        )
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
 
         processUpdate = Updates.TransitionStateMachine(
           cid,
@@ -377,10 +366,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       } yield expect(updatedFiber.isDefined) and
       expect(updatedFiber.map(_.currentState).contains(StateId("counting"))) and // State unchanged
       expect(updatedFiber.map(_.sequenceNumber).contains(0L)) and // Sequence not incremented
-      expect(updatedFiber.map(_.lastEventStatus).exists {
-        case EventProcessingStatus.GuardFailed(_, _, _) => true
-        case _                                          => false
-      })
+      expect(updatedFiber.exists(_.lastReceipt.exists(r => !r.success && r.errorMessage.exists(_.contains("guard")))))
     }
   }
 
@@ -407,14 +393,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(fixture.registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        inState = DataState(
-          OnChain(Map(cid -> initialHash)),
-          CalculatedState(Map(cid -> fiber), Map.empty)
-        )
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
 
         archiveUpdate = Updates.ArchiveStateMachine(cid)
         archiveProof <- fixture.registry.generateProofs(archiveUpdate, Set(Alice))
@@ -452,14 +434,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(fixture.registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        inState = DataState(
-          OnChain(Map(cid -> initialHash)),
-          CalculatedState(Map(cid -> fiber), Map.empty)
-        )
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
 
         // Archive the fiber first
         archiveUpdate = Updates.ArchiveStateMachine(cid)
@@ -482,12 +460,13 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
       } yield updatedFiber match {
         case Some(fiber) =>
-          // Archived fiber should have ExecutionFailed status recorded
-          fiber.lastEventStatus match {
-            case EventProcessingStatus.ExecutionFailed(reason, _, _, _, _) =>
+          // Archived fiber should have a failed receipt with "not active" message
+          fiber.lastReceipt match {
+            case Some(receipt) if !receipt.success =>
+              val reason = receipt.errorMessage.getOrElse("")
               expect(reason.toLowerCase.contains("not active"), s"Expected 'not active' in reason, got: $reason")
             case other =>
-              failure(s"Expected ExecutionFailed status, got: $other")
+              failure(s"Expected failed receipt, got: $other")
           }
         case None =>
           failure(s"Fiber $cid not found in result state")
@@ -524,14 +503,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(fixture.registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        inState = DataState(
-          OnChain(Map(cid -> initialHash)),
-          CalculatedState(Map(cid -> fiber), Map.empty)
-        )
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
 
         processUpdate = Updates.TransitionStateMachine(
           cid,
@@ -609,14 +584,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set(Alice).map(fixture.registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        inState = DataState(
-          OnChain(Map(cid -> initialHash)),
-          CalculatedState(Map(cid -> fiber), Map.empty)
-        )
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
 
         processUpdate = Updates.TransitionStateMachine(
           cid,
@@ -681,14 +652,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set(Alice).map(fixture.registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        inState = DataState(
-          OnChain(Map(cid -> initialHash)),
-          CalculatedState(Map(cid -> fiber), Map.empty)
-        )
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
 
         processUpdate = Updates.TransitionStateMachine(
           cid,
@@ -705,10 +672,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       } yield expect(updatedFiber.isDefined) and
       expect(updatedFiber.map(_.currentState).contains(StateId("open"))) and // State unchanged
       expect(updatedFiber.map(_.sequenceNumber).contains(0L)) and // Sequence not incremented
-      expect(updatedFiber.map(_.lastEventStatus).exists {
-        case EventProcessingStatus.GuardFailed(_, _, _) => true
-        case _                                          => false
-      })
+      expect(updatedFiber.exists(_.lastReceipt.exists(r => !r.success && r.errorMessage.exists(_.contains("guard")))))
     }
   }
 
@@ -742,14 +706,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
             stateDataHash = initialHash,
             sequenceNumber = 0,
             owners = Set(Alice, Bob).map(fixture.registry.addresses),
-            status = FiberStatus.Active,
-            lastEventStatus = EventProcessingStatus.Initialized
+            status = FiberStatus.Active
           )
 
-          inState = DataState(
-            OnChain(Map(cid -> initialHash)),
-            CalculatedState(Map(cid -> fiber), Map.empty)
-          )
+          inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
 
           finalState <- (1 to increments).toList.foldLeftM(inState) { (state, _) =>
             val processUpdate = Updates.TransitionStateMachine(

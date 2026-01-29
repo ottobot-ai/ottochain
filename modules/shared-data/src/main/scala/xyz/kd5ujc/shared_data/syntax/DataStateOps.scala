@@ -2,109 +2,101 @@ package xyz.kd5ujc.shared_data.syntax
 
 import java.util.UUID
 
-import io.constellationnetwork.currency.dataApplication.DataState
-import io.constellationnetwork.security.hash.Hash
+import cats.effect.Async
+import cats.syntax.all._
 
-import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records}
+import io.constellationnetwork.currency.dataApplication.DataState
+import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
+
+import xyz.kd5ujc.schema.{CalculatedState, FiberCommit, OnChain, Records}
 
 /**
  * Extension methods for DataState to simplify state updates.
  *
  * These operations ensure that both OnChain (hashes) and CalculatedState (records)
- * are updated atomically, preventing inconsistencies.
+ * are updated atomically. RecordHash and stateDataHash are computed internally —
+ * callers only provide the record.
  */
 trait DataStateOps {
 
   implicit class DataStateSyntax(private val state: DataState[OnChain, CalculatedState]) {
 
     /**
-     * Update a fiber record and its hash in both OnChain and CalculatedState.
+     * Update a single fiber or oracle record with automatic hash computation.
      *
-     * @param id    The fiber's CID
-     * @param fiber The updated fiber record
-     * @param hash  The hash of the fiber's state data
+     * Computes RecordHash from the full record and extracts stateDataHash from
+     * the record's field. Routes to the correct CalculatedState field based on type.
+     *
+     * @param id     The fiber/oracle CID
+     * @param record The updated record (StateMachineFiberRecord or ScriptOracleFiberRecord)
      * @return Updated DataState with both OnChain and CalculatedState modified
      */
-    def withFiber(id: UUID, fiber: Records.StateMachineFiberRecord, hash: Hash): DataState[OnChain, CalculatedState] =
-      DataState(
-        state.onChain.copy(latest = state.onChain.latest.updated(id, hash)),
-        state.calculated.copy(stateMachines = state.calculated.stateMachines.updated(id, fiber))
-      )
-
-    /**
-     * Update an oracle record and optionally its hash in both OnChain and CalculatedState.
-     *
-     * @param id     The oracle's CID
-     * @param oracle The updated oracle record
-     * @param hash   Optional hash of the oracle's state data (None if no state)
-     * @return Updated DataState with both OnChain and CalculatedState modified
-     */
-    def withOracle(
+    def withRecord[F[_]: Async](
       id:     UUID,
-      oracle: Records.ScriptOracleFiberRecord,
-      hash:   Option[Hash]
-    ): DataState[OnChain, CalculatedState] =
-      DataState(
-        hash.fold(state.onChain)(h => state.onChain.copy(latest = state.onChain.latest.updated(id, h))),
-        state.calculated.copy(scriptOracles = state.calculated.scriptOracles.updated(id, oracle))
-      )
+      record: Records.FiberRecord
+    ): F[DataState[OnChain, CalculatedState]] =
+      record match {
+        case sm: Records.StateMachineFiberRecord =>
+          sm.computeDigest.map { recordHash =>
+            val commit = FiberCommit(recordHash, Some(sm.stateDataHash))
+            DataState(
+              state.onChain.copy(latest = state.onChain.latest.updated(id, commit)),
+              state.calculated.copy(stateMachines = state.calculated.stateMachines.updated(id, sm))
+            )
+          }
+        case oracle: Records.ScriptOracleFiberRecord =>
+          oracle.computeDigest.map { recordHash =>
+            val commit = FiberCommit(recordHash, oracle.stateDataHash)
+            DataState(
+              state.onChain.copy(latest = state.onChain.latest.updated(id, commit)),
+              state.calculated.copy(scriptOracles = state.calculated.scriptOracles.updated(id, oracle))
+            )
+          }
+      }
 
     /**
-     * Apply multiple fiber updates from a map.
+     * Batch update for multiple records of mixed types.
      *
-     * Useful for applying batch updates from FiberOrchestrator outcomes.
-     * Hashes are extracted from each fiber's stateDataHash field.
+     * Separates into state machines and oracles, computes hashes for each,
+     * and applies all updates atomically.
      *
-     * @param fibers Map of fiber IDs to updated fiber records
-     * @return Updated DataState with all fibers applied
+     * @param records Map of CIDs to updated records
+     * @return Updated DataState with all entities applied
      */
-    def withFibers(fibers: Map[UUID, Records.StateMachineFiberRecord]): DataState[OnChain, CalculatedState] = {
-      val hashes = fibers.map { case (id, f) => id -> f.stateDataHash }
-      DataState(
-        state.onChain.copy(latest = state.onChain.latest ++ hashes),
-        state.calculated.copy(stateMachines = state.calculated.stateMachines ++ fibers)
+    def withRecords[F[_]: Async](
+      records: Map[UUID, Records.FiberRecord]
+    ): F[DataState[OnChain, CalculatedState]] = {
+      val sms = records.collect { case (id, sm: Records.StateMachineFiberRecord) => id -> sm }
+      val oracles = records.collect { case (id, o: Records.ScriptOracleFiberRecord) => id -> o }
+
+      for {
+        smHashes <- sms.toList.traverse { case (id, sm) =>
+          sm.computeDigest.map(recordHash => id -> FiberCommit(recordHash, Some(sm.stateDataHash)))
+        }
+        oracleHashes <- oracles.toList.traverse { case (id, o) =>
+          o.computeDigest.map(recordHash => id -> FiberCommit(recordHash, o.stateDataHash))
+        }
+      } yield DataState(
+        state.onChain.copy(latest = state.onChain.latest ++ smHashes.toMap ++ oracleHashes.toMap),
+        state.calculated.copy(
+          stateMachines = state.calculated.stateMachines ++ sms,
+          scriptOracles = state.calculated.scriptOracles ++ oracles
+        )
       )
     }
 
     /**
-     * Apply multiple oracle updates from a map.
-     *
-     * Hashes are extracted from each oracle's stateDataHash field if present.
-     *
-     * @param oracles Map of oracle IDs to updated oracle records
-     * @return Updated DataState with all oracles applied
-     */
-    def withOracles(oracles: Map[UUID, Records.ScriptOracleFiberRecord]): DataState[OnChain, CalculatedState] = {
-      val hashes = oracles.flatMap { case (id, o) => o.stateDataHash.map(id -> _) }
-      DataState(
-        state.onChain.copy(latest = state.onChain.latest ++ hashes),
-        state.calculated.copy(scriptOracles = state.calculated.scriptOracles ++ oracles)
-      )
-    }
-
-    /**
-     * Apply both fiber and oracle updates atomically.
-     *
-     * Useful for transaction outcomes that affect multiple entities.
+     * Batch update for state machines and oracles provided as separate typed maps.
      *
      * @param fibers  Map of fiber IDs to updated fiber records
      * @param oracles Map of oracle IDs to updated oracle records
      * @return Updated DataState with all entities applied
      */
-    def withFibersAndOracles(
+    def withFibersAndOracles[F[_]: Async](
       fibers:  Map[UUID, Records.StateMachineFiberRecord],
       oracles: Map[UUID, Records.ScriptOracleFiberRecord]
-    ): DataState[OnChain, CalculatedState] = {
-      val fiberHashes = fibers.map { case (id, f) => id -> f.stateDataHash }
-      val oracleHashes = oracles.flatMap { case (id, o) => o.stateDataHash.map(id -> _) }
-      DataState(
-        state.onChain.copy(latest = state.onChain.latest ++ fiberHashes ++ oracleHashes),
-        state.calculated.copy(
-          stateMachines = state.calculated.stateMachines ++ fibers,
-          scriptOracles = state.calculated.scriptOracles ++ oracles
-        )
-      )
-    }
+    ): F[DataState[OnChain, CalculatedState]] =
+      withRecords(fibers ++ oracles)
   }
 }
 

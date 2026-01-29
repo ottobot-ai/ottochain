@@ -10,5 +10,6 @@ package xyz.kd5ujc.schema.fiber
 final case class ExecutionLimits(
   maxDepth:          Int = 10,
   maxGas:            Long = 10_000_000L,
-  maxStateSizeBytes: Int = 1_048_576 // 1MB
+  maxStateSizeBytes: Int = 1_048_576, // 1MB
+  maxLogSize:        Int = 100
 )

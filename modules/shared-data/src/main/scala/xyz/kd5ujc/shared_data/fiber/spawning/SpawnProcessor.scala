@@ -14,7 +14,7 @@ import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluat
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 
 import xyz.kd5ujc.schema.Records
-import xyz.kd5ujc.schema.fiber.{EventProcessingStatus, FailureReason, FiberContext, FiberStatus, SpawnDirective}
+import xyz.kd5ujc.schema.fiber.{FailureReason, FiberContext, FiberStatus, SpawnDirective}
 import xyz.kd5ujc.shared_data.fiber.core._
 
 /**
@@ -141,9 +141,7 @@ object SpawnProcessor {
             sequenceNumber = 0,
             owners = spawn.resolvedOwners,
             status = FiberStatus.Active,
-            lastEventStatus = EventProcessingStatus.Initialized,
-            parentFiberId = Some(parent.cid),
-            childFiberIds = Set.empty
+            parentFiberId = Some(parent.cid)
           )
         } yield childFiber
     }

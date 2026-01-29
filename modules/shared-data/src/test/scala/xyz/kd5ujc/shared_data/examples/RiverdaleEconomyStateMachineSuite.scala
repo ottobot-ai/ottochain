@@ -16,6 +16,7 @@ import io.constellationnetwork.security.signature.Signed
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_data.syntax.all._
 import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
 import xyz.kd5ujc.shared_test.Participant._
 
@@ -1551,8 +1552,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = aliceHash,
           sequenceNumber = 0,
           owners = Set(Alice).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         bobHash <- (manufacturerInitialData: JsonLogicValue).computeDigest
@@ -1569,8 +1569,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = bobHash,
           sequenceNumber = 0,
           owners = Set(Bob).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         charlieInitialData = manufacturerInitialData.copy(value =
@@ -1591,8 +1590,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = charlieHash,
           sequenceNumber = 0,
           owners = Set(Charlie).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         // Initialize retailer fibers (with dependencies on manufacturers)
@@ -1612,8 +1610,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = heidiHash,
           sequenceNumber = 0,
           owners = Set(Heidi).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         // Initialize platform fibers
@@ -1632,8 +1629,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = niajHash,
           sequenceNumber = 0,
           owners = Set(Niaj).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         // Initialize bank fibers
@@ -1651,8 +1647,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = oscarHash,
           sequenceNumber = 0,
           owners = Set(Oscar).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         peggyHash <- (bankInitialData: JsonLogicValue).computeDigest
@@ -1668,8 +1663,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = peggyHash,
           sequenceNumber = 0,
           owners = Set(Peggy).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         quentinHash <- (bankInitialData: JsonLogicValue).computeDigest
@@ -1686,8 +1680,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = quentinHash,
           sequenceNumber = 0,
           owners = Set(Quentin).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         // Initialize consumer fibers
@@ -1705,8 +1698,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = ruthHash,
           sequenceNumber = 0,
           owners = Set(Ruth).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         sybilInitialData = consumerInitialData.copy(value =
@@ -1727,8 +1719,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = sybilHash,
           sequenceNumber = 0,
           owners = Set(Sybil).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         victorInitialData = consumerInitialData.copy(value =
@@ -1749,8 +1740,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = victorHash,
           sequenceNumber = 0,
           owners = Set(Victor).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         // Initialize Federal Reserve fiber
@@ -1767,8 +1757,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = yolandaHash,
           sequenceNumber = 0,
           owners = Set(Yolanda).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         // Initialize Governance fiber
@@ -1786,46 +1775,25 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = xavierHash,
           sequenceNumber = 0,
           owners = Set(Xavier).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         // Create initial state with key participants
-        initialState = DataState(
-          OnChain(
-            Map(
-              aliceCid   -> aliceHash,
-              bobCid     -> bobHash,
-              charlieCid -> charlieHash,
-              heidiCid   -> heidiHash,
-              niajCid    -> niajHash,
-              oscarCid   -> oscarHash,
-              peggyCid   -> peggyHash,
-              quentinCid -> quentinHash,
-              ruthCid    -> ruthHash,
-              sybilCid   -> sybilHash,
-              victorCid  -> victorHash,
-              xavierCid  -> xavierHash,
-              yolandaCid -> yolandaHash
-            )
-          ),
-          CalculatedState(
-            Map(
-              aliceCid   -> aliceFiber,
-              bobCid     -> bobFiber,
-              charlieCid -> charlieFiber,
-              heidiCid   -> heidiFiber,
-              niajCid    -> niajFiber,
-              oscarCid   -> oscarFiber,
-              peggyCid   -> peggyFiber,
-              quentinCid -> quentinFiber,
-              ruthCid    -> ruthFiber,
-              sybilCid   -> sybilFiber,
-              victorCid  -> victorFiber,
-              xavierCid  -> xavierFiber,
-              yolandaCid -> yolandaFiber
-            ),
-            Map.empty
+        initialState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecords[IO](
+          Map(
+            aliceCid   -> aliceFiber,
+            bobCid     -> bobFiber,
+            charlieCid -> charlieFiber,
+            heidiCid   -> heidiFiber,
+            niajCid    -> niajFiber,
+            oscarCid   -> oscarFiber,
+            peggyCid   -> peggyFiber,
+            quentinCid -> quentinFiber,
+            ruthCid    -> ruthFiber,
+            sybilCid   -> sybilFiber,
+            victorCid  -> victorFiber,
+            xavierCid  -> xavierFiber,
+            yolandaCid -> yolandaFiber
           )
         )
 
@@ -2010,16 +1978,11 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = graceHash,
           sequenceNumber = 0,
           owners = Set(Grace).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         // Add Grace to the state
-        state13 = state12.copy(
-          onChain = state12.onChain.copy(latest = state12.onChain.latest + (graceCid -> graceHash)),
-          calculated =
-            state12.calculated.copy(stateMachines = state12.calculated.stateMachines + (graceCid -> graceFiber))
-        )
+        state13 <- state12.withRecord[IO](graceCid, graceFiber)
 
         // Event 13: Grace checks inventory (triggers order to Bob)
         update13 = Updates.TransitionStateMachine(
@@ -2324,16 +2287,11 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = daveHash,
           sequenceNumber = 0,
           owners = Set(Dave).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         // Add Dave to the state
-        state32 = state31.copy(
-          onChain = state31.onChain.copy(latest = state31.onChain.latest + (daveCid -> daveHash)),
-          calculated =
-            state31.calculated.copy(stateMachines = state31.calculated.stateMachines + (daveCid -> daveFiber))
-        )
+        state32 <- state31.withRecord[IO](daveCid, daveFiber)
 
         // Event 32: Dave schedules production
         update32 = Updates.TransitionStateMachine(
@@ -2388,16 +2346,11 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           stateDataHash = ivanHash,
           sequenceNumber = 0,
           owners = Set(Ivan).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         // Add Ivan to the state
-        state36 = state35.copy(
-          onChain = state35.onChain.copy(latest = state35.onChain.latest + (ivanCid -> ivanHash)),
-          calculated =
-            state35.calculated.copy(stateMachines = state35.calculated.stateMachines + (ivanCid -> ivanFiber))
-        )
+        state36 <- state35.withRecord[IO](ivanCid, ivanFiber)
 
         // Event 36: Ivan checks inventory (triggers order to Dave)
         update36 = Updates.TransitionStateMachine(

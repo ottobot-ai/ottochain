@@ -56,15 +56,6 @@ object EffectExtractor {
     extractByKey(effectResult, key).collect { case ArrayValue(items) => items }.getOrElse(List.empty)
 
   /**
-   * Process a list of JsonLogicValues, extracting items of type A (pure version).
-   */
-  private def extractFromArrayPure[A](
-    items:     List[JsonLogicValue],
-    extractor: JsonLogicValue => Option[A]
-  ): List[A] =
-    items.flatMap(extractor)
-
-  /**
    * Extract trigger events with gas metering via StateT.
    *
    * Gas is charged to the execution state automatically via Stateful.
@@ -79,22 +70,12 @@ object EffectExtractor {
     effectResult:  JsonLogicValue,
     contextData:   JsonLogicValue,
     sourceFiberId: UUID
-  )(implicit S: Stateful[G, ExecutionState], A: Ask[G, FiberContext], lift: F ~> G): G[List[FiberTrigger]] = {
-    val triggers = extractArrayByKey(effectResult, ReservedKeys.TRIGGERS)
-    extractFromArrayWithState[F, G, FiberTrigger](
-      triggers,
-      parseTriggerEvent[F, G](_, contextData, sourceFiberId)
-    )
-  }
-
-  /**
-   * Process a list of JsonLogicValues, extracting items of type A and charging gas via state.
-   */
-  private def extractFromArrayWithState[F[_]: Async, G[_]: Monad, A](
-    items:     List[JsonLogicValue],
-    extractor: JsonLogicValue => G[Option[A]]
-  )(implicit S: Stateful[G, ExecutionState]): G[List[A]] =
-    items.flatTraverse(item => extractor(item).map(_.toList))
+  )(implicit S: Stateful[G, ExecutionState], A: Ask[G, FiberContext], lift: F ~> G): G[List[FiberTrigger]] =
+    extractArrayByKey(effectResult, ReservedKeys.TRIGGERS)
+      .flatTraverse { item =>
+        parseTriggerEvent[F, G](item, contextData, sourceFiberId)
+          .map(_.toList)
+      }
 
   private def parseTriggerEvent[F[_]: Async, G[_]: Monad](
     value:         JsonLogicValue,
@@ -170,13 +151,12 @@ object EffectExtractor {
           input = FiberInput.Transition(EventType(method), evalResult.value),
           sourceFiberId = Some(sourceFiberId)
         )).value
+
       case _ => none[FiberTrigger].pure[G]
     }
 
-  def extractOutputs(effectResult: JsonLogicValue): List[StructuredOutput] = {
-    val outputs = extractArrayByKey(effectResult, ReservedKeys.OUTPUTS)
-    extractFromArrayPure(outputs, parseOutput)
-  }
+  def extractOutputs(effectResult: JsonLogicValue): List[StructuredOutput] =
+    extractArrayByKey(effectResult, ReservedKeys.OUTPUTS).flatMap(parseOutput)
 
   private def parseOutput(value: JsonLogicValue): Option[StructuredOutput] =
     value match {

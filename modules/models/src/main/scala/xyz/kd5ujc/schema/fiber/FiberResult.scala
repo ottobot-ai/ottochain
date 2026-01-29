@@ -4,13 +4,13 @@ import cats.Applicative
 
 import io.constellationnetwork.metagraph_sdk.json_logic.JsonLogicValue
 
-sealed trait FiberOutcome
+sealed trait FiberResult
 
-object FiberOutcome {
+object FiberResult {
 
   implicit class FailureReasonOps(private val reason: FailureReason) extends AnyVal {
-    def pureOutcome[F[_]: Applicative]: F[FiberOutcome] = Applicative[F].pure(Failed(reason))
-    def asOutcome: FiberOutcome = Failed(reason)
+    def pureOutcome[F[_]: Applicative]: F[FiberResult] = Applicative[F].pure(Failed(reason))
+    def asOutcome: FiberResult = Failed(reason)
   }
 
   /**
@@ -32,7 +32,7 @@ object FiberOutcome {
     spawns:       List[SpawnDirective],
     outputs:      List[StructuredOutput],
     returnValue:  Option[JsonLogicValue]
-  ) extends FiberOutcome
+  ) extends FiberResult
 
   /**
    * No guard matched (state machines only).
@@ -41,8 +41,8 @@ object FiberOutcome {
    *
    * @param attemptedCount Number of guards evaluated before giving up
    */
-  final case class GuardFailed(attemptedCount: Int) extends FiberOutcome
+  final case class GuardFailed(attemptedCount: Int) extends FiberResult
 
   /** Evaluation failed with reason */
-  final case class Failed(reason: FailureReason) extends FiberOutcome
+  final case class Failed(reason: FailureReason) extends FiberResult
 }

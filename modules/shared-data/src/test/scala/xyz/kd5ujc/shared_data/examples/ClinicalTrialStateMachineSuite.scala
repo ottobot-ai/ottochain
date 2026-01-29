@@ -14,6 +14,7 @@ import io.constellationnetwork.security.signature.Signed
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_data.syntax.all._
 import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
 import xyz.kd5ujc.shared_test.Participant._
 
@@ -975,8 +976,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
           stateDataHash = trialHash,
           sequenceNumber = 0,
           owners = Set(Alice).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         patientFiber = Records.StateMachineFiberRecord(
@@ -990,8 +990,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
           stateDataHash = patientHash,
           sequenceNumber = 0,
           owners = Set(Bob).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         labFiber = Records.StateMachineFiberRecord(
@@ -1005,8 +1004,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
           stateDataHash = labHash,
           sequenceNumber = 0,
           owners = Set(Charlie).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         adverseEventFiber = Records.StateMachineFiberRecord(
@@ -1020,8 +1018,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
           stateDataHash = adverseEventHash,
           sequenceNumber = 0,
           owners = Set(Dave).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         regulatorFiber = Records.StateMachineFiberRecord(
@@ -1035,8 +1032,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
           stateDataHash = regulatorHash,
           sequenceNumber = 0,
           owners = Set(Eve).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         insuranceFiber = Records.StateMachineFiberRecord(
@@ -1050,31 +1046,17 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
           stateDataHash = insuranceHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        inState = DataState(
-          OnChain(
-            Map(
-              trialCid        -> trialHash,
-              patientCid      -> patientHash,
-              labCid          -> labHash,
-              adverseEventCid -> adverseEventHash,
-              regulatorCid    -> regulatorHash,
-              insuranceCid    -> insuranceHash
-            )
-          ),
-          CalculatedState(
-            Map(
-              trialCid        -> trialFiber,
-              patientCid      -> patientFiber,
-              labCid          -> labFiber,
-              adverseEventCid -> adverseEventFiber,
-              regulatorCid    -> regulatorFiber,
-              insuranceCid    -> insuranceFiber
-            ),
-            Map.empty
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecords[IO](
+          Map(
+            trialCid        -> trialFiber,
+            patientCid      -> patientFiber,
+            labCid          -> labFiber,
+            adverseEventCid -> adverseEventFiber,
+            regulatorCid    -> regulatorFiber,
+            insuranceCid    -> insuranceFiber
           )
         )
 

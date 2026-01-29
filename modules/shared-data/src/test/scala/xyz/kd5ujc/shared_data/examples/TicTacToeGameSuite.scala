@@ -14,6 +14,7 @@ import io.constellationnetwork.security.signature.Signed
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_data.syntax.all._
 import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
 import xyz.kd5ujc.shared_test.Participant._
 
@@ -93,14 +94,10 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           stateDataHash = initialDataHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        stateAfterMachine = DataState(
-          OnChain(Map(machineCid -> initialDataHash)),
-          CalculatedState(Map(machineCid -> machineFiber), stateAfterOracle.calculated.scriptOracles)
-        )
+        stateAfterMachine <- stateAfterOracle.withRecord[IO](machineCid, machineFiber)
 
         // Step 1: Start game
         startGameUpdate = Updates.TransitionStateMachine(
@@ -300,14 +297,10 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           stateDataHash = initialDataHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        stateAfterMachine = DataState(
-          OnChain(Map(machineCid -> initialDataHash)),
-          CalculatedState(Map(machineCid -> machineFiber), stateAfterOracle.calculated.scriptOracles)
-        )
+        stateAfterMachine <- stateAfterOracle.withRecord[IO](machineCid, machineFiber)
 
         // Start game
         startGameUpdate = Updates.TransitionStateMachine(
@@ -447,14 +440,10 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           stateDataHash = initialDataHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        stateAfterMachine = DataState(
-          OnChain(Map(machineCid -> initialDataHash)),
-          CalculatedState(Map(machineCid -> machineFiber), stateAfterOracle.calculated.scriptOracles)
-        )
+        stateAfterMachine <- stateAfterOracle.withRecord[IO](machineCid, machineFiber)
 
         // Start game
         startGameUpdate = Updates.TransitionStateMachine(
@@ -498,7 +487,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
       } yield expect.all(
         machineAfterInvalid.isDefined,
         // Event processing should have failed
-        machineAfterInvalid.exists(m => m.lastEventStatus.isInstanceOf[EventProcessingStatus.ExecutionFailed]),
+        machineAfterInvalid.exists(m => m.lastReceipt.exists(!_.success)),
         // Oracle invocation count stays at 2 (init + first move) - invalid move failed before updating oracle
         oracleAfterInvalid.map(_.invocationCount).contains(2L),
         // Oracle state should remain unchanged from after first move
@@ -578,14 +567,10 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           stateDataHash = initialDataHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        stateAfterMachine = DataState(
-          OnChain(Map(machineCid -> initialDataHash)),
-          CalculatedState(Map(machineCid -> machineFiber), stateAfterOracle.calculated.scriptOracles)
-        )
+        stateAfterMachine <- stateAfterOracle.withRecord[IO](machineCid, machineFiber)
 
         // Start and play first game to completion
         startGameUpdate = Updates.TransitionStateMachine(

@@ -1,7 +1,5 @@
 package xyz.kd5ujc.shared_data.fiber.triggers
 
-import java.util.UUID
-
 import cats.data.Chain
 import cats.effect.Async
 import cats.mtl.{Ask, Stateful}
@@ -47,13 +45,13 @@ object TriggerDispatcher {
   /**
    * State carried through the queue-based processing loop.
    *
-   * Uses Chain for accumulated statuses (O(1) append) while keeping
+   * Uses Chain for accumulated receipts (O(1) append) while keeping
    * pending as List (O(1) prepend for depth-first processing).
    */
   final private case class QueueState(
     pending:  List[FiberTrigger],
     txnState: CalculatedState,
-    statuses: Chain[(UUID, EventProcessingStatus)]
+    receipts: Chain[EventReceipt]
   )
 
   def make[F[_]: Async: SecurityProvider, G[_]: Monad](implicit
@@ -75,8 +73,6 @@ object TriggerDispatcher {
       ): G[TransactionResult] = {
         val initialQueue = QueueState(triggers, baseState, Chain.empty)
 
-        // Use tailRecM for stack-safe iteration
-        // State (gas, depth, processedInputs) flows from parent — no reset
         Monad[G].tailRecM(initialQueue)(processNext)
       }
 
@@ -86,7 +82,6 @@ object TriggerDispatcher {
       private def processNext(qs: QueueState): G[Either[QueueState, TransactionResult]] =
         ExecutionOps.checkLimits[G].flatMap {
           case Some(reason) =>
-            // Limit exceeded - abort
             for {
               gasUsed <- ExecutionOps.getGasUsed[G]
               depth   <- ExecutionOps.getDepth[G]
@@ -95,31 +90,27 @@ object TriggerDispatcher {
           case None =>
             qs.pending match {
               case Nil =>
-                // Queue empty - commit
                 for {
                   gasUsed <- ExecutionOps.getGasUsed[G]
                   depth   <- ExecutionOps.getDepth[G]
                 } yield (TransactionResult.Committed(
                   updatedStateMachines = qs.txnState.stateMachines,
                   updatedOracles = qs.txnState.scriptOracles,
-                  statuses = qs.statuses.toList,
+                  receipts = qs.receipts.toList,
                   totalGasUsed = gasUsed,
                   maxDepth = depth
                 ): TransactionResult).asRight[QueueState]
 
               case trigger :: rest =>
-                // Process single trigger and decide next step
                 processSingleTrigger(trigger, qs.txnState).flatMap {
-                  case Right((nextState, newStatuses, moreTriggers)) =>
-                    // Continue with updated queue state
+                  case Right((nextState, newReceipts, moreTriggers)) =>
                     QueueState(
-                      pending = moreTriggers ++ rest, // Depth-first: cascade triggers first
+                      pending = moreTriggers ++ rest,
                       txnState = nextState,
-                      statuses = qs.statuses ++ Chain.fromSeq(newStatuses)
+                      receipts = qs.receipts ++ Chain.fromSeq(newReceipts)
                     ).asLeft[TransactionResult].pure[G]
 
                   case Left(reason) =>
-                    // Trigger failed - abort immediately
                     for {
                       gasUsed <- ExecutionOps.getGasUsed[G]
                       depth   <- ExecutionOps.getDepth[G]
@@ -129,7 +120,7 @@ object TriggerDispatcher {
         }
 
       private type TriggerResult =
-        (CalculatedState, List[(UUID, EventProcessingStatus)], List[FiberTrigger])
+        (CalculatedState, List[EventReceipt], List[FiberTrigger])
 
       private def processSingleTrigger(
         trigger: FiberTrigger,
@@ -179,10 +170,10 @@ object TriggerDispatcher {
           _             <- ExecutionOps.markProcessed[G](fiber.cid, trigger.input.inputKey)
           handlerResult <- handler.handle(trigger, fiber, state)
           result <- handlerResult match {
-            case TriggerHandlerResult.Success(updatedState, statuses, cascadeTriggers) =>
+            case TriggerHandlerResult.Success(updatedState, receipts, cascadeTriggers) =>
               ExecutionOps
                 .incrementDepth[G]
-                .as((updatedState, statuses, cascadeTriggers).asRight[FailureReason])
+                .as((updatedState, receipts, cascadeTriggers).asRight[FailureReason])
 
             case TriggerHandlerResult.Failed(reason) =>
               reason.asLeft[TriggerResult].pure[G]

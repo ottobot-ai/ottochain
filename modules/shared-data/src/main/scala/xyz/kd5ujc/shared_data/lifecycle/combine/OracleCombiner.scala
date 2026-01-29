@@ -87,7 +87,7 @@ class OracleCombiner[F[_]: Async: SecurityProvider](
         updatedOracles.get(update.cid) match {
           case Some(updatedOracle) =>
             // Oracle was updated by orchestrator - use it directly
-            current.withOracle(update.cid, updatedOracle, updatedOracle.stateDataHash).pure[F]
+            current.withRecord[F](update.cid, updatedOracle)
 
           case None =>
             // Oracle didn't update state - shouldn't happen for successful invocations

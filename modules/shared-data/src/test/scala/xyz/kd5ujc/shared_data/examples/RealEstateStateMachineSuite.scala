@@ -14,6 +14,7 @@ import io.constellationnetwork.security.signature.Signed
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_data.syntax.all._
 import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
 import xyz.kd5ujc.shared_test.Participant._
 
@@ -1316,8 +1317,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           stateDataHash = propertyHash,
           sequenceNumber = 0,
           owners = Set(Alice).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         contractFiber = Records.StateMachineFiberRecord(
@@ -1331,8 +1331,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           stateDataHash = contractHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         escrowFiber = Records.StateMachineFiberRecord(
@@ -1346,8 +1345,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           stateDataHash = escrowHash,
           sequenceNumber = 0,
           owners = Set(Charlie).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         inspectionFiber = Records.StateMachineFiberRecord(
@@ -1361,8 +1359,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           stateDataHash = inspectionHash,
           sequenceNumber = 0,
           owners = Set(Dave).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         appraisalFiber = Records.StateMachineFiberRecord(
@@ -1376,8 +1373,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           stateDataHash = appraisalHash,
           sequenceNumber = 0,
           owners = Set(Eve).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         mortgageFiber = Records.StateMachineFiberRecord(
@@ -1391,8 +1387,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           stateDataHash = mortgageHash,
           sequenceNumber = 0,
           owners = Set(Faythe).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         titleFiber = Records.StateMachineFiberRecord(
@@ -1406,8 +1401,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           stateDataHash = titleHash,
           sequenceNumber = 0,
           owners = Set(Grace).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         propertyManagementFiber = Records.StateMachineFiberRecord(
@@ -1421,35 +1415,19 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           stateDataHash = propertyManagementHash,
           sequenceNumber = 0,
           owners = Set(Heidi).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        inState = DataState(
-          OnChain(
-            Map(
-              propertyCid           -> propertyHash,
-              contractCid           -> contractHash,
-              escrowCid             -> escrowHash,
-              inspectionCid         -> inspectionHash,
-              appraisalCid          -> appraisalHash,
-              mortgageCid           -> mortgageHash,
-              titleCid              -> titleHash,
-              propertyManagementCid -> propertyManagementHash
-            )
-          ),
-          CalculatedState(
-            Map(
-              propertyCid           -> propertyFiber,
-              contractCid           -> contractFiber,
-              escrowCid             -> escrowFiber,
-              inspectionCid         -> inspectionFiber,
-              appraisalCid          -> appraisalFiber,
-              mortgageCid           -> mortgageFiber,
-              titleCid              -> titleFiber,
-              propertyManagementCid -> propertyManagementFiber
-            ),
-            Map.empty
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecords[IO](
+          Map(
+            propertyCid           -> propertyFiber,
+            contractCid           -> contractFiber,
+            escrowCid             -> escrowFiber,
+            inspectionCid         -> inspectionFiber,
+            appraisalCid          -> appraisalFiber,
+            mortgageCid           -> mortgageFiber,
+            titleCid              -> titleFiber,
+            propertyManagementCid -> propertyManagementFiber
           )
         )
 

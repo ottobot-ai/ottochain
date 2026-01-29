@@ -340,11 +340,14 @@ object OracleAccessControlSuite extends SimpleIOSuite {
 
       } yield expect(machine.isDefined) and
       expect(machine.map(_.currentState).contains(StateId("idle"))) and
-      expect(machine.map(_.lastEventStatus).exists {
-        case EventProcessingStatus.ExecutionFailed(reason, _, _, _, _) =>
-          reason.contains("Access denied") || reason.contains("not in whitelist")
-        case _ => false
-      }) and
+      expect(
+        machine.exists(
+          _.lastReceipt.exists(r =>
+            !r.success && r.errorMessage
+              .exists(msg => msg.contains("Access denied") || msg.contains("not in whitelist"))
+          )
+        )
+      ) and
       expect(oracle.isDefined) and
       expect(oracle.map(_.invocationCount).contains(0L))
     }
@@ -441,11 +444,14 @@ object OracleAccessControlSuite extends SimpleIOSuite {
       } yield expect(machine.isDefined) and
       // The SM's transition should have been aborted due to oracle access denial
       expect(machine.map(_.currentState).contains(StateId("idle"))) and
-      expect(machine.map(_.lastEventStatus).exists {
-        case EventProcessingStatus.ExecutionFailed(reason, _, _, _, _) =>
-          reason.toLowerCase.contains("access") || reason.toLowerCase.contains("denied")
-        case _ => false
-      }) and
+      expect(
+        machine.exists(
+          _.lastReceipt.exists(r =>
+            !r.success && r.errorMessage
+              .exists(msg => msg.toLowerCase.contains("access") || msg.toLowerCase.contains("denied"))
+          )
+        )
+      ) and
       expect(oracle.isDefined) and
       // Oracle should NOT have been invoked
       expect(oracle.map(_.invocationCount).contains(0L))

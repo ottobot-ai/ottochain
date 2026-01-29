@@ -35,13 +35,10 @@ object Records {
     sequenceNumber:        Long,
     owners:                Set[Address],
     status:                FiberStatus,
-    lastEventStatus:       EventProcessingStatus,
-    eventBatch:            List[EventProcessingStatus] = List.empty,
-    maxEventBatchSize:     Int = 100,
+    lastReceipt:           Option[EventReceipt] = None,
     parentFiberId:         Option[UUID] = None,
     childFiberIds:         Set[UUID] = Set.empty,
-    eventLog:              List[EventReceipt] = List.empty,
-    maxLogSize:            Int = 100
+    eventLog:              List[EventReceipt] = List.empty
   ) extends FiberRecord
 
   @derive(encoder, decoder)
@@ -56,7 +53,6 @@ object Records {
     invocationCount:     Long = 0,
     owners:              Set[Address],
     status:              FiberStatus,
-    invocationLog:       List[OracleInvocation] = List.empty,
-    maxLogSize:          Int = 100
+    invocationLog:       List[OracleInvocation] = List.empty
   ) extends FiberRecord
 }

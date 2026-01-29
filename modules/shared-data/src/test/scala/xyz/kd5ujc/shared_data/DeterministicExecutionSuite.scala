@@ -68,8 +68,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -157,8 +156,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -307,8 +305,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -420,8 +417,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           stateDataHash = hash1,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         fiber2 = Records.StateMachineFiberRecord(
@@ -435,8 +431,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           stateDataHash = hash2,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(
@@ -513,8 +508,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           stateDataHash = hash1,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         fiber2 = Records.StateMachineFiberRecord(
@@ -528,8 +522,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           stateDataHash = hash2,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(
@@ -612,8 +605,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           stateDataHash = initialHash,
           sequenceNumber = 5,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -710,8 +702,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -801,8 +792,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -1070,8 +1060,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           stateDataHash = hashA,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         fiberB = Records.StateMachineFiberRecord(
@@ -1085,8 +1074,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           stateDataHash = hashB,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         fiberC = Records.StateMachineFiberRecord(
@@ -1100,8 +1088,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           stateDataHash = hashC,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(
@@ -1277,8 +1264,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           stateDataHash = hashA,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         fiberB = Records.StateMachineFiberRecord(
@@ -1292,8 +1278,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           stateDataHash = hashB,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(
@@ -1502,8 +1487,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         childFiber = Records.StateMachineFiberRecord(
@@ -1517,8 +1501,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           stateDataHash = childHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         // Both fibers exist from the start
@@ -1591,8 +1574,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           stateDataHash = initialHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         // Calculated state only contains the main fiber, not the dependency

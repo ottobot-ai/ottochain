@@ -99,8 +99,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
           stateDataHash = parentHash,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(parentId -> parentFiber), Map.empty)
@@ -165,8 +164,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
           stateDataHash = initialHash,
           sequenceNumber = 10,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
@@ -327,8 +325,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
           stateDataHash = hash1,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         fiber2 = Records.StateMachineFiberRecord(
@@ -342,8 +339,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
           stateDataHash = hash2,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         fiber3 = Records.StateMachineFiberRecord(
@@ -357,8 +353,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
           stateDataHash = hash3,
           sequenceNumber = 0,
           owners = Set.empty,
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         calculatedState = CalculatedState(

@@ -18,8 +18,6 @@ import xyz.kd5ujc.schema._
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.shared_data.syntax.all._
 
-import monocle.Monocle.toAppliedFocusOps
-
 object OracleProcessor {
 
   def extractStateAndResult[F[_]: Async](
@@ -51,9 +49,6 @@ object OracleProcessor {
 
     stateDataHashOpt <- update.initialState.traverse[F, Hash](_.computeDigest)
 
-    // For oracles without state, use a hash of NullValue as a sentinel so CID is always trackable
-    registrationHash <- stateDataHashOpt.fold((NullValue: JsonLogicValue).computeDigest)(_.pure[F])
-
     oracleRecord = Records.ScriptOracleFiberRecord(
       cid = update.cid,
       creationOrdinal = currentOrdinal,
@@ -66,16 +61,8 @@ object OracleProcessor {
       status = FiberStatus.Active
     )
 
-    _calculated = current.calculated.copy(
-      scriptOracles = current.calculated.scriptOracles.updated(update.cid, oracleRecord)
-    )
-
-    // Always register oracle CID in OnChain for L1 validation
-    _onchain = current.onChain
-      .focus(_.latest)
-      .modify(_.updated(update.cid, registrationHash))
-
-  } yield DataState(_onchain, _calculated)
+    result <- current.withRecord[F](update.cid, oracleRecord)
+  } yield result
 
   def validateAccess[F[_]: Async](
     policy:     AccessControlPolicy,

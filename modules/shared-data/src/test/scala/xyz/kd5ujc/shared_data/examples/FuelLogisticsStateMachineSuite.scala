@@ -14,6 +14,7 @@ import io.constellationnetwork.security.signature.Signed
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_data.syntax.all._
 import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
 import xyz.kd5ujc.shared_test.Participant._
 
@@ -572,8 +573,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
           stateDataHash = contractHash,
           sequenceNumber = 0,
           owners = Set(Alice, Bob).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         gpsTrackerFiber = Records.StateMachineFiberRecord(
@@ -587,8 +587,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
           stateDataHash = gpsTrackerHash,
           sequenceNumber = 0,
           owners = Set(Alice).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         supplierFiber = Records.StateMachineFiberRecord(
@@ -602,8 +601,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
           stateDataHash = supplierHash,
           sequenceNumber = 0,
           owners = Set(Bob).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         inspectionFiber = Records.StateMachineFiberRecord(
@@ -617,27 +615,15 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
           stateDataHash = inspectionHash,
           sequenceNumber = 0,
           owners = Set(Charlie).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        inState = DataState(
-          OnChain(
-            Map(
-              contractCid   -> contractHash,
-              gpsTrackerCid -> gpsTrackerHash,
-              supplierCid   -> supplierHash,
-              inspectionCid -> inspectionHash
-            )
-          ),
-          CalculatedState(
-            Map(
-              contractCid   -> contractFiber,
-              gpsTrackerCid -> gpsTrackerFiber,
-              supplierCid   -> supplierFiber,
-              inspectionCid -> inspectionFiber
-            ),
-            Map.empty
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecords[IO](
+          Map(
+            contractCid   -> contractFiber,
+            gpsTrackerCid -> gpsTrackerFiber,
+            supplierCid   -> supplierFiber,
+            inspectionCid -> inspectionFiber
           )
         )
 

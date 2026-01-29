@@ -14,6 +14,7 @@ import io.constellationnetwork.security.signature.Signed
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
+import xyz.kd5ujc.shared_data.syntax.all._
 import xyz.kd5ujc.shared_test.Participant._
 import xyz.kd5ujc.shared_test.TestFixture
 
@@ -59,8 +60,7 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
           stateDataHash = sellerHash,
           sequenceNumber = 0,
           owners = Set(Alice).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
         buyerCid <- UUIDGen.randomUUID[IO]
@@ -119,20 +119,12 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
           stateDataHash = buyerHash,
           sequenceNumber = 0,
           owners = Set(Bob).map(registry.addresses),
-          status = FiberStatus.Active,
-          lastEventStatus = EventProcessingStatus.Initialized
+          status = FiberStatus.Active
         )
 
-        inState = DataState(
-          OnChain(Map(sellerCid -> sellerHash, buyerCid -> buyerHash)),
-          CalculatedState(
-            Map(
-              sellerCid -> sellerFiber,
-              buyerCid  -> buyerFiber
-            ),
-            Map.empty
-          )
-        )
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis)
+          .withRecord[IO](sellerCid, sellerFiber)
+          .flatMap(_.withRecord[IO](buyerCid, buyerFiber))
 
         buyUpdate = Updates
           .TransitionStateMachine(buyerCid, EventType("buy"), MapValue(Map.empty[String, JsonLogicValue]))
