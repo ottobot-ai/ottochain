@@ -10,7 +10,8 @@ import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.signature.SignatureProof
 
-import xyz.kd5ujc.schema.fiber.{EventType, FiberInput, OracleInvocation, ReservedKeys}
+import xyz.kd5ujc.schema.fiber.FiberLogEntry.OracleInvocation
+import xyz.kd5ujc.schema.fiber.{EventType, FiberInput, ReservedKeys}
 import xyz.kd5ujc.schema.{CalculatedState, Records}
 
 /**
@@ -241,17 +242,15 @@ object ContextProvider {
         MapValue(fullMap)
       }
 
-      private def buildOracleSummary(oracle: Records.ScriptOracleFiberRecord): MapValue = {
-        val invocationLogValues = oracle.invocationLog.map(buildInvocationSummary)
+      private def buildOracleSummary(oracle: Records.ScriptOracleFiberRecord): MapValue =
         MapValue(
           Map(
             ReservedKeys.STATE            -> oracle.stateData.getOrElse(NullValue),
             ReservedKeys.STATUS           -> StrValue(oracle.status.toString),
             ReservedKeys.INVOCATION_COUNT -> IntValue(oracle.invocationCount),
-            ReservedKeys.INVOCATION_LOG   -> ArrayValue(invocationLogValues)
+            ReservedKeys.LAST_INVOCATION  -> oracle.lastInvocation.map(buildInvocationSummary).getOrElse(NullValue)
           )
         )
-      }
 
       private def buildInvocationSummary(inv: OracleInvocation): MapValue =
         MapValue(

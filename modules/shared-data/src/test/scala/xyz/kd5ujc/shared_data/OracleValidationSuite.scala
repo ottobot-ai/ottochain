@@ -37,7 +37,7 @@ object OracleValidationSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createUpdate = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -71,7 +71,7 @@ object OracleValidationSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createUpdate = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -84,7 +84,7 @@ object OracleValidationSuite extends SimpleIOSuite {
         )
 
         invokeUpdate = Updates.InvokeScriptOracle(
-          cid = cid,
+          fiberId = cid,
           method = "validate",
           args = MapValue(Map("value" -> IntValue(15)))
         )
@@ -93,7 +93,7 @@ object OracleValidationSuite extends SimpleIOSuite {
         state2      <- combiner.insert(state1, Signed(invokeUpdate, invokeProof))
 
         oracle = state2.calculated.scriptOracles.get(cid)
-        lastInvocation = oracle.flatMap(_.invocationLog.headOption)
+        lastInvocation = oracle.flatMap(_.lastInvocation)
 
       } yield expect(oracle.isDefined) and
       expect(oracle.map(_.invocationCount).contains(1L)) and
@@ -130,7 +130,7 @@ object OracleValidationSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createUpdate = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -143,7 +143,7 @@ object OracleValidationSuite extends SimpleIOSuite {
         )
 
         invokeUpdate = Updates.InvokeScriptOracle(
-          cid = cid,
+          fiberId = cid,
           method = "validate",
           args = MapValue(Map("value" -> IntValue(5)))
         )
@@ -151,7 +151,7 @@ object OracleValidationSuite extends SimpleIOSuite {
         invokeProof <- fixture.registry.generateProofs(invokeUpdate, Set(Alice))
         state2      <- combiner.insert(state1, Signed(invokeUpdate, invokeProof))
 
-        lastInvocation = state2.calculated.scriptOracles.get(cid).flatMap(_.invocationLog.headOption)
+        lastInvocation = state2.calculated.scriptOracles.get(cid).flatMap(_.lastInvocation)
 
       } yield expect(
         lastInvocation

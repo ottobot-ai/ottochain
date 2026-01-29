@@ -50,7 +50,7 @@ object OracleProcessor {
     stateDataHashOpt <- update.initialState.traverse[F, Hash](_.computeDigest)
 
     oracleRecord = Records.ScriptOracleFiberRecord(
-      cid = update.cid,
+      cid = update.fiberId,
       creationOrdinal = currentOrdinal,
       latestUpdateOrdinal = currentOrdinal,
       scriptProgram = update.scriptProgram,
@@ -61,7 +61,7 @@ object OracleProcessor {
       status = FiberStatus.Active
     )
 
-    result <- current.withRecord[F](update.cid, oracleRecord)
+    result <- current.withRecord[F](update.fiberId, oracleRecord)
   } yield result
 
   def validateAccess[F[_]: Async](

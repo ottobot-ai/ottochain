@@ -16,14 +16,14 @@ object Updates {
 
   sealed trait OttochainMessage extends DataUpdate {
     lazy val messageName: String = this.getClass.getSimpleName
-    val cid: UUID
+    val fiberId: UUID
   }
 
   sealed trait StateMachineFiberOp
 
   @derive(decoder, encoder)
   final case class CreateStateMachine(
-    cid:           UUID,
+    fiberId:       UUID,
     definition:    StateMachineDefinition,
     initialData:   JsonLogicValue,
     parentFiberId: Option[UUID] = None
@@ -33,14 +33,14 @@ object Updates {
   /**
    * Event to trigger a state machine transition.
    *
-   * @param cid Target fiber CID
+   * @param fiberId Target fiber CID
    * @param eventType Type of event to trigger
    * @param payload Event payload data
    * @param idempotencyKey Optional key for duplicate detection
    */
   @derive(decoder, encoder)
   final case class TransitionStateMachine(
-    cid:            UUID,
+    fiberId:        UUID,
     eventType:      EventType,
     payload:        JsonLogicValue,
     idempotencyKey: Option[String] = None
@@ -49,7 +49,7 @@ object Updates {
 
   @derive(decoder, encoder)
   final case class ArchiveStateMachine(
-    cid: UUID
+    fiberId: UUID
   ) extends StateMachineFiberOp
       with OttochainMessage
 
@@ -57,7 +57,7 @@ object Updates {
 
   @derive(decoder, encoder)
   final case class CreateScriptOracle(
-    cid:           UUID,
+    fiberId:       UUID,
     scriptProgram: JsonLogicExpression,
     initialState:  Option[JsonLogicValue],
     accessControl: AccessControlPolicy
@@ -66,9 +66,9 @@ object Updates {
 
   @derive(decoder, encoder)
   final case class InvokeScriptOracle(
-    cid:    UUID,
-    method: String,
-    args:   JsonLogicValue
+    fiberId: UUID,
+    method:  String,
+    args:    JsonLogicValue
   ) extends ScriptOracleFiberOp
       with OttochainMessage
 

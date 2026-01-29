@@ -2,8 +2,12 @@ package xyz.kd5ujc.schema
 
 import java.util.UUID
 
+import scala.collection.immutable.SortedMap
+
 import io.constellationnetwork.currency.dataApplication.DataOnChainState
 import io.constellationnetwork.security.hash.Hash
+
+import xyz.kd5ujc.schema.fiber.FiberLogEntry
 
 import derevo.circe.magnolia.{decoder, encoder}
 import derevo.derive
@@ -16,9 +20,10 @@ case class FiberCommit(
 
 @derive(decoder, encoder)
 case class OnChain(
-  latest: Map[UUID, FiberCommit]
+  fiberCommits: SortedMap[UUID, FiberCommit],
+  latestLogs:   SortedMap[UUID, List[FiberLogEntry]]
 ) extends DataOnChainState
 
 object OnChain {
-  val genesis: OnChain = OnChain(Map.empty)
+  val genesis: OnChain = OnChain(SortedMap.empty, SortedMap.empty)
 }

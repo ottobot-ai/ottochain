@@ -7,6 +7,7 @@ import io.constellationnetwork.schema.SnapshotOrdinal
 import io.constellationnetwork.schema.address.Address
 import io.constellationnetwork.security.hash.Hash
 
+import xyz.kd5ujc.schema.fiber.FiberLogEntry.{EventReceipt, OracleInvocation}
 import xyz.kd5ujc.schema.fiber._
 
 import derevo.circe.magnolia.{decoder, encoder}
@@ -37,8 +38,7 @@ object Records {
     status:                FiberStatus,
     lastReceipt:           Option[EventReceipt] = None,
     parentFiberId:         Option[UUID] = None,
-    childFiberIds:         Set[UUID] = Set.empty,
-    eventLog:              List[EventReceipt] = List.empty
+    childFiberIds:         Set[UUID] = Set.empty
   ) extends FiberRecord
 
   @derive(encoder, decoder)
@@ -53,6 +53,6 @@ object Records {
     invocationCount:     Long = 0,
     owners:              Set[Address],
     status:              FiberStatus,
-    invocationLog:       List[OracleInvocation] = List.empty
+    lastInvocation:      Option[OracleInvocation] = None
   ) extends FiberRecord
 }

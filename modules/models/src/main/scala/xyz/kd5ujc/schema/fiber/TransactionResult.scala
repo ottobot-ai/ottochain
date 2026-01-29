@@ -17,7 +17,7 @@ object TransactionResult {
    *
    * @param updatedStateMachines State machines modified during transaction
    * @param updatedOracles Oracles modified during transaction
-   * @param receipts Event receipts for each fiber touched during transaction
+   * @param logEntries Log entries (receipts + invocations) for each fiber touched during transaction
    * @param totalGasUsed Total gas consumed by all operations
    * @param maxDepth Maximum trigger chain depth reached
    * @param operationCount Total number of JsonLogic operations executed
@@ -25,7 +25,7 @@ object TransactionResult {
   final case class Committed(
     updatedStateMachines: Map[UUID, Records.StateMachineFiberRecord],
     updatedOracles:       Map[UUID, Records.ScriptOracleFiberRecord],
-    receipts:             List[EventReceipt],
+    logEntries:           List[FiberLogEntry],
     totalGasUsed:         Long,
     maxDepth:             Int = 0,
     operationCount:       Long = 0L

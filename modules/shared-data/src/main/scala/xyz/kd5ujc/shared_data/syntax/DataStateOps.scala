@@ -8,7 +8,10 @@ import cats.syntax.all._
 import io.constellationnetwork.currency.dataApplication.DataState
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 
+import xyz.kd5ujc.schema.fiber.FiberLogEntry
 import xyz.kd5ujc.schema.{CalculatedState, FiberCommit, OnChain, Records}
+
+import monocle.Monocle.toAppliedFocusOps
 
 /**
  * Extension methods for DataState to simplify state updates.
@@ -39,18 +42,20 @@ trait DataStateOps {
         case sm: Records.StateMachineFiberRecord =>
           sm.computeDigest.map { recordHash =>
             val commit = FiberCommit(recordHash, Some(sm.stateDataHash))
-            DataState(
-              state.onChain.copy(latest = state.onChain.latest.updated(id, commit)),
-              state.calculated.copy(stateMachines = state.calculated.stateMachines.updated(id, sm))
-            )
+            state
+              .focus(_.onChain.fiberCommits)
+              .modify(_.updated(id, commit))
+              .focus(_.calculated.stateMachines)
+              .modify(_.updated(id, sm))
           }
         case oracle: Records.ScriptOracleFiberRecord =>
           oracle.computeDigest.map { recordHash =>
             val commit = FiberCommit(recordHash, oracle.stateDataHash)
-            DataState(
-              state.onChain.copy(latest = state.onChain.latest.updated(id, commit)),
-              state.calculated.copy(scriptOracles = state.calculated.scriptOracles.updated(id, oracle))
-            )
+            state
+              .focus(_.onChain.fiberCommits)
+              .modify(_.updated(id, commit))
+              .focus(_.calculated.scriptOracles)
+              .modify(_.updated(id, oracle))
           }
       }
 
@@ -76,13 +81,13 @@ trait DataStateOps {
         oracleHashes <- oracles.toList.traverse { case (id, o) =>
           o.computeDigest.map(recordHash => id -> FiberCommit(recordHash, o.stateDataHash))
         }
-      } yield DataState(
-        state.onChain.copy(latest = state.onChain.latest ++ smHashes.toMap ++ oracleHashes.toMap),
-        state.calculated.copy(
-          stateMachines = state.calculated.stateMachines ++ sms,
-          scriptOracles = state.calculated.scriptOracles ++ oracles
-        )
-      )
+      } yield state
+        .focus(_.onChain.fiberCommits)
+        .modify(_ ++ smHashes.toMap ++ oracleHashes.toMap)
+        .focus(_.calculated.stateMachines)
+        .modify(_ ++ sms)
+        .focus(_.calculated.scriptOracles)
+        .modify(_ ++ oracles)
     }
 
     /**
@@ -97,6 +102,21 @@ trait DataStateOps {
       oracles: Map[UUID, Records.ScriptOracleFiberRecord]
     ): F[DataState[OnChain, CalculatedState]] =
       withRecords(fibers ++ oracles)
+
+    /**
+     * Append log entries to OnChain.latestLogs, grouping by fiberId.
+     *
+     * Entries are merged into the existing map: new entries for a given fiber ID
+     * are appended to any already-present entries for that ID.
+     */
+    def appendLogs(entries: List[FiberLogEntry]): DataState[OnChain, CalculatedState] = {
+      val grouped = entries.groupBy(_.fiberId)
+      state.focus(_.onChain.latestLogs).modify { current =>
+        grouped.foldLeft(current) { case (acc, (fid, logs)) =>
+          acc.updated(fid, acc.getOrElse(fid, List.empty) ++ logs)
+        }
+      }
+    }
   }
 }
 

@@ -76,7 +76,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
 
         // Create inner oracle with Public access
         createInner = Updates.CreateScriptOracle(
-          cid = innerCid,
+          fiberId = innerCid,
           scriptProgram = innerProg,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -90,7 +90,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
 
         // Invoke inner oracle multiple times
         invoke1 = Updates.InvokeScriptOracle(
-          cid = innerCid,
+          fiberId = innerCid,
           method = "add",
           args = MapValue(Map("a" -> IntValue(10), "b" -> IntValue(5)))
         )
@@ -99,7 +99,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
         state2       <- combiner.insert(state1, Signed(invoke1, invoke1Proof))
 
         invoke2 = Updates.InvokeScriptOracle(
-          cid = innerCid,
+          fiberId = innerCid,
           method = "add",
           args = MapValue(Map("a" -> IntValue(20), "b" -> IntValue(30)))
         )
@@ -111,7 +111,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
       } yield expect.all(
         oracle.isDefined,
         oracle.map(_.invocationCount).contains(2L),
-        oracle.map(_.invocationLog.size).contains(2)
+        oracle.flatMap(_.lastInvocation).isDefined
       )
     }
   }
@@ -128,7 +128,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
 
         // Create oracle with whitelist access - only Alice allowed
         createOracle = Updates.CreateScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Whitelist(Set(registry(Alice).address))
@@ -142,7 +142,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
 
         // Alice can invoke (whitelisted)
         invokeAlice = Updates.InvokeScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           method = "add",
           args = MapValue(Map("a" -> IntValue(1), "b" -> IntValue(2)))
         )
@@ -154,7 +154,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
 
         // Bob tries to invoke (not whitelisted) - should fail
         invokeBob = Updates.InvokeScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           method = "add",
           args = MapValue(Map("a" -> IntValue(10), "b" -> IntValue(20)))
         )
@@ -200,7 +200,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
 
         // Create calculator oracle
         createOracle1 = Updates.CreateScriptOracle(
-          cid = oracle1Cid,
+          fiberId = oracle1Cid,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -208,7 +208,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
 
         // Create counter oracle
         createOracle2 = Updates.CreateScriptOracle(
-          cid = oracle2Cid,
+          fiberId = oracle2Cid,
           scriptProgram = counterProg,
           initialState = Some(MapValue(Map("value" -> IntValue(0)))),
           accessControl = AccessControlPolicy.Public
@@ -274,7 +274,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
         validationProg <- IO.fromEither(parser.parse(validationScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           scriptProgram = validationProg,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -288,7 +288,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
 
         // Invoke with amount >= 100 - should succeed
         invokeValid = Updates.InvokeScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           method = "validate",
           args = MapValue(Map("amount" -> IntValue(200)))
         )
@@ -300,7 +300,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
 
         // Invoke with amount < 100 - should fail due to valid=false
         invokeInvalid = Updates.InvokeScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           method = "validate",
           args = MapValue(Map("amount" -> IntValue(50)))
         )

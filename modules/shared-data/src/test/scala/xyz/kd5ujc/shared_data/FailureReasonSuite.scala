@@ -3,6 +3,8 @@ package xyz.kd5ujc.shared_data
 import cats.effect.IO
 import cats.effect.std.UUIDGen
 
+import scala.collection.immutable.SortedMap
+
 import io.constellationnetwork.currency.dataApplication.L0NodeContext
 import io.constellationnetwork.metagraph_sdk.json_logic.JsonLogicOp._
 import io.constellationnetwork.metagraph_sdk.json_logic._
@@ -70,7 +72,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
 
         // Send an event type that doesn't exist in the transitionMap
         input = FiberInput.Transition(
@@ -152,7 +154,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("go"),
           MapValue(Map.empty)
@@ -240,7 +242,7 @@ object FailureReasonSuite extends SimpleIOSuite {
         )
 
         // Only the source fiber exists, target doesn't
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("fire"),
           MapValue(Map.empty)
@@ -350,7 +352,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("loop"),
           MapValue(Map.empty)
@@ -420,7 +422,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("go"),
           MapValue(Map.empty)
@@ -501,7 +503,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
 
         // Valid payload (control character validation happens at L1)
         validPayload = MapValue(
@@ -565,7 +567,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
 
         // Use MethodCall input (oracle-style) with state machine - type mismatch
         input = FiberInput.MethodCall(
@@ -625,11 +627,10 @@ object FailureReasonSuite extends SimpleIOSuite {
           owners = Set.empty,
           status = FiberStatus.Active,
           invocationCount = 0,
-          invocationLog = List.empty,
           accessControl = AccessControlPolicy.Public
         )
 
-        calculatedState = CalculatedState(Map.empty, Map(oracleId -> oracle))
+        calculatedState = CalculatedState(SortedMap.empty, SortedMap(oracleId -> oracle))
 
         // Use Transition input (state machine-style) with oracle - type mismatch
         input = FiberInput.Transition(

@@ -4,6 +4,8 @@ import cats.effect.IO
 import cats.effect.std.UUIDGen
 import cats.syntax.all._
 
+import scala.collection.immutable.SortedMap
+
 import io.constellationnetwork.currency.dataApplication.L0NodeContext
 import io.constellationnetwork.metagraph_sdk.json_logic.JsonLogicOp._
 import io.constellationnetwork.metagraph_sdk.json_logic._
@@ -88,7 +90,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("check"),
           MapValue(Map.empty)
@@ -175,7 +177,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("process"),
           MapValue(Map.empty)
@@ -266,7 +268,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("divide"),
           MapValue(Map.empty)
@@ -358,7 +360,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("process"),
           MapValue(Map.empty)
@@ -431,7 +433,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("go"),
           MapValue(Map.empty)
@@ -500,7 +502,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("go"),
           MapValue(Map.empty)

@@ -34,7 +34,7 @@ object FiberValidator {
     /** Validates a CreateStateMachineFiber update */
     def createFiber(update: CreateStateMachine): F[ValidationResult] =
       for {
-        cidCheck       <- CommonRules.cidNotUsed(update.cid, state)
+        cidCheck       <- CommonRules.cidNotUsed(update.fiberId, state)
         definitionOk   <- FiberRules.L1.validStateMachineDefinition(update.definition)
         limitsOk       <- FiberRules.L1.definitionWithinLimits(update.definition)
         expressionsOk  <- FiberRules.L1.definitionExpressionsWithinDepthLimits(update.definition)
@@ -58,7 +58,7 @@ object FiberValidator {
     /** Validates a ProcessFiberEvent update */
     def processEvent(update: TransitionStateMachine): F[ValidationResult] =
       for {
-        cidExists      <- CommonRules.cidIsFound(update.cid, state)
+        cidExists      <- CommonRules.cidIsFound(update.fiberId, state)
         payloadNotNull <- CommonRules.isNotNull(update.payload, "payload")
         payloadSize <- CommonRules.valueWithinSizeLimit(
           update.payload,
@@ -70,7 +70,7 @@ object FiberValidator {
 
     /** Validates an ArchiveFiber update */
     def archiveFiber(update: ArchiveStateMachine): F[ValidationResult] =
-      CommonRules.cidIsFound(update.cid, state)
+      CommonRules.cidIsFound(update.fiberId, state)
   }
 
   /**
@@ -97,16 +97,16 @@ object FiberValidator {
     /** Validates a ProcessFiberEvent update (L0 specific checks) */
     def processEvent(update: TransitionStateMachine): F[ValidationResult] =
       for {
-        fiberActive   <- FiberRules.L0.fiberIsActive(update.cid, state.calculated)
-        signedByOwner <- FiberRules.L0.updateSignedByOwners(update.cid, proofs, state.calculated)
-        transitionOk  <- FiberRules.L0.transitionExists(update.cid, update.eventType, state.calculated)
+        fiberActive   <- FiberRules.L0.fiberIsActive(update.fiberId, state.calculated)
+        signedByOwner <- FiberRules.L0.updateSignedByOwners(update.fiberId, proofs, state.calculated)
+        transitionOk  <- FiberRules.L0.transitionExists(update.fiberId, update.eventType, state.calculated)
       } yield List(fiberActive, signedByOwner, transitionOk).combineAll
 
     /** Validates an ArchiveFiber update (L0 specific checks) */
     def archiveFiber(update: ArchiveStateMachine): F[ValidationResult] =
       for {
-        fiberActive   <- FiberRules.L0.fiberIsActive(update.cid, state.calculated)
-        signedByOwner <- FiberRules.L0.updateSignedByOwners(update.cid, proofs, state.calculated)
+        fiberActive   <- FiberRules.L0.fiberIsActive(update.fiberId, state.calculated)
+        signedByOwner <- FiberRules.L0.updateSignedByOwners(update.fiberId, proofs, state.calculated)
       } yield List(fiberActive, signedByOwner).combineAll
   }
 

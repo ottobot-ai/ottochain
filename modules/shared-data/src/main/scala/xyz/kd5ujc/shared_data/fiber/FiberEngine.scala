@@ -14,6 +14,7 @@ import io.constellationnetwork.schema.address.Address
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.signature.SignatureProof
 
+import xyz.kd5ujc.schema.fiber.FiberLogEntry.{EventReceipt, OracleInvocation}
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, Records}
 import xyz.kd5ujc.shared_data.fiber.core.FiberTInstances._
@@ -153,7 +154,6 @@ object FiberEngine {
         for {
           hash    <- newStateData.computeDigest.liftFiber
           gasUsed <- ExecutionOps.getGasUsed[FiberT[F, *]]
-          maxLog  <- ExecutionOps.askLimits[FiberT[F, *]].map(_.maxLogSize)
 
           eventType = input match {
             case FiberInput.Transition(et, _, _) => et
@@ -173,6 +173,8 @@ object FiberEngine {
             outputs = outputs
           )
 
+          _ <- ExecutionOps.appendLog[FiberT[F, *]](receipt)
+
           updatedFiber = sm.copy(
             previousUpdateOrdinal = sm.latestUpdateOrdinal,
             latestUpdateOrdinal = ordinal,
@@ -180,8 +182,7 @@ object FiberEngine {
             stateData = newStateData,
             stateDataHash = hash,
             sequenceNumber = sm.sequenceNumber + 1,
-            lastReceipt = Some(receipt),
-            eventLog = (receipt :: sm.eventLog).take(maxLog)
+            lastReceipt = Some(receipt)
           )
 
           spawnResult <- processSpawnsValidated(spawns, updatedFiber, input)
@@ -193,7 +194,7 @@ object FiberEngine {
               } yield TransactionResult.Aborted(errors.head, currentGas): TransactionResult
 
             case Right(spawnedFibers) =>
-              completeStateMachineTransaction(sm, updatedFiber, spawnedFibers, triggers, receipt)
+              completeStateMachineTransaction(sm, updatedFiber, spawnedFibers, triggers)
           }
         } yield result
 
@@ -226,8 +227,7 @@ object FiberEngine {
         originalFiber: Records.StateMachineFiberRecord,
         updatedFiber:  Records.StateMachineFiberRecord,
         spawnedFibers: List[Records.StateMachineFiberRecord],
-        triggers:      List[FiberTrigger],
-        receipt:       EventReceipt
+        triggers:      List[FiberTrigger]
       ): FiberT[F, TransactionResult] = {
         val parentWithChildren = updatedFiber.copy(
           childFiberIds = updatedFiber.childFiberIds ++ spawnedFibers.map(_.cid)
@@ -242,13 +242,12 @@ object FiberEngine {
         triggers.isEmpty
           .pure[FiberT[F, *]]
           .ifM(
-            ifTrue = commitWithoutTriggers(originalFiber.cid, parentWithChildren, spawnedFibers, receipt),
+            ifTrue = commitWithoutTriggers(originalFiber.cid, parentWithChildren, spawnedFibers),
             ifFalse = dispatchTriggers(
               originalFiber.cid,
               spawnedFibers,
               triggers,
-              stateWithSpawns,
-              receipt
+              stateWithSpawns
             )
           )
       }
@@ -256,18 +255,18 @@ object FiberEngine {
       private def commitWithoutTriggers(
         primaryFiberId: UUID,
         updatedFiber:   Records.StateMachineFiberRecord,
-        spawnedFibers:  List[Records.StateMachineFiberRecord],
-        receipt:        EventReceipt
+        spawnedFibers:  List[Records.StateMachineFiberRecord]
       ): FiberT[F, TransactionResult] =
         for {
-          gasUsed <- ExecutionOps.getGasUsed[FiberT[F, *]]
-          depth   <- ExecutionOps.getDepth[FiberT[F, *]]
+          gasUsed    <- ExecutionOps.getGasUsed[FiberT[F, *]]
+          depth      <- ExecutionOps.getDepth[FiberT[F, *]]
+          logEntries <- ExecutionOps.getLogs[FiberT[F, *]]
         } yield {
           val allMachines = Map(primaryFiberId -> updatedFiber) ++ spawnedFibers.map(f => f.cid -> f).toMap
           TransactionResult.Committed(
             updatedStateMachines = allMachines,
             updatedOracles = Map.empty,
-            receipts = List(receipt),
+            logEntries = logEntries.toList,
             totalGasUsed = gasUsed,
             maxDepth = depth
           ): TransactionResult
@@ -277,26 +276,27 @@ object FiberEngine {
         primaryFiberId:  UUID,
         spawnedFibers:   List[Records.StateMachineFiberRecord],
         triggers:        List[FiberTrigger],
-        stateWithSpawns: CalculatedState,
-        receipt:         EventReceipt
+        stateWithSpawns: CalculatedState
       ): FiberT[F, TransactionResult] =
         TriggerDispatcher
           .make[F, FiberT[F, *]]
           .dispatch(triggers, stateWithSpawns)
-          .map {
-            case TransactionResult.Committed(machines, oracles, triggerReceipts, totalGas, maxDepth, opCount) =>
-              val allMachines = spawnedFibers.map(f => f.cid -> f).toMap ++ machines
-              TransactionResult.Committed(
-                updatedStateMachines = allMachines,
-                updatedOracles = oracles,
-                receipts = receipt :: triggerReceipts,
-                totalGasUsed = totalGas,
-                maxDepth = maxDepth,
-                operationCount = opCount
-              ): TransactionResult
+          .flatMap {
+            case TransactionResult.Committed(machines, oracles, _, totalGas, maxDepth, opCount) =>
+              ExecutionOps.getLogs[FiberT[F, *]].map { logs =>
+                val allMachines = spawnedFibers.map(f => f.cid -> f).toMap ++ machines
+                TransactionResult.Committed(
+                  updatedStateMachines = allMachines,
+                  updatedOracles = oracles,
+                  logEntries = logs.toList,
+                  totalGasUsed = totalGas,
+                  maxDepth = maxDepth,
+                  operationCount = opCount
+                ): TransactionResult
+              }
 
             case aborted: TransactionResult.Aborted =>
-              aborted
+              (aborted: TransactionResult).pureFiber[F]
           }
 
       private def processOracleSuccess(
@@ -308,7 +308,6 @@ object FiberEngine {
         for {
           gasUsed <- ExecutionOps.getGasUsed[FiberT[F, *]]
           depth   <- ExecutionOps.getDepth[FiberT[F, *]]
-          maxLog  <- ExecutionOps.askLimits[FiberT[F, *]].map(_.maxLogSize)
 
           newHash <- newStateData.some.traverse(_.computeDigest).liftFiber
 
@@ -326,6 +325,7 @@ object FiberEngine {
           }
 
           invocation = OracleInvocation(
+            fiberId = oracle.cid,
             method = method,
             args = args,
             result = returnValue.getOrElse(NullValue),
@@ -334,19 +334,20 @@ object FiberEngine {
             invokedBy = caller
           )
 
-          updatedLog = (invocation :: oracle.invocationLog).take(maxLog)
+          _          <- ExecutionOps.appendLog[FiberT[F, *]](invocation)
+          logEntries <- ExecutionOps.getLogs[FiberT[F, *]]
 
           updatedOracle = oracle.copy(
             stateData = Some(newStateData),
             stateDataHash = newHash,
             latestUpdateOrdinal = ordinal,
             invocationCount = oracle.invocationCount + 1,
-            invocationLog = updatedLog
+            lastInvocation = Some(invocation)
           )
         } yield TransactionResult.Committed(
           updatedStateMachines = Map.empty,
           updatedOracles = Map(oracle.cid -> updatedOracle),
-          receipts = List.empty,
+          logEntries = logEntries.toList,
           totalGasUsed = gasUsed,
           maxDepth = depth
         )

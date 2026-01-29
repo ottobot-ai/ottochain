@@ -4,6 +4,8 @@ import cats.effect.IO
 import cats.effect.std.UUIDGen
 import cats.syntax.all._
 
+import scala.collection.immutable.SortedMap
+
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
 import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluator
@@ -1069,7 +1071,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(parentCid -> parentFiber), SortedMap.empty)
 
         // Use a gas limit that will be exceeded by spawn overhead
         // 25 spawns * 50 gas = 1250 spawn gas, plus guard + effect evaluation
@@ -1166,7 +1168,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(parentCid -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("spawn_duplicate"),
           MapValue(Map.empty)
@@ -1283,8 +1285,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
 
         // Both fibers exist in CalculatedState
         calculatedState = CalculatedState(
-          Map(parentCid -> parentFiber, existingCid -> existingFiber),
-          Map.empty
+          SortedMap(parentCid -> parentFiber, existingCid -> existingFiber),
+          SortedMap.empty
         )
 
         input = FiberInput.Transition(
@@ -1376,7 +1378,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(parentCid -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("spawn_large"),
           MapValue(Map.empty)
@@ -1651,7 +1653,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(parentCid -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("spawn"),
           MapValue(Map.empty)
@@ -1757,7 +1759,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(parentCid -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("spawn"),
           MapValue(Map.empty)
@@ -1861,7 +1863,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(parentCid -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("spawn"),
           MapValue(Map.empty)
@@ -1965,7 +1967,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(parentCid -> parentFiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(parentCid -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("spawn"),
           MapValue(Map.empty)

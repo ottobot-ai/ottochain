@@ -53,7 +53,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -66,7 +66,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          cid = cid,
+          fiberId = cid,
           method = "add",
           args = MapValue(Map("a" -> IntValue(10), "b" -> IntValue(5)))
         )
@@ -75,7 +75,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
         oracle = state2.calculated.scriptOracles.get(cid)
-        result = oracle.flatMap(_.invocationLog.headOption.map(_.result))
+        result = oracle.flatMap(_.lastInvocation.map(_.result))
       } yield expect.all(
         oracle.isDefined,
         result.contains(IntValue(15)),
@@ -95,7 +95,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -108,7 +108,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          cid = cid,
+          fiberId = cid,
           method = "subtract",
           args = MapValue(Map("a" -> IntValue(20), "b" -> IntValue(8)))
         )
@@ -117,7 +117,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
         oracle = state2.calculated.scriptOracles.get(cid)
-        result = oracle.flatMap(_.invocationLog.headOption.map(_.result))
+        result = oracle.flatMap(_.lastInvocation.map(_.result))
       } yield expect.all(
         oracle.isDefined,
         result.contains(IntValue(12))
@@ -136,7 +136,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -149,7 +149,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          cid = cid,
+          fiberId = cid,
           method = "multiply",
           args = MapValue(Map("a" -> IntValue(7), "b" -> IntValue(6)))
         )
@@ -158,7 +158,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
         oracle = state2.calculated.scriptOracles.get(cid)
-        result = oracle.flatMap(_.invocationLog.headOption.map(_.result))
+        result = oracle.flatMap(_.lastInvocation.map(_.result))
       } yield expect.all(
         oracle.isDefined,
         result.contains(IntValue(42))
@@ -177,7 +177,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -190,7 +190,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          cid = cid,
+          fiberId = cid,
           method = "divide",
           args = MapValue(Map("a" -> IntValue(100), "b" -> IntValue(4)))
         )
@@ -199,7 +199,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
         oracle = state2.calculated.scriptOracles.get(cid)
-        result = oracle.flatMap(_.invocationLog.headOption.map(_.result))
+        result = oracle.flatMap(_.lastInvocation.map(_.result))
       } yield expect.all(
         oracle.isDefined,
         result.contains(IntValue(25))
@@ -218,7 +218,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -231,7 +231,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          cid = cid,
+          fiberId = cid,
           method = "unknownMethod",
           args = MapValue(Map("a" -> IntValue(1), "b" -> IntValue(2)))
         )
@@ -240,7 +240,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
         oracle = state2.calculated.scriptOracles.get(cid)
-        result = oracle.flatMap(_.invocationLog.headOption.map(_.result))
+        result = oracle.flatMap(_.lastInvocation.map(_.result))
       } yield expect.all(
         oracle.isDefined,
         result.contains(NullValue)
@@ -259,7 +259,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -289,7 +289,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         oracle = state3.calculated.scriptOracles.get(cid)
       } yield expect.all(
         oracle.map(_.invocationCount).contains(3L),
-        oracle.map(_.invocationLog.size).contains(3)
+        oracle.flatMap(_.lastInvocation).isDefined
       )
     }
   }
@@ -305,7 +305,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -319,7 +319,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          cid = cid,
+          fiberId = cid,
           method = "add",
           args = MapValue(Map("a" -> IntValue(5), "b" -> IntValue(3)))
         )
@@ -329,7 +329,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
         oracle = state2.calculated.scriptOracles.get(cid)
-        result = oracle.flatMap(_.invocationLog.headOption.map(_.result))
+        result = oracle.flatMap(_.lastInvocation.map(_.result))
       } yield expect.all(
         oracle.isDefined,
         result.contains(IntValue(8))

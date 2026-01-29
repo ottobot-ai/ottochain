@@ -26,7 +26,7 @@ object CommonRules {
   def cidNotUsed[F[_]: Applicative](cid: UUID, state: OnChain): F[ValidationResult] =
     Validated
       .condNec(
-        !state.latest.contains(cid),
+        !state.fiberCommits.contains(cid),
         (),
         Errors.CidAlreadyExists(cid): DataApplicationValidationError
       )
@@ -36,7 +36,7 @@ object CommonRules {
   def cidIsFound[F[_]: Applicative](cid: UUID, state: OnChain): F[ValidationResult] =
     Validated
       .condNec(
-        state.latest.contains(cid),
+        state.fiberCommits.contains(cid),
         (),
         Errors.CidNotFound(cid): DataApplicationValidationError
       )

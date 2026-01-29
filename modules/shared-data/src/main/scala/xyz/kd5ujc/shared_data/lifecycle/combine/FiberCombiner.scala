@@ -11,7 +11,8 @@ import io.constellationnetwork.schema.SnapshotOrdinal
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.fiber.FiberLogEntry.EventReceipt
+import xyz.kd5ujc.schema.fiber.{FiberLogEntry, _}
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.fiber.FiberEngine
 import xyz.kd5ujc.shared_data.syntax.all._
@@ -46,7 +47,7 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
     initialDataHash <- update.initialData.computeDigest
 
     record = Records.StateMachineFiberRecord(
-      cid = update.cid,
+      cid = update.fiberId,
       creationOrdinal = currentOrdinal,
       previousUpdateOrdinal = currentOrdinal,
       latestUpdateOrdinal = currentOrdinal,
@@ -60,7 +61,7 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
       parentFiberId = update.parentFiberId
     )
 
-    result <- current.withRecord[F](update.cid, record)
+    result <- current.withRecord[F](update.fiberId, record)
   } yield result
 
   /**
@@ -84,14 +85,14 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
       ExecutionLimits()
     )
 
-    outcome <- orchestrator.process(update.cid, input, proofsList)
+    outcome <- orchestrator.process(update.fiberId, input, proofsList)
 
     newState <- outcome match {
-      case TransactionResult.Committed(updatedFibers, updatedOracles, _, _, _, _) =>
-        handleCommittedOutcome(updatedFibers, updatedOracles)
+      case TransactionResult.Committed(updatedFibers, updatedOracles, logEntries, _, _, _) =>
+        handleCommittedOutcome(updatedFibers, updatedOracles, logEntries)
 
       case TransactionResult.Aborted(reason, gasUsed, _) =>
-        handleAbortedOutcome(update.cid, update.eventType, reason, gasUsed, currentOrdinal)
+        handleAbortedOutcome(update.fiberId, update.eventType, reason, gasUsed, currentOrdinal)
     }
   } yield newState
 
@@ -106,11 +107,11 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
     currentOrdinal <- ctx.getCurrentOrdinal
 
     fiberRecord <- current.calculated.stateMachines
-      .get(update.cid)
+      .get(update.fiberId)
       .collect { case r: Records.StateMachineFiberRecord => r }
       .fold(
         Async[F].raiseError[Records.StateMachineFiberRecord](
-          new RuntimeException(s"Fiber ${update.cid} not found")
+          new RuntimeException(s"Fiber ${update.fiberId} not found")
         )
       )(_.pure[F])
 
@@ -120,7 +121,7 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
       status = FiberStatus.Archived
     )
 
-    result <- current.withRecord[F](update.cid, updatedFiber)
+    result <- current.withRecord[F](update.fiberId, updatedFiber)
   } yield result
 
   // ============================================================================
@@ -130,13 +131,14 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
   /**
    * Handles a committed transaction outcome.
    *
-   * Fiber records already have their eventLog and lastReceipt updated by the engine.
+   * Applies fiber/oracle record updates, then appends log entries to OnChain.latestLogs.
    */
   private def handleCommittedOutcome(
     updatedFibers:  Map[UUID, Records.StateMachineFiberRecord],
-    updatedOracles: Map[UUID, Records.ScriptOracleFiberRecord]
+    updatedOracles: Map[UUID, Records.ScriptOracleFiberRecord],
+    logEntries:     List[FiberLogEntry]
   ): F[DataState[OnChain, CalculatedState]] =
-    current.withFibersAndOracles[F](updatedFibers, updatedOracles)
+    current.withFibersAndOracles[F](updatedFibers, updatedOracles).map(_.appendLogs(logEntries))
 
   /**
    * Handles an aborted transaction outcome.
@@ -168,11 +170,10 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
         val failedFiber = fiberRecord.copy(
           previousUpdateOrdinal = fiberRecord.latestUpdateOrdinal,
           latestUpdateOrdinal = currentOrdinal,
-          lastReceipt = Some(failureReceipt),
-          eventLog = (failureReceipt :: fiberRecord.eventLog).take(100)
+          lastReceipt = Some(failureReceipt)
         )
 
-        current.withRecord[F](fiberId, failedFiber)
+        current.withRecord[F](fiberId, failedFiber).map(_.appendLogs(List(failureReceipt)))
 
       case None =>
         Async[F].raiseError(new RuntimeException(s"Fiber $fiberId not found"))

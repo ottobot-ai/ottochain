@@ -35,7 +35,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         oracleProg <- IO.fromEither(parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
           accessControl = AccessControlPolicy.Whitelist(Set(aliceAddress))
@@ -48,7 +48,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           method = "test",
           args = MapValue(Map.empty)
         )
@@ -59,7 +59,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
 
       } yield expect(oracle.isDefined) and
       expect(oracle.map(_.invocationCount).contains(1L)) and
-      expect(oracle.flatMap(_.invocationLog.headOption.map(_.invokedBy)).contains(aliceAddress))
+      expect(oracle.flatMap(_.lastInvocation.map(_.invokedBy)).contains(aliceAddress))
     }
   }
 
@@ -78,7 +78,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         oracleProg <- IO.fromEither(parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
           accessControl = AccessControlPolicy.Whitelist(Set(aliceAddress))
@@ -91,7 +91,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           method = "test",
           args = MapValue(Map.empty)
         )
@@ -123,7 +123,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         oracleProg <- IO.fromEither(parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
           accessControl = AccessControlPolicy.Whitelist(Set(aliceAddress, bobAddress))
@@ -136,7 +136,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         )
 
         invokeOracle1 = Updates.InvokeScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           method = "test",
           args = MapValue(Map.empty)
         )
@@ -144,7 +144,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         stateAfterAlice <- combiner.insert(stateAfterOracle, Signed(invokeOracle1, invokeProof1))
 
         invokeOracle2 = Updates.InvokeScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           method = "test",
           args = MapValue(Map.empty)
         )
@@ -152,7 +152,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         stateAfterBob <- combiner.insert(stateAfterAlice, Signed(invokeOracle2, invokeProof2))
 
         invokeOracle3 = Updates.InvokeScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           method = "test",
           args = MapValue(Map.empty)
         )
@@ -189,7 +189,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         oracleProg <- IO.fromEither(parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
           accessControl = AccessControlPolicy.Whitelist(Set(aliceAddress))
@@ -278,7 +278,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         oracleProg <- IO.fromEither(parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
           accessControl = AccessControlPolicy.Whitelist(Set(aliceAddress))
@@ -376,7 +376,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         oracleProg <- IO.fromEither(parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
           accessControl = AccessControlPolicy.Whitelist(Set(aliceAddress))
@@ -481,7 +481,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
 
         // Create oracle with FiberOwned access control (pointing to non-existent fiber)
         createOracle = Updates.CreateScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
           accessControl = AccessControlPolicy.FiberOwned(ownerFiberId)
@@ -495,7 +495,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
 
         // Attempt to invoke the oracle (should fail - owner fiber doesn't exist)
         invokeOracle = Updates.InvokeScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           method = "process",
           args = MapValue(Map.empty)
         )

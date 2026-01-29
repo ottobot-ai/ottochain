@@ -57,7 +57,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = Some(counterInitialState),
           accessControl = AccessControlPolicy.Public
@@ -87,7 +87,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = Some(counterInitialState),
           accessControl = AccessControlPolicy.Public
@@ -100,7 +100,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          cid = cid,
+          fiberId = cid,
           method = "increment",
           args = MapValue(Map.empty)
         )
@@ -129,7 +129,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = Some(counterInitialState),
           accessControl = AccessControlPolicy.Public
@@ -142,7 +142,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          cid = cid,
+          fiberId = cid,
           method = "decrement",
           args = MapValue(Map.empty)
         )
@@ -174,7 +174,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         nonZeroInitial = MapValue(Map("value" -> IntValue(42)))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = Some(nonZeroInitial),
           accessControl = AccessControlPolicy.Public
@@ -187,7 +187,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          cid = cid,
+          fiberId = cid,
           method = "reset",
           args = MapValue(Map.empty)
         )
@@ -216,7 +216,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = Some(counterInitialState),
           accessControl = AccessControlPolicy.Public
@@ -253,7 +253,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         oracle2.flatMap(_.stateData).contains(MapValue(Map("value" -> IntValue(2)))),
         oracle3.flatMap(_.stateData).contains(MapValue(Map("value" -> IntValue(3)))),
         oracle3.map(_.invocationCount).contains(3L),
-        oracle3.map(_.invocationLog.size).contains(3)
+        oracle3.flatMap(_.lastInvocation).isDefined
       )
     }
   }
@@ -269,7 +269,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = Some(counterInitialState),
           accessControl = AccessControlPolicy.Public
@@ -320,7 +320,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         initialState = MapValue(Map("value" -> IntValue(5)))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = Some(initialState),
           accessControl = AccessControlPolicy.Public
@@ -333,7 +333,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          cid = cid,
+          fiberId = cid,
           method = "increment",
           args = MapValue(Map.empty)
         )
@@ -362,7 +362,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = Some(counterInitialState),
           accessControl = AccessControlPolicy.Public
@@ -378,7 +378,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         hashBefore = oracleBefore.flatMap(_.stateDataHash)
 
         invokeOracle = Updates.InvokeScriptOracle(
-          cid = cid,
+          fiberId = cid,
           method = "increment",
           args = MapValue(Map.empty)
         )
@@ -408,7 +408,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = Some(counterInitialState),
           accessControl = AccessControlPolicy.Public
@@ -441,7 +441,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = Some(counterInitialState),
           accessControl = AccessControlPolicy.Public
@@ -455,7 +455,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          cid = cid,
+          fiberId = cid,
           method = "increment",
           args = MapValue(Map.empty)
         )
@@ -485,7 +485,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = Some(counterInitialState),
           accessControl = AccessControlPolicy.Public
@@ -498,11 +498,11 @@ object CounterOracleSuite extends SimpleIOSuite {
         )
 
         // Check onChain has hashes for this oracle
-        initialOnChainHashes = state1.onChain.latest.get(cid)
+        initialOnChainHashes = state1.onChain.fiberCommits.get(cid)
         initialStateHash = state1.calculated.scriptOracles.get(cid).flatMap(_.stateDataHash)
 
         invokeOracle = Updates.InvokeScriptOracle(
-          cid = cid,
+          fiberId = cid,
           method = "increment",
           args = MapValue(Map.empty)
         )
@@ -511,7 +511,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
         // Check onChain hashes were updated
-        updatedOnChainHashes = state2.onChain.latest.get(cid)
+        updatedOnChainHashes = state2.onChain.fiberCommits.get(cid)
         updatedStateHash = state2.calculated.scriptOracles.get(cid).flatMap(_.stateDataHash)
       } yield expect.all(
         initialOnChainHashes.isDefined,

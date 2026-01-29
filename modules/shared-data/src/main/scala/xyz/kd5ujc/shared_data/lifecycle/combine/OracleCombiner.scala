@@ -53,10 +53,10 @@ class OracleCombiner[F[_]: Async: SecurityProvider](
 
     // Verify oracle exists before processing
     _ <- current.calculated.scriptOracles
-      .get(update.cid)
+      .get(update.fiberId)
       .fold(
         Async[F].raiseError[Records.ScriptOracleFiberRecord](
-          new RuntimeException(s"Oracle ${update.cid} not found")
+          new RuntimeException(s"Oracle ${update.fiberId} not found")
         )
       )(_.pure[F])
 
@@ -79,19 +79,16 @@ class OracleCombiner[F[_]: Async: SecurityProvider](
       idempotencyKey = None
     )
 
-    outcome <- orchestrator.process(update.cid, input, update.proofs.toList)
+    outcome <- orchestrator.process(update.fiberId, input, update.proofs.toList)
 
     newState <- outcome match {
-      case TransactionResult.Committed(_, updatedOracles, _, _, _, _) =>
-        // The orchestrator now adds the invocation log entry with the actual return value
-        updatedOracles.get(update.cid) match {
+      case TransactionResult.Committed(_, updatedOracles, logEntries, _, _, _) =>
+        updatedOracles.get(update.fiberId) match {
           case Some(updatedOracle) =>
-            // Oracle was updated by orchestrator - use it directly
-            current.withRecord[F](update.cid, updatedOracle)
+            current.withRecord[F](update.fiberId, updatedOracle).map(_.appendLogs(logEntries))
 
           case None =>
-            // Oracle didn't update state - shouldn't happen for successful invocations
-            Async[F].raiseError(new RuntimeException(s"Oracle ${update.cid} not found in orchestrator result"))
+            Async[F].raiseError(new RuntimeException(s"Oracle ${update.fiberId} not found in orchestrator result"))
         }
 
       case TransactionResult.Aborted(reason, _, _) =>

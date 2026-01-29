@@ -33,7 +33,7 @@ object OracleValidator {
     /** Validates a CreateScriptOracle update */
     def createOracle(update: CreateScriptOracle): F[ValidationResult] =
       for {
-        cidCheck       <- CommonRules.cidNotUsed(update.cid, state)
+        cidCheck       <- CommonRules.cidNotUsed(update.fiberId, state)
         initialStateOk <- CommonRules.isMapValueOrNull(update.initialState, "initialState")
         scriptDepthOk <- CommonRules.expressionWithinDepthLimit(
           update.scriptProgram,
@@ -50,7 +50,7 @@ object OracleValidator {
     /** Validates an InvokeScriptOracle update */
     def invokeOracle(update: InvokeScriptOracle): F[ValidationResult] =
       for {
-        cidExists     <- CommonRules.cidIsFound(update.cid, state)
+        cidExists     <- CommonRules.cidIsFound(update.fiberId, state)
         argsStructure <- CommonRules.payloadStructureValid(update.args, "args")
         argsSize <- CommonRules.valueWithinSizeLimit(
           update.args,
@@ -81,7 +81,7 @@ object OracleValidator {
 
     /** Validates an InvokeScriptOracle update (L0 specific checks) */
     def invokeOracle(update: InvokeScriptOracle): F[ValidationResult] =
-      OracleRules.L0.accessControlCheck(update.cid, proofs, state.calculated)
+      OracleRules.L0.accessControlCheck(update.fiberId, proofs, state.calculated)
   }
 
   /**

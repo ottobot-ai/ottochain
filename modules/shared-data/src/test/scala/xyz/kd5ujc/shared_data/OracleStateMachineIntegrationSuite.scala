@@ -41,7 +41,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         oracleProg <- IO.fromEither(parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -124,8 +124,8 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
       expect(submittedAmount.contains(BigInt(150))) and
       expect(oracle.isDefined) and
       expect(oracle.map(_.invocationCount).contains(1L)) and
-      expect(oracle.flatMap(_.invocationLog.headOption.map(_.method)).contains("validateAmount")) and
-      expect(oracle.flatMap(_.invocationLog.headOption.map(_.result)).exists {
+      expect(oracle.flatMap(_.lastInvocation.map(_.method)).contains("validateAmount")) and
+      expect(oracle.flatMap(_.lastInvocation.map(_.result)).exists {
         case BoolValue(true) => true
         case _               => false
       })
@@ -153,7 +153,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         oracleProg <- IO.fromEither(parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -221,7 +221,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
       expect(machine.exists(_.lastReceipt.exists(r => !r.success))) and
       expect(oracle.isDefined) and
       expect(oracle.map(_.invocationCount).contains(0L)) and
-      expect(oracle.map(_.invocationLog.isEmpty).contains(true))
+      expect(oracle.map(_.lastInvocation.isEmpty).contains(true))
     }
   }
 
@@ -241,7 +241,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         initialOracleState = MapValue(Map("counter" -> IntValue(3)))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           scriptProgram = oracleProg,
           initialState = Some(initialOracleState),
           accessControl = AccessControlPolicy.Public
@@ -300,7 +300,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         invokeOracle = Updates.InvokeScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           method = "increment",
           args = MapValue(Map.empty)
         )
@@ -343,7 +343,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         oracleProg <- IO.fromEither(parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -389,9 +389,9 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
               "effect": [
                 ["totalAmount", { "+": [
                   { "var": "state.amount" },
-                  { "var": "scriptOracles.$oracleCid.invocationLog.0.result" }
+                  { "var": "scriptOracles.$oracleCid.lastInvocation.result" }
                 ]}],
-                ["feeCalculated", { "var": "scriptOracles.$oracleCid.invocationLog.0.result" }],
+                ["feeCalculated", { "var": "scriptOracles.$oracleCid.lastInvocation.result" }],
                 ["status", "completed"]
               ],
               "dependencies": ["$oracleCid"]
@@ -480,7 +480,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         oracleProg <- IO.fromEither(parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           scriptProgram = oracleProg,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -552,7 +552,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
 
       } yield expect(oracle.isDefined) and
       expect(oracle.map(_.invocationCount).contains(2L)) and
-      expect(oracle.map(_.invocationLog.size).contains(2)) and
+      expect(oracle.map(_.lastInvocation.isDefined).contains(true)) and
       expect(machine1.isDefined) and
       expect(machine2.isDefined) and
       expect(

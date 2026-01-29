@@ -13,6 +13,7 @@ import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluat
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 
+import xyz.kd5ujc.schema.fiber.FiberLogEntry.{EventReceipt, OracleInvocation}
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, Records}
 import xyz.kd5ujc.shared_data.fiber.core._
@@ -81,58 +82,60 @@ class StateMachineTriggerHandler[F[_]: Async: SecurityProvider, G[_]: Monad](
   ): G[TriggerHandlerResult] =
     for {
       ordinal <- ExecutionOps.askOrdinal[G]
-      maxLog  <- ExecutionOps.askLimits[G].map(_.maxLogSize)
       outcome <- FiberEvaluator.make[F, G](calculatedState).evaluate(sm, trigger.input, List.empty)
-    } yield outcome match {
-      case FiberResult.Success(newStateData, newStateId, triggers, _, outputs, _) =>
-        val eventType = trigger.input match {
-          case FiberInput.Transition(et, _, _)   => et
-          case FiberInput.MethodCall(m, _, _, _) => EventType(m)
-        }
+      result <- outcome match {
+        case FiberResult.Success(newStateData, newStateId, triggers, _, outputs, _) =>
+          val eventType = trigger.input match {
+            case FiberInput.Transition(et, _, _)   => et
+            case FiberInput.MethodCall(m, _, _, _) => EventType(m)
+          }
 
-        val receipt = EventReceipt(
-          fiberId = sm.cid,
-          sequenceNumber = sm.sequenceNumber + 1,
-          eventType = eventType,
-          ordinal = ordinal,
-          fromState = sm.currentState,
-          toState = newStateId.getOrElse(sm.currentState),
-          success = true,
-          gasUsed = 0L,
-          triggersFired = triggers.size,
-          outputs = outputs,
-          sourceFiberId = trigger.sourceFiberId
-        )
+          val receipt = EventReceipt(
+            fiberId = sm.cid,
+            sequenceNumber = sm.sequenceNumber + 1,
+            eventType = eventType,
+            ordinal = ordinal,
+            fromState = sm.currentState,
+            toState = newStateId.getOrElse(sm.currentState),
+            success = true,
+            gasUsed = 0L,
+            triggersFired = triggers.size,
+            outputs = outputs,
+            sourceFiberId = trigger.sourceFiberId
+          )
 
-        val updatedFiber = sm.copy(
-          currentState = newStateId.getOrElse(sm.currentState),
-          stateData = newStateData,
-          sequenceNumber = sm.sequenceNumber + 1,
-          latestUpdateOrdinal = ordinal,
-          lastReceipt = Some(receipt),
-          eventLog = (receipt :: sm.eventLog).take(maxLog)
-        )
+          val updatedFiber = sm.copy(
+            currentState = newStateId.getOrElse(sm.currentState),
+            stateData = newStateData,
+            sequenceNumber = sm.sequenceNumber + 1,
+            latestUpdateOrdinal = ordinal,
+            lastReceipt = Some(receipt)
+          )
 
-        val updatedState = state.updateFiber(updatedFiber)
+          val updatedState = state.updateFiber(updatedFiber)
 
-        TriggerHandlerResult.Success(
-          updatedState = updatedState,
-          receipts = List(receipt),
-          cascadeTriggers = triggers
-        ): TriggerHandlerResult
+          ExecutionOps
+            .appendLog[G](receipt)
+            .as(
+              TriggerHandlerResult.Success(
+                updatedState = updatedState,
+                cascadeTriggers = triggers
+              ): TriggerHandlerResult
+            )
 
-      case FiberResult.GuardFailed(attemptedCount) =>
-        val eventType = trigger.input match {
-          case FiberInput.Transition(et, _, _)   => et
-          case FiberInput.MethodCall(m, _, _, _) => EventType(m)
-        }
-        TriggerHandlerResult.Failed(
-          FailureReason.NoGuardMatched(sm.currentState, eventType, attemptedCount)
-        ): TriggerHandlerResult
+        case FiberResult.GuardFailed(attemptedCount) =>
+          val eventType = trigger.input match {
+            case FiberInput.Transition(et, _, _)   => et
+            case FiberInput.MethodCall(m, _, _, _) => EventType(m)
+          }
+          (TriggerHandlerResult.Failed(
+            FailureReason.NoGuardMatched(sm.currentState, eventType, attemptedCount)
+          ): TriggerHandlerResult).pure[G]
 
-      case FiberResult.Failed(reason) =>
-        TriggerHandlerResult.Failed(reason): TriggerHandlerResult
-    }
+        case FiberResult.Failed(reason) =>
+          (TriggerHandlerResult.Failed(reason): TriggerHandlerResult).pure[G]
+      }
+    } yield result
 }
 
 class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
@@ -254,11 +257,8 @@ class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
         ExecutionOps.askOrdinal[G]
       )
 
-      maxLog <- EitherT.liftF[G, TriggerHandlerResult, Int](
-        ExecutionOps.askLimits[G].map(_.maxLogSize)
-      )
-
       invocation = OracleInvocation(
+        fiberId = oracle.cid,
         method = method,
         args = args,
         result = returnValue,
@@ -267,21 +267,22 @@ class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
         invokedBy = callerAddress
       )
 
-      newLog = (invocation :: oracle.invocationLog).take(maxLog)
+      _ <- EitherT.liftF[G, TriggerHandlerResult, Unit](
+        ExecutionOps.appendLog[G](invocation)
+      )
 
       updatedOracle = oracle.copy(
         stateData = newStateData,
         stateDataHash = newHash,
         latestUpdateOrdinal = ordinal,
         invocationCount = oracle.invocationCount + 1,
-        invocationLog = newLog
+        lastInvocation = Some(invocation)
       )
 
       updatedState = state.updateFiber(updatedOracle)
 
     } yield TriggerHandlerResult.Success(
       updatedState = updatedState,
-      receipts = List.empty,
       cascadeTriggers = List.empty
     ): TriggerHandlerResult
 

@@ -145,7 +145,7 @@ object FiberRules {
       parentFiberId.fold(().validNec[DataApplicationValidationError].pure[F]) { parentId =>
         Validated
           .condNec(
-            state.latest.contains(parentId),
+            state.fiberCommits.contains(parentId),
             (),
             Errors.ParentFiberNotFound(parentId): DataApplicationValidationError
           )

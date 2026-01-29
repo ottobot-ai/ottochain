@@ -55,7 +55,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
 
         // Create oracle
         createOracle = Updates.CreateScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           scriptProgram = oracleScript,
           initialState = oracleInitialState,
           accessControl = AccessControlPolicy.Public
@@ -258,7 +258,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         )
 
         createOracle = Updates.CreateScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           scriptProgram = oracleScript,
           initialState = oracleInitialState,
           accessControl = AccessControlPolicy.Public
@@ -402,7 +402,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         )
 
         createOracle = Updates.CreateScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           scriptProgram = oracleScript,
           initialState = oracleInitialState,
           accessControl = AccessControlPolicy.Public
@@ -529,7 +529,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         )
 
         createOracle = Updates.CreateScriptOracle(
-          cid = oracleCid,
+          fiberId = oracleCid,
           scriptProgram = oracleScript,
           initialState = oracleInitialState,
           accessControl = AccessControlPolicy.Public

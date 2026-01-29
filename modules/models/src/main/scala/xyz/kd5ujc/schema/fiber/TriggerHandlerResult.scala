@@ -9,15 +9,13 @@ object TriggerHandlerResult {
   /**
    * Trigger processed successfully.
    *
-   * Gas is tracked via StateT and not carried in the result.
+   * Gas and log entries are tracked via StateT and not carried in the result.
    *
-   * @param updatedState   State with the target fiber updated
-   * @param receipts       Event receipts produced by this trigger
+   * @param updatedState    State with the target fiber updated
    * @param cascadeTriggers Additional triggers to process
    */
   final case class Success(
     updatedState:    CalculatedState,
-    receipts:        List[EventReceipt],
     cascadeTriggers: List[FiberTrigger]
   ) extends TriggerHandlerResult
 

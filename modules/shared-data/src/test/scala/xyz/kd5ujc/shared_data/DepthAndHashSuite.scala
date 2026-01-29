@@ -4,6 +4,8 @@ import cats.effect.IO
 import cats.effect.std.UUIDGen
 import cats.syntax.all._
 
+import scala.collection.immutable.SortedMap
+
 import io.constellationnetwork.currency.dataApplication.L0NodeContext
 import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluator
@@ -102,7 +104,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(parentId -> parentFiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(parentId -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("spawn"),
           MapValue(Map.empty)
@@ -167,7 +169,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("unlock"), // No such transition
           MapValue(Map.empty)
@@ -357,8 +359,8 @@ object DepthAndHashSuite extends SimpleIOSuite {
         )
 
         calculatedState = CalculatedState(
-          Map(machine1 -> fiber1, machine2 -> fiber2, machine3 -> fiber3),
-          Map.empty
+          SortedMap(machine1 -> fiber1, machine2 -> fiber2, machine3 -> fiber3),
+          SortedMap.empty
         )
 
         input = FiberInput.Transition(

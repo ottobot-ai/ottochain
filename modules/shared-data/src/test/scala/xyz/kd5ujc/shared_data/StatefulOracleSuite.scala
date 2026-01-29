@@ -32,7 +32,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -67,7 +67,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
         initialData = MapValue(Map("counter" -> IntValue(0)))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = Some(initialData),
           accessControl = AccessControlPolicy.Public
@@ -80,7 +80,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          cid = cid,
+          fiberId = cid,
           method = "increment",
           args = MapValue(Map.empty)
         )
@@ -94,7 +94,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
       } yield expect(oracle.isDefined) and
       expect(oracle.flatMap(_.stateData).contains(expectedState)) and
       expect(oracle.map(_.invocationCount).contains(1L)) and
-      expect(oracle.flatMap(_.invocationLog.headOption.map(_.result)).contains(expectedResult))
+      expect(oracle.flatMap(_.lastInvocation.map(_.result)).contains(expectedResult))
     }
   }
 
@@ -111,7 +111,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
         prog <- IO.fromEither(parser.parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -124,7 +124,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          cid = cid,
+          fiberId = cid,
           method = "increment",
           args = MapValue(Map.empty)
         )
@@ -137,7 +137,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
       } yield expect(oracle.isDefined) and
       expect(oracle.flatMap(_.stateData).contains(expectedState)) and
       expect(oracle.map(_.invocationCount).contains(1L)) and
-      expect(oracle.flatMap(_.invocationLog.headOption.map(_.result)).contains(expectedState))
+      expect(oracle.flatMap(_.lastInvocation.map(_.result)).contains(expectedState))
     }
   }
 
@@ -159,7 +159,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
         initialData = MapValue(Map("visits" -> IntValue(0)))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = Some(initialData),
           accessControl = AccessControlPolicy.Public
@@ -172,7 +172,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          cid = cid,
+          fiberId = cid,
           method = "visit",
           args = MapValue(Map.empty)
         )
@@ -190,7 +190,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
         )
       } yield expect(oracle.isDefined) and
       expect(oracle.flatMap(_.stateData).contains(expectedState)) and
-      expect(oracle.flatMap(_.invocationLog.headOption.map(_.result)).contains(expectedResult))
+      expect(oracle.flatMap(_.lastInvocation.map(_.result)).contains(expectedResult))
     }
   }
 
@@ -212,7 +212,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
         initialData = MapValue(Map("callCount" -> IntValue(0)))
 
         createOracle = Updates.CreateScriptOracle(
-          cid = cid,
+          fiberId = cid,
           scriptProgram = prog,
           initialState = Some(initialData),
           accessControl = AccessControlPolicy.Public
@@ -242,7 +242,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
       expect(oracle1.flatMap(_.stateData).contains(MapValue(Map("callCount" -> IntValue(99))))) and
       expect(oracle2.map(_.invocationCount).contains(2L)) and
       expect(oracle2.flatMap(_.stateData).contains(MapValue(Map("callCount" -> IntValue(99))))) and
-      expect(oracle2.map(_.invocationLog.size).contains(2))
+      expect(oracle2.map(_.lastInvocation.isDefined).contains(true))
     }
   }
 }

@@ -3,12 +3,13 @@ package xyz.kd5ujc.shared_data.fiber.core
 import java.util.UUID
 
 import cats.Monad
+import cats.data.Chain
 import cats.mtl.{Ask, Stateful}
 import cats.syntax.all._
 
 import io.constellationnetwork.schema.SnapshotOrdinal
 
-import xyz.kd5ujc.schema.fiber.{ExecutionLimits, FailureReason, FiberContext, GasExhaustionPhase}
+import xyz.kd5ujc.schema.fiber.{ExecutionLimits, FailureReason, FiberContext, FiberLogEntry, GasExhaustionPhase}
 
 /**
  * MTL-style operations for execution tracking and context access.
@@ -36,6 +37,14 @@ object ExecutionOps {
     inputKey: String
   )(implicit S: Stateful[G, ExecutionState]): G[Boolean] =
     S.inspect(_.wasProcessed(fiberId, inputKey))
+
+  /** Append a log entry (receipt or invocation) to the accumulated log */
+  def appendLog[G[_]](entry: FiberLogEntry)(implicit S: Stateful[G, ExecutionState]): G[Unit] =
+    S.modify(_.appendLog(entry))
+
+  /** Get all accumulated log entries */
+  def getLogs[G[_]](implicit S: Stateful[G, ExecutionState]): G[Chain[FiberLogEntry]] =
+    S.inspect(_.logEntries)
 
   def getState[G[_]](implicit S: Stateful[G, ExecutionState]): G[ExecutionState] =
     S.get

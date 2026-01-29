@@ -3,6 +3,8 @@ package xyz.kd5ujc.shared_data
 import cats.effect.IO
 import cats.effect.std.UUIDGen
 
+import scala.collection.immutable.SortedMap
+
 import io.constellationnetwork.currency.dataApplication.L0NodeContext
 import io.constellationnetwork.metagraph_sdk.json_logic.JsonLogicOp._
 import io.constellationnetwork.metagraph_sdk.json_logic._
@@ -179,8 +181,8 @@ object RollbackCompensationSuite extends SimpleIOSuite {
         )
 
         calculatedState = CalculatedState(
-          Map(machineA -> fiberA, machineB -> fiberB, machineC -> fiberC),
-          Map.empty
+          SortedMap(machineA -> fiberA, machineB -> fiberB, machineC -> fiberC),
+          SortedMap.empty
         )
 
         input = FiberInput.Transition(
@@ -267,7 +269,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
 
         // Payload without the expected nested structure
         input = FiberInput.Transition(
@@ -393,7 +395,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(parentId -> parentFiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(parentId -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("spawn_and_trigger"),
           MapValue(Map.empty)
@@ -458,7 +460,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("unlock"),
           MapValue(Map.empty)

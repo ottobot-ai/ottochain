@@ -5,6 +5,8 @@ import cats.effect.Async
 import cats.syntax.all._
 import cats.{Applicative, Parallel}
 
+import scala.collection.immutable.SortedMap
+
 import io.constellationnetwork.currency.dataApplication._
 import io.constellationnetwork.currency.dataApplication.dataApplication.DataApplicationValidationErrorOr
 import io.constellationnetwork.currency.schema.currency.CurrencyIncrementalSnapshot
@@ -22,6 +24,7 @@ import xyz.kd5ujc.schema.Updates.OttochainMessage
 import xyz.kd5ujc.schema.{CalculatedState, OnChain}
 import xyz.kd5ujc.shared_data.lifecycle.{Combiner, Validator}
 
+import monocle.Monocle.toAppliedFocusOps
 import org.http4s.HttpRoutes
 import org.typelevel.log4cats.SelfAwareStructuredLogger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
@@ -67,7 +70,10 @@ object ML0Service {
           state:   DataState[OnChain, CalculatedState],
           updates: List[Signed[OttochainMessage]]
         )(implicit context: L0NodeContext[F]): F[DataState[OnChain, CalculatedState]] =
-          combiner.foldLeft(state, updates)
+          combiner.foldLeft(
+            state.focus(_.onChain.latestLogs).replace(SortedMap.empty),
+            updates
+          )
 
         override def getCalculatedState(implicit
           context: L0NodeContext[F]

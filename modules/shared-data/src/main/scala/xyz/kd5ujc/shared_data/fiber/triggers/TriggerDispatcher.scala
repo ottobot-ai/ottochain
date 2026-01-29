@@ -1,6 +1,5 @@
 package xyz.kd5ujc.shared_data.fiber.triggers
 
-import cats.data.Chain
 import cats.effect.Async
 import cats.mtl.{Ask, Stateful}
 import cats.syntax.all._
@@ -45,13 +44,12 @@ object TriggerDispatcher {
   /**
    * State carried through the queue-based processing loop.
    *
-   * Uses Chain for accumulated receipts (O(1) append) while keeping
-   * pending as List (O(1) prepend for depth-first processing).
+   * Log entries are accumulated via StateT, not carried here.
+   * Pending uses List for O(1) prepend (depth-first processing).
    */
   final private case class QueueState(
     pending:  List[FiberTrigger],
-    txnState: CalculatedState,
-    receipts: Chain[EventReceipt]
+    txnState: CalculatedState
   )
 
   def make[F[_]: Async: SecurityProvider, G[_]: Monad](implicit
@@ -71,7 +69,7 @@ object TriggerDispatcher {
         triggers:  List[FiberTrigger],
         baseState: CalculatedState
       ): G[TransactionResult] = {
-        val initialQueue = QueueState(triggers, baseState, Chain.empty)
+        val initialQueue = QueueState(triggers, baseState)
 
         Monad[G].tailRecM(initialQueue)(processNext)
       }
@@ -91,23 +89,23 @@ object TriggerDispatcher {
             qs.pending match {
               case Nil =>
                 for {
-                  gasUsed <- ExecutionOps.getGasUsed[G]
-                  depth   <- ExecutionOps.getDepth[G]
+                  gasUsed    <- ExecutionOps.getGasUsed[G]
+                  depth      <- ExecutionOps.getDepth[G]
+                  logEntries <- ExecutionOps.getLogs[G]
                 } yield (TransactionResult.Committed(
                   updatedStateMachines = qs.txnState.stateMachines,
                   updatedOracles = qs.txnState.scriptOracles,
-                  receipts = qs.receipts.toList,
+                  logEntries = logEntries.toList,
                   totalGasUsed = gasUsed,
                   maxDepth = depth
                 ): TransactionResult).asRight[QueueState]
 
               case trigger :: rest =>
                 processSingleTrigger(trigger, qs.txnState).flatMap {
-                  case Right((nextState, newReceipts, moreTriggers)) =>
+                  case Right((nextState, moreTriggers)) =>
                     QueueState(
                       pending = moreTriggers ++ rest,
-                      txnState = nextState,
-                      receipts = qs.receipts ++ Chain.fromSeq(newReceipts)
+                      txnState = nextState
                     ).asLeft[TransactionResult].pure[G]
 
                   case Left(reason) =>
@@ -120,7 +118,7 @@ object TriggerDispatcher {
         }
 
       private type TriggerResult =
-        (CalculatedState, List[EventReceipt], List[FiberTrigger])
+        (CalculatedState, List[FiberTrigger])
 
       private def processSingleTrigger(
         trigger: FiberTrigger,
@@ -170,10 +168,10 @@ object TriggerDispatcher {
           _             <- ExecutionOps.markProcessed[G](fiber.cid, trigger.input.inputKey)
           handlerResult <- handler.handle(trigger, fiber, state)
           result <- handlerResult match {
-            case TriggerHandlerResult.Success(updatedState, receipts, cascadeTriggers) =>
+            case TriggerHandlerResult.Success(updatedState, cascadeTriggers) =>
               ExecutionOps
                 .incrementDepth[G]
-                .as((updatedState, receipts, cascadeTriggers).asRight[FailureReason])
+                .as((updatedState, cascadeTriggers).asRight[FailureReason])
 
             case TriggerHandlerResult.Failed(reason) =>
               reason.asLeft[TriggerResult].pure[G]

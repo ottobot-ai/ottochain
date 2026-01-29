@@ -13,6 +13,7 @@ import io.constellationnetwork.metagraph_sdk.syntax.all.L0ContextOps
 import io.constellationnetwork.security.signature.Signed
 
 import xyz.kd5ujc.schema.Updates.OttochainMessage
+import xyz.kd5ujc.schema.fiber.FiberLogEntry.{EventReceipt, OracleInvocation}
 import xyz.kd5ujc.schema.fiber.FiberStatus
 import xyz.kd5ujc.schema.{CalculatedState, OnChain}
 
@@ -67,11 +68,6 @@ class ML0CustomRoutes[F[_]: Async](
         state.stateMachines.get(fiberId).asRight[DataApplicationValidationError]
       }.toResponse
 
-    case GET -> Root / "state-machines" / UUIDVar(fiberId) / "events" =>
-      checkpointService.get.map { case Checkpoint(_, state) =>
-        state.stateMachines.get(fiberId).map(_.eventLog).asRight[DataApplicationValidationError]
-      }.toResponse
-
     case GET -> Root / "oracles" :? StatusQueryParam(statusOpt) =>
       checkpointService.get.map { case Checkpoint(_, state) =>
         statusOpt
@@ -86,9 +82,24 @@ class ML0CustomRoutes[F[_]: Async](
         state.scriptOracles.get(oracleId).asRight[DataApplicationValidationError]
       }.toResponse
 
+    case GET -> Root / "state-machines" / UUIDVar(fiberId) / "events" =>
+      context
+        .getOnChainState[OnChain]
+        .map(_.map { onChain =>
+          onChain.latestLogs
+            .getOrElse(fiberId, List.empty)
+            .collect { case r: EventReceipt => r }
+        })
+        .toResponse
+
     case GET -> Root / "oracles" / UUIDVar(oracleId) / "invocations" =>
-      checkpointService.get.map { case Checkpoint(_, state) =>
-        state.scriptOracles.get(oracleId).map(_.invocationLog).asRight[DataApplicationValidationError]
-      }.toResponse
+      context
+        .getOnChainState[OnChain]
+        .map(_.map { onChain =>
+          onChain.latestLogs
+            .getOrElse(oracleId, List.empty)
+            .collect { case i: OracleInvocation => i }
+        })
+        .toResponse
   }
 }

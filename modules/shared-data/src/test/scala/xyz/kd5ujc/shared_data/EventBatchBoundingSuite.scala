@@ -9,6 +9,7 @@ import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
+import xyz.kd5ujc.schema.fiber.FiberLogEntry.EventReceipt
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.fiber.FiberEngine
@@ -87,11 +88,9 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
           .collect { case r: Records.StateMachineFiberRecord => r }
       } yield expect(machine1.isDefined) and
       expect(machine2.isDefined) and
-      // After first event, eventLog contains a receipt for that event
-      expect(machine1.exists(_.eventLog.nonEmpty)) and
+      // After first event, lastReceipt should be set
       expect(machine1.exists(_.lastReceipt.isDefined)) and
-      // After second event, eventLog grows and lastReceipt is updated
-      expect(machine2.exists(_.eventLog.size == 2)) and
+      // After second event, lastReceipt is updated
       expect(machine2.exists(_.lastReceipt.isDefined))
     }
   }
@@ -108,20 +107,18 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
 
         owners = Set(Alice).map(fixture.registry.addresses)
 
-        // Seed with a fiber that already has 4 events in its log
-        seedReceipts = (1 to 4).toList.map { i =>
-          EventReceipt(
-            fiberId = cid,
-            sequenceNumber = i.toLong,
-            eventType = EventType("increment"),
-            ordinal = fixture.ordinal,
-            fromState = StateId("counting"),
-            toState = StateId("counting"),
-            success = true,
-            gasUsed = 0L,
-            triggersFired = 0
-          )
-        }
+        // Seed with a fiber that already has a last receipt
+        seedReceipt = EventReceipt(
+          fiberId = cid,
+          sequenceNumber = 4L,
+          eventType = EventType("increment"),
+          ordinal = fixture.ordinal,
+          fromState = StateId("counting"),
+          toState = StateId("counting"),
+          success = true,
+          gasUsed = 0L,
+          triggersFired = 0
+        )
 
         fiber = Records.StateMachineFiberRecord(
           cid = cid,
@@ -135,16 +132,16 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
           sequenceNumber = 4L,
           owners = owners,
           status = FiberStatus.Active,
-          eventLog = seedReceipts
+          lastReceipt = Some(seedReceipt)
         )
 
         baseState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
 
-        // Use FiberEngine directly with maxLogSize = 5
+        // Use FiberEngine directly
         engine = FiberEngine.make[IO](
           baseState.calculated,
           fixture.ordinal,
-          limits = ExecutionLimits(maxLogSize = 5)
+          limits = ExecutionLimits()
         )
 
         // Generate valid proofs via the registry
@@ -162,10 +159,8 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
         }
 
       } yield expect(updatedFiber.isDefined) and
-      // Log had 4 entries, added 1 more = 5, bounded at maxLogSize = 5
-      expect(updatedFiber.exists(_.eventLog.size == 5)) and
-      // Most recent receipt is first in the list
-      expect(updatedFiber.exists(_.eventLog.headOption.exists(_.sequenceNumber == 5L)))
+      // lastReceipt should be updated with the new sequence number
+      expect(updatedFiber.exists(_.lastReceipt.exists(_.sequenceNumber == 5L)))
     }
   }
 

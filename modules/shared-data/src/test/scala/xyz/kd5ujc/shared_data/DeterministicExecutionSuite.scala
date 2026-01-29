@@ -4,6 +4,8 @@ import cats.effect.IO
 import cats.effect.std.UUIDGen
 import cats.syntax.all._
 
+import scala.collection.immutable.SortedMap
+
 import io.constellationnetwork.currency.dataApplication.L0NodeContext
 import io.constellationnetwork.metagraph_sdk.json_logic.JsonLogicOp._
 import io.constellationnetwork.metagraph_sdk.json_logic._
@@ -71,7 +73,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("activate"),
           MapValue(Map.empty)
@@ -159,7 +161,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("process"),
           MapValue(Map.empty)
@@ -308,7 +310,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("loop"),
           MapValue(Map.empty)
@@ -435,8 +437,8 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         calculatedState = CalculatedState(
-          Map(fiber1Id -> fiber1, fiber2Id -> fiber2),
-          Map.empty
+          SortedMap(fiber1Id -> fiber1, fiber2Id -> fiber2),
+          SortedMap.empty
         )
 
         input = FiberInput.Transition(
@@ -526,11 +528,11 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         calculatedState = CalculatedState(
-          Map(
+          SortedMap(
             fiber1Id -> fiber1,
             fiber2Id -> fiber2
           ),
-          Map.empty
+          SortedMap.empty
         )
 
         triggers = List(
@@ -608,7 +610,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("invalid"),
           MapValue(Map.empty)
@@ -705,7 +707,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("go"),
           MapValue(Map.empty)
@@ -795,7 +797,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("go"),
           MapValue(Map.empty)
@@ -1092,8 +1094,8 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         calculatedState = CalculatedState(
-          Map(machineA -> fiberA, machineB -> fiberB, machineC -> fiberC),
-          Map.empty
+          SortedMap(machineA -> fiberA, machineB -> fiberB, machineC -> fiberC),
+          SortedMap.empty
         )
 
         input = FiberInput.Transition(
@@ -1282,8 +1284,8 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         calculatedState = CalculatedState(
-          Map(machineA -> fiberA, machineB -> fiberB),
-          Map.empty
+          SortedMap(machineA -> fiberA, machineB -> fiberB),
+          SortedMap.empty
         )
 
         input = FiberInput.Transition(
@@ -1505,7 +1507,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         // Both fibers exist from the start
-        calculatedState = CalculatedState(Map(parentId -> parentFiber, childId -> childFiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(parentId -> parentFiber, childId -> childFiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("start"),
           MapValue(Map.empty)
@@ -1578,7 +1580,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         // Calculated state only contains the main fiber, not the dependency
-        calculatedState = CalculatedState(Map(fiberId -> fiber), Map.empty)
+        calculatedState = CalculatedState(SortedMap(fiberId -> fiber), SortedMap.empty)
         input = FiberInput.Transition(
           EventType("go"),
           MapValue(Map.empty)
