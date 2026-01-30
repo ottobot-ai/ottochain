@@ -78,7 +78,6 @@ object ReservedKeys {
   val INVOKED_AT = "invokedAt"
   val INVOKED_BY = "invokedBy"
   val STATUS = "status"
-  val INVOCATION_COUNT = "invocationCount"
   val LAST_INVOCATION = "lastInvocation"
 
   def isInternal(key: String): Boolean = key.startsWith("_")

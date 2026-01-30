@@ -11,7 +11,7 @@ import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.fiber.{FiberOrdinal, _}
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_data.syntax.all._
@@ -106,7 +106,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("locked"),
           stateData = lockData,
           stateDataHash = lockHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice, Bob).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -154,7 +154,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
       } yield expect.all(
         unlockedFiber.isDefined,
         unlockedFiber.map(_.currentState).contains(StateId("unlocked")),
-        unlockedFiber.map(_.sequenceNumber).contains(1L),
+        unlockedFiber.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next),
         isUnlocked.contains(true),
         unlockedAtTime.contains(BigInt(1500))
       )
@@ -281,7 +281,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("pending"),
           stateData = htlcData,
           stateDataHash = htlcHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice, Bob).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -376,7 +376,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("pending"),
           stateData = htlcData2,
           stateDataHash = htlcHash2,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice, Bob).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -434,14 +434,14 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         // Verify claim succeeded
         claimedFiber.isDefined,
         claimedFiber.map(_.currentState).contains(StateId("claimed")),
-        claimedFiber.map(_.sequenceNumber).contains(1L),
+        claimedFiber.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next),
         wasClaimed.contains(true),
         claimedBy.contains(bobAddr.toString),
         revealedSecret.contains("opensesame"),
         // Verify refund succeeded
         refundedFiber.isDefined,
         refundedFiber.map(_.currentState).contains(StateId("refunded")),
-        refundedFiber.map(_.sequenceNumber).contains(1L),
+        refundedFiber.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next),
         wasRefunded.contains(true),
         refundedAt.contains(BigInt(2500))
       )
@@ -1196,7 +1196,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("placed"),
           stateData = orderData,
           stateDataHash = orderHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice, Bob).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1210,7 +1210,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("empty"),
           stateData = escrowData,
           stateDataHash = escrowHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice, Bob).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1224,7 +1224,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("pending"),
           stateData = shippingData,
           stateDataHash = shippingHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1238,7 +1238,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("inactive"),
           stateData = inspectionData,
           stateDataHash = inspectionHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Charlie).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1252,7 +1252,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("active"),
           stateData = insuranceData,
           stateDataHash = insuranceHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice, Bob).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1705,7 +1705,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("proposed"),
           stateData = proposalData,
           stateDataHash = proposalHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1729,7 +1729,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("idle"),
           stateData = aliceVoterData,
           stateDataHash = aliceVoterHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1752,7 +1752,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("idle"),
           stateData = bobVoterData,
           stateDataHash = bobVoterHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Bob).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1775,7 +1775,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("idle"),
           stateData = charlieVoterData,
           stateDataHash = charlieVoterHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Charlie).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1799,7 +1799,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("pending"),
           stateData = earlyActionData,
           stateDataHash = earlyActionHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Charlie).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1823,7 +1823,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("pending"),
           stateData = validActionData,
           stateDataHash = validActionHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Charlie).map(registry.addresses),
           status = FiberStatus.Active
         )

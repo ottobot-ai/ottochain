@@ -4,6 +4,7 @@ import cats.effect.{IO, Resource}
 import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
+import io.constellationnetwork.ext.cats.syntax.next._
 import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
@@ -79,7 +80,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
       } yield expect.all(
         oracle.isDefined,
         result.contains(IntValue(15)),
-        oracle.map(_.invocationCount).contains(1L)
+        oracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next)
       )
     }
   }
@@ -288,7 +289,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
 
         oracle = state3.calculated.scriptOracles.get(cid)
       } yield expect.all(
-        oracle.map(_.invocationCount).contains(3L),
+        oracle.map(_.sequenceNumber).contains(FiberOrdinal.unsafeApply(3L)),
         oracle.flatMap(_.lastInvocation).isDefined
       )
     }

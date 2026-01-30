@@ -2,6 +2,7 @@ package xyz.kd5ujc.shared_data
 
 import cats.effect.IO
 import cats.effect.std.UUIDGen
+import cats.syntax.order._
 
 import scala.collection.immutable.SortedMap
 
@@ -12,7 +13,7 @@ import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluat
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 
-import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.fiber.{FiberOrdinal, _}
 import xyz.kd5ujc.schema.{CalculatedState, Records}
 import xyz.kd5ujc.shared_data.fiber.FiberEngine
 import xyz.kd5ujc.shared_test.TestFixture
@@ -147,7 +148,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           currentState = StateId("idle"),
           stateData = dataA,
           stateDataHash = hashA,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -161,7 +162,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           currentState = StateId("waiting"),
           stateData = dataB,
           stateDataHash = hashB,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -175,7 +176,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           currentState = StateId("pending"),
           stateData = dataC,
           stateDataHash = hashC,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -206,9 +207,9 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           expect(
             calculatedState.stateMachines.get(machineC).exists(_.currentState == StateId("pending"))
           ) and
-          expect(calculatedState.stateMachines.get(machineA).exists(_.sequenceNumber == 0)) and
-          expect(calculatedState.stateMachines.get(machineB).exists(_.sequenceNumber == 0)) and
-          expect(calculatedState.stateMachines.get(machineC).exists(_.sequenceNumber == 0))
+          expect(calculatedState.stateMachines.get(machineA).exists(_.sequenceNumber == FiberOrdinal.MinValue)) and
+          expect(calculatedState.stateMachines.get(machineB).exists(_.sequenceNumber == FiberOrdinal.MinValue)) and
+          expect(calculatedState.stateMachines.get(machineC).exists(_.sequenceNumber == FiberOrdinal.MinValue))
         case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected Aborted due to C's failed guard, got Committed")
       }
@@ -264,7 +265,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 5,
+          sequenceNumber = FiberOrdinal.unsafeApply(5),
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -286,13 +287,15 @@ object RollbackCompensationSuite extends SimpleIOSuite {
         case TransactionResult.Aborted(_, _, _) =>
           // Original state should be preserved
           expect(calculatedState.stateMachines.get(fiberId).exists(_.currentState == StateId("start"))) and
-          expect(calculatedState.stateMachines.get(fiberId).exists(_.sequenceNumber == 5)) and
+          expect(
+            calculatedState.stateMachines.get(fiberId).exists(_.sequenceNumber == FiberOrdinal.unsafeApply(5L))
+          ) and
           expect(calculatedState.stateMachines.get(fiberId).exists(_.stateData == initialData))
         case TransactionResult.Committed(machines, _, _, _, _, _) =>
           // If it committed (JsonLogic might handle missing vars gracefully),
           // verify state was actually updated
           val updated = machines.get(fiberId)
-          expect(updated.exists(_.sequenceNumber > 5))
+          expect(updated.exists(_.sequenceNumber > FiberOrdinal.unsafeApply(5L)))
       }
     }
   }
@@ -390,7 +393,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           currentState = StateId("ready"),
           stateData = parentData,
           stateDataHash = parentHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -412,7 +415,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
           expect(
             calculatedState.stateMachines.get(parentId).exists(_.currentState == StateId("ready"))
           ) and
-          expect(calculatedState.stateMachines.get(parentId).exists(_.sequenceNumber == 0)) and
+          expect(calculatedState.stateMachines.get(parentId).exists(_.sequenceNumber == FiberOrdinal.MinValue)) and
           // No children should exist
           expect(calculatedState.stateMachines.size == 1)
         case TransactionResult.Committed(machines, _, _, _, _, _) =>
@@ -444,7 +447,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
         initialData = MapValue(Map("important" -> IntValue(999)))
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
-        originalSeqNum = 42L
+        originalSeqNum = FiberOrdinal.unsafeApply(42L)
 
         fiber = Records.StateMachineFiberRecord(
           cid = fiberId,

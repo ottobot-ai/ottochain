@@ -974,7 +974,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("recruiting"),
           stateData = trialData,
           stateDataHash = trialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -988,7 +988,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("screening"),
           stateData = patientData,
           stateDataHash = patientHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Bob).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1002,7 +1002,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("idle"),
           stateData = labData,
           stateDataHash = labHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Charlie).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1016,7 +1016,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("monitoring"),
           stateData = adverseEventData,
           stateDataHash = adverseEventHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Dave).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1030,7 +1030,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("approved"),
           stateData = regulatorData,
           stateDataHash = regulatorHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Eve).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1044,7 +1044,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("active"),
           stateData = insuranceData,
           stateDataHash = insuranceHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice, Bob).map(registry.addresses),
           status = FiberStatus.Active
         )

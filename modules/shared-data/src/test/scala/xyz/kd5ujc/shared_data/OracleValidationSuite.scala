@@ -4,11 +4,12 @@ import cats.effect.IO
 import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
+import io.constellationnetwork.ext.cats.syntax.next._
 import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.fiber.{FiberOrdinal, _}
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Participant._
@@ -96,7 +97,7 @@ object OracleValidationSuite extends SimpleIOSuite {
         lastInvocation = oracle.flatMap(_.lastInvocation)
 
       } yield expect(oracle.isDefined) and
-      expect(oracle.map(_.invocationCount).contains(1L)) and
+      expect(oracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next)) and
       expect(lastInvocation.isDefined) and
       expect(lastInvocation.map(_.method).contains("validate")) and
       expect(

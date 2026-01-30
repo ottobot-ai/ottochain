@@ -571,7 +571,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("draft"),
           stateData = contractData,
           stateDataHash = contractHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice, Bob).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -585,7 +585,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("inactive"),
           stateData = gpsTrackerData,
           stateDataHash = gpsTrackerHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -599,7 +599,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("pending"),
           stateData = supplierData,
           stateDataHash = supplierHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Bob).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -613,7 +613,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("pending"),
           stateData = inspectionData,
           stateDataHash = inspectionHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Charlie).map(registry.addresses),
           status = FiberStatus.Active
         )

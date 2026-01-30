@@ -1315,7 +1315,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("for_sale"),
           stateData = propertyData,
           stateDataHash = propertyHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1329,7 +1329,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("draft"),
           stateData = contractData,
           stateDataHash = contractHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice, Bob).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1343,7 +1343,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("empty"),
           stateData = escrowData,
           stateDataHash = escrowHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Charlie).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1357,7 +1357,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("pending"),
           stateData = inspectionData,
           stateDataHash = inspectionHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Dave).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1371,7 +1371,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("pending"),
           stateData = appraisalData,
           stateDataHash = appraisalHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Eve).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1385,7 +1385,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("application"),
           stateData = mortgageData,
           stateDataHash = mortgageHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Faythe).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1399,7 +1399,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("pending"),
           stateData = titleData,
           stateDataHash = titleHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Grace).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1413,7 +1413,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("available"),
           stateData = propertyManagementData,
           stateDataHash = propertyManagementHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Heidi).map(registry.addresses),
           status = FiberStatus.Active
         )

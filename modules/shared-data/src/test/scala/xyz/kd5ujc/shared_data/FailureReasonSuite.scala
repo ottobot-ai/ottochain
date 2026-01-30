@@ -67,7 +67,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           currentState = StateId("idle"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -149,7 +149,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -236,7 +236,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           currentState = StateId("idle"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -347,7 +347,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           currentState = StateId("a"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -417,7 +417,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -498,7 +498,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -562,7 +562,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           currentState = StateId("idle"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -625,7 +625,7 @@ object FailureReasonSuite extends SimpleIOSuite {
           stateDataHash = Some(oracleHash),
           owners = Set.empty,
           status = FiberStatus.Active,
-          invocationCount = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           accessControl = AccessControlPolicy.Public
         )
 

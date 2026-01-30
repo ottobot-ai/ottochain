@@ -2,11 +2,12 @@ package xyz.kd5ujc.schema.fiber
 
 import java.util.UUID
 
+import io.constellationnetwork.ext.cats.syntax.next._
 import io.constellationnetwork.metagraph_sdk.json_logic.JsonLogicValue
 import io.constellationnetwork.schema.SnapshotOrdinal
 import io.constellationnetwork.schema.address.Address
 
-import xyz.kd5ujc.schema.Records
+import xyz.kd5ujc.schema.{Records}
 
 import derevo.circe.magnolia.{decoder, encoder}
 import derevo.derive
@@ -29,7 +30,7 @@ object FiberLogEntry {
   @derive(encoder, decoder)
   final case class EventReceipt(
     fiberId:        UUID,
-    sequenceNumber: Long,
+    sequenceNumber: FiberOrdinal,
     eventName:      String,
     ordinal:        SnapshotOrdinal,
     fromState:      StateId,
@@ -55,7 +56,7 @@ object FiberLogEntry {
       emittedEvents: List[EmittedEvent] = List.empty
     ): EventReceipt = EventReceipt(
       fiberId = sm.cid,
-      sequenceNumber = sm.sequenceNumber + 1,
+      sequenceNumber = sm.sequenceNumber.next,
       eventName = eventName,
       ordinal = ordinal,
       fromState = sm.currentState,

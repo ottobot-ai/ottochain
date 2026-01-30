@@ -13,7 +13,7 @@ import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluat
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 
-import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.fiber.{FiberOrdinal, _}
 import xyz.kd5ujc.schema.{CalculatedState, Records}
 import xyz.kd5ujc.shared_data.fiber.FiberEngine
 import xyz.kd5ujc.shared_test.{Participant, TestFixture}
@@ -85,7 +85,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -172,7 +172,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -263,7 +263,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -355,7 +355,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -428,7 +428,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -497,7 +497,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
           currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )

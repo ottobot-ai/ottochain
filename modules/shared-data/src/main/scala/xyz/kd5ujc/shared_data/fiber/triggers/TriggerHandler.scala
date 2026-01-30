@@ -6,6 +6,7 @@ import cats.mtl.{Ask, Stateful}
 import cats.syntax.all._
 import cats.{~>, Monad}
 
+import io.constellationnetwork.ext.cats.syntax.next._
 import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.metagraph_sdk.json_logic.core.{BoolValue, StrValue}
 import io.constellationnetwork.metagraph_sdk.json_logic.gas._
@@ -99,7 +100,7 @@ class StateMachineTriggerHandler[F[_]: Async: SecurityProvider, G[_]: Monad](
           val updatedFiber = sm.copy(
             currentState = newStateId.getOrElse(sm.currentState),
             stateData = newStateData,
-            sequenceNumber = sm.sequenceNumber + 1,
+            sequenceNumber = sm.sequenceNumber.next,
             latestUpdateOrdinal = ordinal,
             lastReceipt = Some(receipt)
           )
@@ -258,7 +259,7 @@ class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
         stateData = newStateData,
         stateDataHash = newHash,
         latestUpdateOrdinal = ordinal,
-        invocationCount = oracle.invocationCount + 1,
+        sequenceNumber = oracle.sequenceNumber.next,
         lastInvocation = Some(invocation)
       )
 

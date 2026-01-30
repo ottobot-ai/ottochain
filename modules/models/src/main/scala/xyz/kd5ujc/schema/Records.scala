@@ -21,6 +21,7 @@ object Records {
     def owners: Set[Address]
     def creationOrdinal: SnapshotOrdinal
     def latestUpdateOrdinal: SnapshotOrdinal
+    def sequenceNumber: FiberOrdinal
   }
 
   @derive(encoder, decoder)
@@ -33,7 +34,7 @@ object Records {
     currentState:          StateId,
     stateData:             JsonLogicValue,
     stateDataHash:         Hash,
-    sequenceNumber:        Long,
+    sequenceNumber:        FiberOrdinal,
     owners:                Set[Address],
     status:                FiberStatus,
     lastReceipt:           Option[EventReceipt] = None,
@@ -50,7 +51,7 @@ object Records {
     stateData:           Option[JsonLogicValue],
     stateDataHash:       Option[Hash],
     accessControl:       AccessControlPolicy,
-    invocationCount:     Long = 0,
+    sequenceNumber:      FiberOrdinal,
     owners:              Set[Address],
     status:              FiberStatus,
     lastInvocation:      Option[OracleInvocation] = None

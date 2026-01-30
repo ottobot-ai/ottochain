@@ -13,7 +13,7 @@ import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluat
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 
-import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.fiber.{FiberOrdinal, _}
 import xyz.kd5ujc.schema.{CalculatedState, Records}
 import xyz.kd5ujc.shared_data.fiber.FiberEngine
 import xyz.kd5ujc.shared_test.TestFixture
@@ -75,7 +75,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -176,7 +176,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           currentState = StateId("a"),
           stateData = data1,
           stateDataHash = hash1,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -190,7 +190,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           currentState = StateId("x"),
           stateData = data2,
           stateDataHash = hash2,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -273,7 +273,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -345,7 +345,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -419,7 +419,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -525,7 +525,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           currentState = StateId("init"),
           stateData = parentData,
           stateDataHash = parentHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -652,7 +652,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           currentState = StateId("a"),
           stateData = data1,
           stateDataHash = hash1,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -666,7 +666,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           currentState = StateId("x"),
           stateData = data2,
           stateDataHash = hash2,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -779,7 +779,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           currentState = StateId("a"),
           stateData = data1,
           stateDataHash = hash1,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -793,7 +793,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
           currentState = StateId("x"),
           stateData = data2,
           stateDataHash = hash2,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )

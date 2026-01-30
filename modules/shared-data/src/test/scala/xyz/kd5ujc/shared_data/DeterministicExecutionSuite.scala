@@ -68,7 +68,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("idle"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -156,7 +156,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("idle"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -305,7 +305,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("loop1"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -417,7 +417,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("s1"),
           stateData = data1,
           stateDataHash = hash1,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -431,7 +431,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("s1"),
           stateData = data2,
           stateDataHash = hash2,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -508,7 +508,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("state1"),
           stateData = data1,
           stateDataHash = hash1,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -522,7 +522,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("state1"),
           stateData = data2,
           stateDataHash = hash2,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -605,7 +605,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("initial"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 5,
+          sequenceNumber = FiberOrdinal.unsafeApply(5),
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -627,7 +627,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
       } yield expect(result.isInstanceOf[TransactionResult.Aborted]) and
       // Fiber state should be unchanged (Aborted means no changes applied)
       expect(finalFiber.isDefined) and
-      expect(finalFiber.exists(_.sequenceNumber == 5)) and
+      expect(finalFiber.exists(_.sequenceNumber == FiberOrdinal.unsafeApply(5L))) and
       expect(finalFiber.exists(_.stateData == initialData))
     }
   }
@@ -702,7 +702,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -792,7 +792,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -1060,7 +1060,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("idle"),
           stateData = dataA,
           stateDataHash = hashA,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -1074,7 +1074,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("waiting"),
           stateData = dataB,
           stateDataHash = hashB,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -1088,7 +1088,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("pending"),
           stateData = dataC,
           stateDataHash = hashC,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -1264,7 +1264,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("s1"),
           stateData = dataA,
           stateDataHash = hashA,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -1278,7 +1278,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("idle"),
           stateData = dataB,
           stateDataHash = hashB,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -1487,7 +1487,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("ready"),
           stateData = parentData,
           stateDataHash = parentHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -1501,7 +1501,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("init"),
           stateData = childData,
           stateDataHash = childHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -1574,7 +1574,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("start"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )

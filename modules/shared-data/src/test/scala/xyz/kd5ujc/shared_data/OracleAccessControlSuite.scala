@@ -5,6 +5,7 @@ import cats.effect.std.UUIDGen
 import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
+import io.constellationnetwork.ext.cats.syntax.next._
 import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
@@ -58,7 +59,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         oracle = finalState.calculated.scriptOracles.get(oracleCid)
 
       } yield expect(oracle.isDefined) and
-      expect(oracle.map(_.invocationCount).contains(1L)) and
+      expect(oracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next)) and
       expect(oracle.flatMap(_.lastInvocation.map(_.invokedBy)).contains(aliceAddress))
     }
   }
@@ -103,7 +104,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
 
       } yield expect(result.isLeft) and
       expect(oracle.isDefined) and
-      expect(oracle.map(_.invocationCount).contains(0L))
+      expect(oracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue))
     }
   }
 
@@ -162,7 +163,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         oracle = stateAfterBob.calculated.scriptOracles.get(oracleCid)
 
       } yield expect(oracle.isDefined) and
-      expect(oracle.map(_.invocationCount).contains(2L)) and
+      expect(oracle.map(_.sequenceNumber).contains(FiberOrdinal.unsafeApply(2L))) and
       expect(charlieResult.isLeft)
     }
   }
@@ -252,7 +253,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
       } yield expect(machine.isDefined) and
       expect(machine.map(_.currentState).contains(StateId("validated"))) and
       expect(oracle.isDefined) and
-      expect(oracle.map(_.invocationCount).contains(1L))
+      expect(oracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next))
     }
   }
 
@@ -349,7 +350,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         )
       ) and
       expect(oracle.isDefined) and
-      expect(oracle.map(_.invocationCount).contains(0L))
+      expect(oracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue))
     }
   }
 
@@ -454,7 +455,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
       ) and
       expect(oracle.isDefined) and
       // Oracle should NOT have been invoked
-      expect(oracle.map(_.invocationCount).contains(0L))
+      expect(oracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue))
     }
   }
 

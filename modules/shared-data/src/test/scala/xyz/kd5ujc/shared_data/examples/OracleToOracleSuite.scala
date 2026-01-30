@@ -4,6 +4,7 @@ import cats.effect.{IO, Resource}
 import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
+import io.constellationnetwork.ext.cats.syntax.next._
 import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
@@ -110,7 +111,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
         oracle = state3.calculated.scriptOracles.get(innerCid)
       } yield expect.all(
         oracle.isDefined,
-        oracle.map(_.invocationCount).contains(2L),
+        oracle.map(_.sequenceNumber).contains(FiberOrdinal.unsafeApply(2L)),
         oracle.flatMap(_.lastInvocation).isDefined
       )
     }
@@ -168,9 +169,9 @@ object OracleToOracleSuite extends SimpleIOSuite {
 
       } yield expect.all(
         // Alice's invocation succeeded
-        oracleAfterAlice.map(_.invocationCount).contains(1L),
+        oracleAfterAlice.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next),
         // Bob's invocation should have failed (invocation count unchanged)
-        bobResult.isLeft || oracleAfterBob.map(_.invocationCount).contains(1L)
+        bobResult.isLeft || oracleAfterBob.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next)
       )
     }
   }
@@ -239,8 +240,8 @@ object OracleToOracleSuite extends SimpleIOSuite {
         calculatorOracle = state5.calculated.scriptOracles.get(oracle1Cid)
         counterOracle = state5.calculated.scriptOracles.get(oracle2Cid)
       } yield expect.all(
-        calculatorOracle.map(_.invocationCount).contains(1L),
-        counterOracle.map(_.invocationCount).contains(2L),
+        calculatorOracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next),
+        counterOracle.map(_.sequenceNumber).contains(FiberOrdinal.unsafeApply(2L)),
         counterOracle.flatMap(_.stateData).contains(MapValue(Map("value" -> IntValue(2))))
       )
     }
@@ -310,7 +311,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
 
       } yield expect.all(
         // First invocation (valid) should succeed
-        oracleAfterValid.map(_.invocationCount).contains(1L),
+        oracleAfterValid.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next),
         // Second invocation (invalid) should either fail or succeed depending on implementation
         // The key behavior is that the oracle processes the valid=false result
         invalidResult.isLeft || invalidResult.isRight

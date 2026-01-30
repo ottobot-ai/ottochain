@@ -112,7 +112,7 @@ object ContextProvider {
             ReservedKeys.EVENT_NAME       -> StrValue(eventName),
             ReservedKeys.MACHINE_ID       -> StrValue(fiber.cid.toString),
             ReservedKeys.CURRENT_STATE_ID -> StrValue(fiber.currentState.value),
-            ReservedKeys.SEQUENCE_NUMBER  -> IntValue(fiber.sequenceNumber),
+            ReservedKeys.SEQUENCE_NUMBER  -> IntValue(fiber.sequenceNumber.value.value),
             ReservedKeys.PROOFS           -> ArrayValue(proofsData),
             ReservedKeys.MACHINES         -> machinesData,
             ReservedKeys.PARENT           -> parentData,
@@ -152,7 +152,7 @@ object ContextProvider {
             ReservedKeys.EVENT_NAME       -> StrValue(input.key),
             ReservedKeys.MACHINE_ID       -> StrValue(fiber.cid.toString),
             ReservedKeys.CURRENT_STATE_ID -> StrValue(fiber.currentState.value),
-            ReservedKeys.SEQUENCE_NUMBER  -> IntValue(fiber.sequenceNumber),
+            ReservedKeys.SEQUENCE_NUMBER  -> IntValue(fiber.sequenceNumber.value.value),
             ReservedKeys.PARENT           -> parentData,
             ReservedKeys.CHILDREN         -> childrenData
           )
@@ -228,7 +228,7 @@ object ContextProvider {
         val baseMap = Map(
           ReservedKeys.STATE            -> fiber.stateData,
           ReservedKeys.CURRENT_STATE_ID -> StrValue(fiber.currentState.value),
-          ReservedKeys.SEQUENCE_NUMBER  -> IntValue(fiber.sequenceNumber)
+          ReservedKeys.SEQUENCE_NUMBER  -> IntValue(fiber.sequenceNumber.value.value)
         )
         val fullMap =
           if (includeId) baseMap + (ReservedKeys.MACHINE_ID -> StrValue(fiber.cid.toString))
@@ -239,10 +239,10 @@ object ContextProvider {
       private def buildOracleSummary(oracle: Records.ScriptOracleFiberRecord): MapValue =
         MapValue(
           Map(
-            ReservedKeys.STATE            -> oracle.stateData.getOrElse(NullValue),
-            ReservedKeys.STATUS           -> StrValue(oracle.status.toString),
-            ReservedKeys.INVOCATION_COUNT -> IntValue(oracle.invocationCount),
-            ReservedKeys.LAST_INVOCATION  -> oracle.lastInvocation.map(buildInvocationSummary).getOrElse(NullValue)
+            ReservedKeys.STATE           -> oracle.stateData.getOrElse(NullValue),
+            ReservedKeys.STATUS          -> StrValue(oracle.status.toString),
+            ReservedKeys.SEQUENCE_NUMBER -> IntValue(oracle.sequenceNumber.value.value),
+            ReservedKeys.LAST_INVOCATION -> oracle.lastInvocation.map(buildInvocationSummary).getOrElse(NullValue)
           )
         )
 

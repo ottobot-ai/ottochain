@@ -99,7 +99,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
           currentState = StateId("ready"),
           stateData = parentData,
           stateDataHash = parentHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -164,7 +164,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
           currentState = StateId("locked"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 10,
+          sequenceNumber = FiberOrdinal.unsafeApply(10),
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -186,7 +186,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
           val originalFiber = calculatedState.stateMachines.get(fiberId)
           expect(originalFiber.exists(_.stateDataHash == initialHash)) and
           expect(originalFiber.exists(_.stateData == initialData)) and
-          expect(originalFiber.exists(_.sequenceNumber == 10))
+          expect(originalFiber.exists(_.sequenceNumber == FiberOrdinal.unsafeApply(10L)))
         case TransactionResult.Committed(_, _, _, _, _, _) =>
           failure("Expected Aborted for missing transition")
       }
@@ -325,7 +325,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
           currentState = StateId("a"),
           stateData = data1,
           stateDataHash = hash1,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -339,7 +339,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
           currentState = StateId("a"),
           stateData = data2,
           stateDataHash = hash2,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -353,7 +353,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
           currentState = StateId("a"),
           stateData = data3,
           stateDataHash = hash3,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )

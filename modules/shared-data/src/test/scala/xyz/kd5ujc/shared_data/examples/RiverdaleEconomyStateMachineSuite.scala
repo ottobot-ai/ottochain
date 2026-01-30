@@ -13,7 +13,7 @@ import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.fiber.{FiberOrdinal, _}
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_data.syntax.all._
@@ -1550,7 +1550,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             manufacturerInitialData.value + ("businessName" -> StrValue("SteelCore Manufacturing"))
           ),
           stateDataHash = aliceHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1567,7 +1567,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             manufacturerInitialData.value + ("businessName" -> StrValue("AgriGrow Farms"))
           ),
           stateDataHash = bobHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Bob).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1588,7 +1588,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("idle"),
           stateData = charlieInitialData,
           stateDataHash = charlieHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Charlie).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1608,7 +1608,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("open"),
           stateData = heidiData,
           stateDataHash = heidiHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Heidi).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1627,7 +1627,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("idle"),
           stateData = niajData,
           stateDataHash = niajHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Niaj).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1645,7 +1645,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             bankInitialData.value + ("businessName" -> StrValue("Riverdale National Bank"))
           ),
           stateDataHash = oscarHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Oscar).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1661,7 +1661,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           stateData =
             bankInitialData.copy(value = bankInitialData.value + ("businessName" -> StrValue("SecureCredit Union"))),
           stateDataHash = peggyHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Peggy).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1678,7 +1678,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             bankInitialData.value + ("businessName" -> StrValue("VentureForward Capital"))
           ),
           stateDataHash = quentinHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Quentin).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1696,7 +1696,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             consumerInitialData.value + ("name" -> StrValue("Ruth - Software Developer"))
           ),
           stateDataHash = ruthHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Ruth).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1717,7 +1717,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("active"),
           stateData = sybilInitialData,
           stateDataHash = sybilHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Sybil).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1738,7 +1738,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("active"),
           stateData = victorInitialData,
           stateDataHash = victorHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Victor).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1755,7 +1755,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           stateData =
             fedInitialData.copy(value = fedInitialData.value + ("name" -> StrValue("Federal Reserve Branch"))),
           stateDataHash = yolandaHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Yolanda).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1773,7 +1773,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
             governanceInitialData.value + ("name" -> StrValue("Riverdale Governance"))
           ),
           stateDataHash = xavierHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Xavier).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -1976,7 +1976,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("open"),
           stateData = graceData,
           stateDataHash = graceHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Grace).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -2285,7 +2285,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("idle"),
           stateData = daveData,
           stateDataHash = daveHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Dave).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -2344,7 +2344,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("open"),
           stateData = ivanData,
           stateDataHash = ivanHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Ivan).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -2648,7 +2648,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         finalNiajFiber.map(_.currentState).contains(StateId("idle")),
 
         // Verify Niaj's sequence number is 0 (passive participant, no events)
-        finalNiajFiber.map(_.sequenceNumber).exists(_ == 0L),
+        finalNiajFiber.map(_.sequenceNumber).exists(_ == FiberOrdinal.MinValue),
 
         // Verify Niaj's transaction count is still 0
         finalNiajFiber
@@ -2671,7 +2671,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           .contains("active"),
 
         // Verify state transitions
-        finalAliceFiber.map(_.sequenceNumber).getOrElse(0L) > 0L,
+        finalAliceFiber.map(_.sequenceNumber).exists(_ > FiberOrdinal.MinValue),
         finalOscarFiber
           .map(_.currentState)
           .contains(
@@ -2695,7 +2695,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         finalBobFiber.map(_.currentState).contains(StateId("shipping")), // Bob fulfilled Grace's order
         finalBobFiber
           .map(_.sequenceNumber)
-          .getOrElse(0L) == 5L, // 5 events: schedule, start, complete, fulfill_order, pay_taxes
+          .exists(_ == FiberOrdinal.unsafeApply(5L)), // 5 events: schedule, start, complete, fulfill_order, pay_taxes
         finalBobFiber
           .flatMap { f =>
             f.stateData match {
@@ -2766,7 +2766,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           .exists(_ == 110), // 115 (after restocking) - 5 (sold to Ruth) = 110
 
         // Verify Peggy and Quentin banks received rate_adjustment from Fed (Event 2)
-        finalPeggyFiber.map(_.sequenceNumber).exists(_ >= 1L), // Peggy received rate_adjustment
+        finalPeggyFiber.map(_.sequenceNumber).exists(_ >= FiberOrdinal.MinValue.next), // Peggy received rate_adjustment
         finalPeggyFiber
           .flatMap { f =>
             f.stateData match {
@@ -2776,7 +2776,9 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           }
           .exists(_ == 0.0425), // 0.04 + 0.0025 = 0.0425 (after rate increase)
 
-        finalQuentinFiber.map(_.sequenceNumber).exists(_ >= 1L), // Quentin received rate_adjustment
+        finalQuentinFiber
+          .map(_.sequenceNumber)
+          .exists(_ >= FiberOrdinal.MinValue.next), // Quentin received rate_adjustment
         finalQuentinFiber
           .flatMap { f =>
             f.stateData match {
@@ -2991,7 +2993,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         finalAliceFiber.map(_.currentState).contains(StateId("inventory_full")),
 
         // Verify Alice's sequence number increased by 3 (schedule, start, complete)
-        finalAliceFiber.map(_.sequenceNumber).exists(_ >= 3L),
+        finalAliceFiber.map(_.sequenceNumber).exists(_ >= FiberOrdinal.unsafeApply(3L)),
 
         // Verify Alice's raw materials: 1000 - 50 (first cycle) - 50 (second cycle) = 900
         finalAliceFiber
@@ -3058,7 +3060,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         finalXavierFiber.map(_.currentState).contains(StateId("monitoring")),
 
         // Verify Xavier received tax payments (sequence number incremented)
-        finalXavierFiber.map(_.sequenceNumber).exists(_ > 0L),
+        finalXavierFiber.map(_.sequenceNumber).exists(_ > FiberOrdinal.MinValue),
 
         // Verify Xavier collected taxes from all 10 taxpayers
         finalXavierFiber
@@ -3143,7 +3145,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         finalCharlieFiber.map(_.currentState).contains(StateId("supply_shortage")),
 
         // Verify Charlie's sequence number (check_materials, pay_taxes)
-        finalCharlieFiber.map(_.sequenceNumber).exists(_ == 2L),
+        finalCharlieFiber.map(_.sequenceNumber).exists(_ == FiberOrdinal.unsafeApply(2L)),
 
         // Verify Charlie's raw materials unchanged (40 - insufficient for production)
         finalCharlieFiber
@@ -3204,7 +3206,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         finalDaveFiber.map(_.currentState).contains(StateId("shipping")),
 
         // Verify Dave's sequence number reflects all events (schedule, start, complete, fulfill_order, pay_taxes)
-        finalDaveFiber.map(_.sequenceNumber).exists(_ == 5L),
+        finalDaveFiber.map(_.sequenceNumber).exists(_ == FiberOrdinal.unsafeApply(5L)),
 
         // Verify Dave's inventory: 420 (initial) + 150 (produced) - 100 (shipped to Ivan) = 470
         finalDaveFiber
@@ -3286,7 +3288,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         finalGraceFiber.map(_.currentState).contains(StateId("open")),
 
         // Verify Grace's sequence number (check_inventory, receive_shipment, reopen, process_sale, pay_taxes)
-        finalGraceFiber.map(_.sequenceNumber).exists(_ == 5L),
+        finalGraceFiber.map(_.sequenceNumber).exists(_ == FiberOrdinal.unsafeApply(5L)),
 
         // Verify Grace's revenue from Victor's purchase (10 items * 10 per unit = 100)
         finalGraceFiber
@@ -3337,7 +3339,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         finalIvanFiber.map(_.currentState).contains(StateId("open")),
 
         // Verify Ivan's sequence number (check_inventory, receive_shipment, reopen, pay_taxes)
-        finalIvanFiber.map(_.sequenceNumber).exists(_ == 4L),
+        finalIvanFiber.map(_.sequenceNumber).exists(_ == FiberOrdinal.unsafeApply(4L)),
 
         // Verify Ivan's stock after restocking from Dave (15 initial + 100 restock = 115)
         finalIvanFiber

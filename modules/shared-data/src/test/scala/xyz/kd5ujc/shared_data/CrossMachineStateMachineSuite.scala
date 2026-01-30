@@ -58,7 +58,7 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("holding"),
           stateData = sellerData,
           stateDataHash = sellerHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -117,7 +117,7 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("pending"),
           stateData = buyerData,
           stateDataHash = buyerHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Bob).map(registry.addresses),
           status = FiberStatus.Active
         )

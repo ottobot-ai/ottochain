@@ -5,11 +5,12 @@ import cats.effect.std.UUIDGen
 import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
+import io.constellationnetwork.ext.cats.syntax.next._
 import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.fiber.{FiberOrdinal, _}
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Participant._
@@ -123,7 +124,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
       expect(machineStatus.contains("validated")) and
       expect(submittedAmount.contains(BigInt(150))) and
       expect(oracle.isDefined) and
-      expect(oracle.map(_.invocationCount).contains(1L)) and
+      expect(oracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next)) and
       expect(oracle.flatMap(_.lastInvocation.map(_.method)).contains("validateAmount")) and
       expect(oracle.flatMap(_.lastInvocation.map(_.result)).exists {
         case BoolValue(true) => true
@@ -220,7 +221,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
       expect(machine.map(_.currentState).contains(StateId("pending"))) and
       expect(machine.exists(_.lastReceipt.exists(r => !r.success))) and
       expect(oracle.isDefined) and
-      expect(oracle.map(_.invocationCount).contains(0L)) and
+      expect(oracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue)) and
       expect(oracle.map(_.lastInvocation.isEmpty).contains(true))
     }
   }
@@ -551,7 +552,7 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         machine2 = finalState.calculated.stateMachines.get(machine2Cid)
 
       } yield expect(oracle.isDefined) and
-      expect(oracle.map(_.invocationCount).contains(2L)) and
+      expect(oracle.map(_.sequenceNumber).contains(FiberOrdinal.unsafeApply(2L))) and
       expect(oracle.map(_.lastInvocation.isDefined).contains(true)) and
       expect(machine1.isDefined) and
       expect(machine2.isDefined) and

@@ -4,11 +4,12 @@ import cats.effect.{IO, Resource}
 import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
+import io.constellationnetwork.ext.cats.syntax.next._
 import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.fiber.{FiberOrdinal, _}
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Mock.MockL0NodeContext
@@ -71,7 +72,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         oracle.isDefined,
         oracle.flatMap(_.stateData).contains(counterInitialState),
         oracle.flatMap(_.stateDataHash).isDefined,
-        oracle.map(_.invocationCount).contains(0L)
+        oracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue)
       )
     }
   }
@@ -113,7 +114,7 @@ object CounterOracleSuite extends SimpleIOSuite {
       } yield expect.all(
         oracle.isDefined,
         oracle.flatMap(_.stateData).contains(expectedState),
-        oracle.map(_.invocationCount).contains(1L)
+        oracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next)
       )
     }
   }
@@ -155,7 +156,7 @@ object CounterOracleSuite extends SimpleIOSuite {
       } yield expect.all(
         oracle.isDefined,
         oracle.flatMap(_.stateData).contains(expectedState),
-        oracle.map(_.invocationCount).contains(1L)
+        oracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next)
       )
     }
   }
@@ -200,7 +201,7 @@ object CounterOracleSuite extends SimpleIOSuite {
       } yield expect.all(
         oracle.isDefined,
         oracle.flatMap(_.stateData).contains(expectedState),
-        oracle.map(_.invocationCount).contains(1L)
+        oracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next)
       )
     }
   }
@@ -252,7 +253,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         oracle1.flatMap(_.stateData).contains(MapValue(Map("value" -> IntValue(1)))),
         oracle2.flatMap(_.stateData).contains(MapValue(Map("value" -> IntValue(2)))),
         oracle3.flatMap(_.stateData).contains(MapValue(Map("value" -> IntValue(3)))),
-        oracle3.map(_.invocationCount).contains(3L),
+        oracle3.map(_.sequenceNumber).contains(FiberOrdinal.unsafeApply(3L)),
         oracle3.flatMap(_.lastInvocation).isDefined
       )
     }
@@ -301,7 +302,7 @@ object CounterOracleSuite extends SimpleIOSuite {
       } yield expect.all(
         oracle.isDefined,
         oracle.flatMap(_.stateData).contains(expectedState),
-        oracle.map(_.invocationCount).contains(3L)
+        oracle.map(_.sequenceNumber).contains(FiberOrdinal.unsafeApply(3L))
       )
     }
   }
@@ -346,7 +347,7 @@ object CounterOracleSuite extends SimpleIOSuite {
       } yield expect.all(
         oracle.isDefined,
         oracle.flatMap(_.stateData).contains(expectedState),
-        oracle.map(_.invocationCount).contains(1L)
+        oracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next)
       )
     }
   }
@@ -469,7 +470,7 @@ object CounterOracleSuite extends SimpleIOSuite {
       } yield expect.all(
         oracle.isDefined,
         oracle.flatMap(_.stateData).contains(expectedState),
-        oracle.map(_.invocationCount).contains(1L)
+        oracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next)
       )
     }
   }

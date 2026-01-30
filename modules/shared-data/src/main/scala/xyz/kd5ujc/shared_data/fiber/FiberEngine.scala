@@ -6,6 +6,7 @@ import cats.data.NonEmptyList
 import cats.effect.Async
 import cats.syntax.all._
 
+import io.constellationnetwork.ext.cats.syntax.next._
 import io.constellationnetwork.metagraph_sdk.json_logic.gas.GasConfig
 import io.constellationnetwork.metagraph_sdk.json_logic.{JsonLogicValue, NullValue}
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
@@ -169,7 +170,7 @@ object FiberEngine {
             currentState = newStateId.getOrElse(sm.currentState),
             stateData = newStateData,
             stateDataHash = hash,
-            sequenceNumber = sm.sequenceNumber + 1,
+            sequenceNumber = sm.sequenceNumber.next,
             lastReceipt = Some(receipt)
           )
 
@@ -329,7 +330,7 @@ object FiberEngine {
             stateData = Some(newStateData),
             stateDataHash = newHash,
             latestUpdateOrdinal = ordinal,
-            invocationCount = oracle.invocationCount + 1,
+            sequenceNumber = oracle.sequenceNumber.next,
             lastInvocation = Some(invocation)
           )
         } yield TransactionResult.Committed(

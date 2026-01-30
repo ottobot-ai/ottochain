@@ -11,7 +11,7 @@ import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.fiber.{FiberOrdinal, _}
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_data.syntax.all._
@@ -100,7 +100,8 @@ object NftMarketplaceSuite extends SimpleIOSuite {
           stateDataHash = Some(royaltyHash),
           accessControl = AccessControlPolicy.Public,
           owners = Set(registry.addresses(Alice)),
-          status = FiberStatus.Active
+          status = FiberStatus.Active,
+          sequenceNumber = FiberOrdinal.MinValue
         )
 
         // JSON-encoded NFT listing state machine with oracle trigger on sale
@@ -340,7 +341,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
           currentState = StateId("active"),
           stateData = marketplaceData,
           stateDataHash = marketplaceHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(registry.addresses(Alice)),
           status = FiberStatus.Active
         )
@@ -517,7 +518,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
             case _ => None
           }
         }
-        oracleInvocationCount: Option[Long] = oracleFinal.map(_.invocationCount)
+        oracleInvocationCount: Option[FiberOrdinal] = oracleFinal.map(_.sequenceNumber)
 
         // Verify marketplace still active with 2 listings
         marketplaceFinal = finalState.calculated.stateMachines.get(marketplaceCid)
@@ -550,13 +551,13 @@ object NftMarketplaceSuite extends SimpleIOSuite {
         royaltyAmount1.contains(BigInt(6000)), // 1200 * 5
         // Verify royalty oracle was triggered after first sale
         oracleAfterSale1.isDefined,
-        oracleAfterSale1.map(_.invocationCount).contains(1L),
+        oracleAfterSale1.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next),
         totalRoyalties1.contains(BigInt(6000)),
         lastRecordedNft1.contains("nft-001"),
         lastRecordedCreator1.contains(registry.addresses(Alice).toString),
         // Verify oracle was triggered again after second sale
         oracleFinal.isDefined,
-        oracleInvocationCount.contains(2L),
+        oracleInvocationCount.contains(FiberOrdinal.unsafeApply(2L)),
         totalRoyaltiesFinal.contains(BigInt(9000)), // 6000 + 3000
         lastRecordedNft2.contains("nft-002"),
         // Verify marketplace final state

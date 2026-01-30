@@ -185,8 +185,8 @@ object ConcurrentEventsSuite extends SimpleIOSuite {
           .exists(_ == 15L)
       ) and
       // Same sequence numbers (both processed 2 events)
-      expect(machine1.exists(_.sequenceNumber == 2)) and
-      expect(machine2.exists(_.sequenceNumber == 2))
+      expect(machine1.exists(_.sequenceNumber == FiberOrdinal.unsafeApply(2L))) and
+      expect(machine2.exists(_.sequenceNumber == FiberOrdinal.unsafeApply(2L)))
     }
   }
 

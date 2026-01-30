@@ -388,7 +388,7 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("idle"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0L,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = owners,
           status = FiberStatus.Active,
           lastReceipt = None
@@ -475,7 +475,7 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("pending"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0L,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = owners,
           status = FiberStatus.Active,
           lastReceipt = None
@@ -549,7 +549,7 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
           currentState = StateId("a"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0L,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = owners,
           status = FiberStatus.Active,
           lastReceipt = None

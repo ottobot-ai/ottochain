@@ -7,13 +7,14 @@ import cats.syntax.all._
 import scala.collection.immutable.SortedMap
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
+import io.constellationnetwork.ext.cats.syntax.next._
 import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluator
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.fiber.{FiberOrdinal, _}
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.fiber.FiberEngine
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
@@ -574,11 +575,11 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       expect(childAfterSpawn.map(_.parentFiberId).contains(Some(parentCid))) and
       expect(childAfterStart.isDefined) and
       expect(childAfterStart.map(_.currentState).contains(StateId("working"))) and
-      expect(childAfterStart.map(_.sequenceNumber).contains(1L)) and
+      expect(childAfterStart.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next)) and
       expect(childAfterFinish.isDefined) and
       expect(childAfterFinish.map(_.currentState).contains(StateId("done"))) and
       expect(childAfterFinish.exists(_.definition.states(StateId("done")).isFinal)) and
-      expect(childAfterFinish.map(_.sequenceNumber).contains(2L)) and
+      expect(childAfterFinish.map(_.sequenceNumber).contains(FiberOrdinal.unsafeApply(2L))) and
       expect(progressAfterFinish.contains(BigInt(100))) and
       expect(childAfterArchive.isDefined) and
       expect(childAfterArchive.map(_.status).contains(FiberStatus.Archived))
@@ -1066,7 +1067,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           currentState = StateId("init"),
           stateData = parentData,
           stateDataHash = parentHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -1163,7 +1164,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           currentState = StateId("init"),
           stateData = parentData,
           stateDataHash = parentHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -1253,7 +1254,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           currentState = StateId("init"),
           stateData = parentData,
           stateDataHash = parentHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -1278,7 +1279,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           currentState = StateId("idle"),
           stateData = existingData,
           stateDataHash = existingHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -1373,7 +1374,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           currentState = StateId("init"),
           stateData = parentData,
           stateDataHash = parentHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set.empty,
           status = FiberStatus.Active
         )
@@ -1648,7 +1649,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           currentState = StateId("init"),
           stateData = parentData,
           stateDataHash = parentHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(fixture.registry.addresses(Alice)),
           status = FiberStatus.Active
         )
@@ -1754,7 +1755,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           currentState = StateId("init"),
           stateData = parentData,
           stateDataHash = parentHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(fixture.registry.addresses(Alice)),
           status = FiberStatus.Active
         )
@@ -1858,7 +1859,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           currentState = StateId("init"),
           stateData = parentData,
           stateDataHash = parentHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(fixture.registry.addresses(Alice)),
           status = FiberStatus.Active
         )
@@ -1962,7 +1963,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           currentState = StateId("init"),
           stateData = parentData,
           stateDataHash = parentHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(fixture.registry.addresses(Alice)),
           status = FiberStatus.Active
         )

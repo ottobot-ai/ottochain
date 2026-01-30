@@ -9,7 +9,7 @@ import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.fiber.{FiberOrdinal, _}
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Participant._
@@ -282,7 +282,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
       // Atomic rollback - transaction aborted due to gas exhaustion
       expect(step.contains(BigInt(0))) and // No state changes
       expect(machine.map(_.currentState).contains(StateId("s0"))) and // Original state
-      expect(machine.map(_.sequenceNumber).contains(0L)) and // Sequence not incremented
+      expect(machine.map(_.sequenceNumber).contains(FiberOrdinal.MinValue)) and // Sequence not incremented
       expect(machine.exists(_.lastReceipt.exists(r => !r.success)))
     }
   }
@@ -377,7 +377,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
       // Atomic rollback - cycle detected, transaction aborted
       expect(count.contains(BigInt(0))) and // No state changes
       expect(machine.map(_.currentState).contains(StateId("idle"))) and // Original state
-      expect(machine.map(_.sequenceNumber).contains(0L)) and // Sequence not incremented
+      expect(machine.map(_.sequenceNumber).contains(FiberOrdinal.MinValue)) and // Sequence not incremented
       expect(machine.exists(_.lastReceipt.exists(r => !r.success)))
     }
   }

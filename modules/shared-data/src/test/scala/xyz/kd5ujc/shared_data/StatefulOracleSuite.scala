@@ -4,6 +4,7 @@ import cats.effect.IO
 import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
+import io.constellationnetwork.ext.cats.syntax.next._
 import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
@@ -45,7 +46,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
       } yield expect(oracle.isDefined) and
       expect(oracle.map(_.stateData).contains(None)) and
       expect(oracle.map(_.stateDataHash).contains(None)) and
-      expect(oracle.map(_.invocationCount).contains(0L))
+      expect(oracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue))
     }
   }
 
@@ -93,7 +94,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
         expectedResult = MapValue(Map("success" -> BoolValue(true), "newValue" -> IntValue(5)))
       } yield expect(oracle.isDefined) and
       expect(oracle.flatMap(_.stateData).contains(expectedState)) and
-      expect(oracle.map(_.invocationCount).contains(1L)) and
+      expect(oracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next)) and
       expect(oracle.flatMap(_.lastInvocation.map(_.result)).contains(expectedResult))
     }
   }
@@ -136,7 +137,7 @@ object StatefulOracleSuite extends SimpleIOSuite {
         expectedState = MapValue(Map("counter" -> IntValue(1)))
       } yield expect(oracle.isDefined) and
       expect(oracle.flatMap(_.stateData).contains(expectedState)) and
-      expect(oracle.map(_.invocationCount).contains(1L)) and
+      expect(oracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next)) and
       expect(oracle.flatMap(_.lastInvocation.map(_.result)).contains(expectedState))
     }
   }
@@ -238,9 +239,9 @@ object StatefulOracleSuite extends SimpleIOSuite {
 
         oracle2 = state2.calculated.scriptOracles.get(cid)
 
-      } yield expect(oracle1.map(_.invocationCount).contains(1L)) and
+      } yield expect(oracle1.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next)) and
       expect(oracle1.flatMap(_.stateData).contains(MapValue(Map("callCount" -> IntValue(99))))) and
-      expect(oracle2.map(_.invocationCount).contains(2L)) and
+      expect(oracle2.map(_.sequenceNumber).contains(FiberOrdinal.unsafeApply(2L))) and
       expect(oracle2.flatMap(_.stateData).contains(MapValue(Map("callCount" -> IntValue(99))))) and
       expect(oracle2.map(_.lastInvocation.isDefined).contains(true))
     }

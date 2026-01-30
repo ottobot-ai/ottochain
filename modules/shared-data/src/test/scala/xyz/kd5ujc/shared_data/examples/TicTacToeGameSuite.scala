@@ -11,7 +11,7 @@ import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.fiber.{FiberOrdinal, _}
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_data.syntax.all._
@@ -92,7 +92,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           currentState = StateId("setup"),
           stateData = initialData,
           stateDataHash = initialDataHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice, Bob).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -208,7 +208,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           .getOrElse(false), // Last move was cell 2
         // Oracle correctly detected the win
         finalOracle.isDefined,
-        finalOracle.map(_.invocationCount).contains(6L), // 1 initialize + 5 moves
+        finalOracle.map(_.sequenceNumber).contains(FiberOrdinal.unsafeApply(6L)), // 1 initialize + 5 moves
         oracleStatus.contains("Won"),
         oracleWinner.contains("X"),
         // Oracle board shows winning pattern
@@ -295,7 +295,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           currentState = StateId("setup"),
           stateData = initialData,
           stateDataHash = initialDataHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice, Bob).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -366,7 +366,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         finalMachine.isDefined,
         finalMachine.map(_.currentState).contains(StateId("playing")),
         finalOracle.isDefined,
-        finalOracle.map(_.invocationCount).contains(10L),
+        finalOracle.map(_.sequenceNumber).contains(FiberOrdinal.unsafeApply(10L)),
         oracleStatus.contains("Draw")
       )
     }
@@ -438,7 +438,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           currentState = StateId("setup"),
           stateData = initialData,
           stateDataHash = initialDataHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice, Bob).map(registry.addresses),
           status = FiberStatus.Active
         )
@@ -489,7 +489,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         // Event processing should have failed
         machineAfterInvalid.exists(m => m.lastReceipt.exists(!_.success)),
         // Oracle invocation count stays at 2 (init + first move) - invalid move failed before updating oracle
-        oracleAfterInvalid.map(_.invocationCount).contains(2L),
+        oracleAfterInvalid.map(_.sequenceNumber).contains(FiberOrdinal.unsafeApply(2L)),
         // Oracle state should remain unchanged from after first move
         oracleAfterInvalid.flatMap(_.stateData).exists {
           case MapValue(m) => m.get("moveCount").contains(IntValue(1))
@@ -565,7 +565,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           currentState = StateId("setup"),
           stateData = initialData,
           stateDataHash = initialDataHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice, Bob).map(registry.addresses),
           status = FiberStatus.Active
         )

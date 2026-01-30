@@ -14,8 +14,8 @@ import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.hash.Hash
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema._
-import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.fiber.{FiberOrdinal, _}
+import xyz.kd5ujc.schema.{_}
 import xyz.kd5ujc.shared_data.syntax.all._
 
 object OracleProcessor {
@@ -57,6 +57,7 @@ object OracleProcessor {
       stateData = update.initialState,
       stateDataHash = stateDataHashOpt,
       accessControl = update.accessControl,
+      sequenceNumber = FiberOrdinal.MinValue,
       owners = owners,
       status = FiberStatus.Active
     )

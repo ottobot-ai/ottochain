@@ -5,13 +5,14 @@ import cats.effect.std.UUIDGen
 import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
+import io.constellationnetwork.ext.cats.syntax.next._
 import io.constellationnetwork.metagraph_sdk.json_logic.JsonLogicOp._
 import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.fiber.{FiberOrdinal, _}
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_data.syntax.all._
@@ -136,7 +137,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
       } yield expect(fiber.isDefined) and
       expect(fiber.map(_.currentState).contains(StateId("waiting"))) and
-      expect(fiber.map(_.sequenceNumber).contains(0L)) and
+      expect(fiber.map(_.sequenceNumber).contains(FiberOrdinal.MinValue)) and
       expect(fiber.map(_.status).contains(FiberStatus.Active))
     }
   }
@@ -179,7 +180,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         }
       } yield expect(fiber.isDefined) and
       expect(fiber.map(_.currentState).contains(StateId("counting"))) and
-      expect(fiber.map(_.sequenceNumber).contains(1L)) and
+      expect(fiber.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next)) and
       expect(counterValue.contains(BigInt(0)))
     }
   }
@@ -211,7 +212,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("counting"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice, Bob).map(fixture.registry.addresses),
           status = FiberStatus.Active
         )
@@ -244,7 +245,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         }
       } yield expect(updatedFiber.isDefined) and
       expect(updatedFiber.map(_.currentState).contains(StateId("counting"))) and
-      expect(updatedFiber.map(_.sequenceNumber).contains(1L)) and
+      expect(updatedFiber.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next)) and
       expect(counterValue.contains(BigInt(6))) and
       expect(activeValue.contains(true))
     }
@@ -277,7 +278,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("counting"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice, Bob).map(fixture.registry.addresses),
           status = FiberStatus.Active
         )
@@ -310,7 +311,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         }
       } yield expect(updatedFiber.isDefined) and
       expect(updatedFiber.map(_.currentState).contains(StateId("done"))) and
-      expect(updatedFiber.map(_.sequenceNumber).contains(1L)) and
+      expect(updatedFiber.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next)) and
       expect(activeValue.contains(false)) and
       expect(counterValue.contains(BigInt(99)))
     }
@@ -343,7 +344,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("counting"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice, Bob).map(fixture.registry.addresses),
           status = FiberStatus.Active
         )
@@ -365,7 +366,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
       } yield expect(updatedFiber.isDefined) and
       expect(updatedFiber.map(_.currentState).contains(StateId("counting"))) and // State unchanged
-      expect(updatedFiber.map(_.sequenceNumber).contains(0L)) and // Sequence not incremented
+      expect(updatedFiber.map(_.sequenceNumber).contains(FiberOrdinal.MinValue)) and // Sequence not incremented
       expect(updatedFiber.exists(_.lastReceipt.exists(r => !r.success && r.errorMessage.exists(_.contains("guard")))))
     }
   }
@@ -391,7 +392,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("waiting"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice, Bob).map(fixture.registry.addresses),
           status = FiberStatus.Active
         )
@@ -432,7 +433,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("waiting"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice, Bob).map(fixture.registry.addresses),
           status = FiberStatus.Active
         )
@@ -501,7 +502,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("counting"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice, Bob).map(fixture.registry.addresses),
           status = FiberStatus.Active
         )
@@ -527,7 +528,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           }
         }
       } yield expect(finalFiber.isDefined) and
-      expect(finalFiber.map(_.sequenceNumber).contains(1L)) and
+      expect(finalFiber.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next)) and
       expect(counterValue.contains(BigInt(1)))
     }
   }
@@ -582,7 +583,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("open"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice).map(fixture.registry.addresses),
           status = FiberStatus.Active
         )
@@ -650,7 +651,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           currentState = StateId("open"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 0,
+          sequenceNumber = FiberOrdinal.MinValue,
           owners = Set(Alice).map(fixture.registry.addresses),
           status = FiberStatus.Active
         )
@@ -671,7 +672,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
       } yield expect(updatedFiber.isDefined) and
       expect(updatedFiber.map(_.currentState).contains(StateId("open"))) and // State unchanged
-      expect(updatedFiber.map(_.sequenceNumber).contains(0L)) and // Sequence not incremented
+      expect(updatedFiber.map(_.sequenceNumber).contains(FiberOrdinal.MinValue)) and // Sequence not incremented
       expect(updatedFiber.exists(_.lastReceipt.exists(r => !r.success && r.errorMessage.exists(_.contains("guard")))))
     }
   }
@@ -704,7 +705,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
             currentState = StateId("counting"),
             stateData = initialData,
             stateDataHash = initialHash,
-            sequenceNumber = 0,
+            sequenceNumber = FiberOrdinal.MinValue,
             owners = Set(Alice, Bob).map(fixture.registry.addresses),
             status = FiberStatus.Active
           )
@@ -734,7 +735,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
             }
           }
         } yield expect(finalFiber.isDefined) and
-        expect(finalFiber.map(_.sequenceNumber).contains(increments.toLong)) and
+        expect(finalFiber.map(_.sequenceNumber).contains(FiberOrdinal.unsafeApply(increments.toLong))) and
         expect(counterValue.contains(BigInt(increments)))
       }
     }

@@ -110,7 +110,7 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
         // Seed with a fiber that already has a last receipt
         seedReceipt = EventReceipt(
           fiberId = cid,
-          sequenceNumber = 4L,
+          sequenceNumber = FiberOrdinal.unsafeApply(4L),
           eventName = "increment",
           ordinal = fixture.ordinal,
           fromState = StateId("counting"),
@@ -129,7 +129,7 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
           currentState = StateId("counting"),
           stateData = initialData,
           stateDataHash = initialHash,
-          sequenceNumber = 4L,
+          sequenceNumber = FiberOrdinal.unsafeApply(4L),
           owners = owners,
           status = FiberStatus.Active,
           lastReceipt = Some(seedReceipt)
@@ -160,7 +160,7 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
 
       } yield expect(updatedFiber.isDefined) and
       // lastReceipt should be updated with the new sequence number
-      expect(updatedFiber.exists(_.lastReceipt.exists(_.sequenceNumber == 5L)))
+      expect(updatedFiber.exists(_.lastReceipt.exists(_.sequenceNumber == FiberOrdinal.unsafeApply(5L))))
     }
   }
 
