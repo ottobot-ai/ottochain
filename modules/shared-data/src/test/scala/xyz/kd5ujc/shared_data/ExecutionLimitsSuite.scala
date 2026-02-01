@@ -127,7 +127,8 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
         pingEvent = Updates.TransitionStateMachine(
           machine1Cid,
           "ping",
-          MapValue(Map.empty)
+          MapValue(Map.empty),
+          FiberOrdinal.MinValue
         )
         pingProof  <- fixture.registry.generateProofs(pingEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterMachine2, Signed(pingEvent, pingProof))
@@ -262,7 +263,8 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
         advanceEvent = Updates.TransitionStateMachine(
           machineCid,
           "advance",
-          MapValue(Map.empty)
+          MapValue(Map.empty),
+          FiberOrdinal.MinValue
         )
         advanceProof <- fixture.registry.generateProofs(advanceEvent, Set(Alice))
         finalState   <- combiner.insert(stateAfterCreate, Signed(advanceEvent, advanceProof))
@@ -357,7 +359,8 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
         startEvent = Updates.TransitionStateMachine(
           machineCid,
           "start",
-          MapValue(Map.empty)
+          MapValue(Map.empty),
+          FiberOrdinal.MinValue
         )
         startProof <- fixture.registry.generateProofs(startEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterCreate, Signed(startEvent, startProof))

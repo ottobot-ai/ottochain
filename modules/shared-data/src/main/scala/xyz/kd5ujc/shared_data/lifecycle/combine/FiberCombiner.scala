@@ -77,6 +77,22 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
   ): CombineResult[F] = for {
     currentOrdinal <- ctx.getCurrentOrdinal
 
+    // Defense-in-depth: reject stale sequence numbers that slipped through validation
+    fiberRecord <- current.calculated.stateMachines
+      .get(update.fiberId)
+      .fold(
+        Async[F].raiseError[Records.StateMachineFiberRecord](
+          new RuntimeException(s"Fiber ${update.fiberId} not found")
+        )
+      )(_.pure[F])
+    _ <- Async[F]
+      .raiseError(
+        new RuntimeException(
+          s"Sequence number mismatch: target=${update.targetSequenceNumber}, actual=${fiberRecord.sequenceNumber}"
+        )
+      )
+      .whenA(fiberRecord.sequenceNumber =!= update.targetSequenceNumber)
+
     input = FiberInput.Transition(update.eventName, update.payload)
     proofsList = update.proofs.toList
 
@@ -115,6 +131,15 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
           new RuntimeException(s"Fiber ${update.fiberId} not found")
         )
       )(_.pure[F])
+
+    // Defense-in-depth: reject stale sequence numbers
+    _ <- Async[F]
+      .raiseError(
+        new RuntimeException(
+          s"Sequence number mismatch: target=${update.targetSequenceNumber}, actual=${fiberRecord.sequenceNumber}"
+        )
+      )
+      .whenA(fiberRecord.sequenceNumber =!= update.targetSequenceNumber)
 
     updatedFiber = fiberRecord.copy(
       previousUpdateOrdinal = fiberRecord.latestUpdateOrdinal,

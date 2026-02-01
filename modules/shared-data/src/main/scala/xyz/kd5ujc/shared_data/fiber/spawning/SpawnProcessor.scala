@@ -13,8 +13,8 @@ import io.constellationnetwork.metagraph_sdk.json_logic.gas.GasLimit
 import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluator
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 
+import xyz.kd5ujc.schema.Records
 import xyz.kd5ujc.schema.fiber.{FailureReason, FiberContext, FiberOrdinal, FiberStatus, SpawnDirective}
-import xyz.kd5ujc.schema.{Records}
 import xyz.kd5ujc.shared_data.fiber.core._
 
 /**

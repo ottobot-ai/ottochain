@@ -381,7 +381,7 @@ object ValidatorSuite extends SimpleIOSuite {
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty))
+        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isValid)
@@ -397,7 +397,7 @@ object ValidatorSuite extends SimpleIOSuite {
         validator <- Validator.make[IO]
         cid       <- UUIDGen.randomUUID[IO]
 
-        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty))
+        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result <- validator
           .validateSignedUpdate(
@@ -428,7 +428,7 @@ object ValidatorSuite extends SimpleIOSuite {
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
         processUpdate = Updates
-          .TransitionStateMachine(cid, "advance", MapValue(Map("data" -> IntValue(123))))
+          .TransitionStateMachine(cid, "advance", MapValue(Map("data" -> IntValue(123))), FiberOrdinal.MinValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isValid)
@@ -451,7 +451,7 @@ object ValidatorSuite extends SimpleIOSuite {
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, "advance", NullValue)
+        processUpdate = Updates.TransitionStateMachine(cid, "advance", NullValue, FiberOrdinal.MinValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isInvalid) and
@@ -477,7 +477,7 @@ object ValidatorSuite extends SimpleIOSuite {
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty))
+        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isValid)
@@ -500,11 +500,11 @@ object ValidatorSuite extends SimpleIOSuite {
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        archiveUpdate = Updates.ArchiveStateMachine(cid)
+        archiveUpdate = Updates.ArchiveStateMachine(cid, FiberOrdinal.MinValue)
         archiveProof      <- fixture.registry.generateProofs(archiveUpdate, Set(Alice))
         stateAfterArchive <- combiner.insert(stateAfterCreate, Signed(archiveUpdate, archiveProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty))
+        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterArchive, Signed(processUpdate, processProof))
       } yield expect(result.isInvalid) and
@@ -530,7 +530,7 @@ object ValidatorSuite extends SimpleIOSuite {
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty))
+        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isValid)
@@ -553,7 +553,7 @@ object ValidatorSuite extends SimpleIOSuite {
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty))
+        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Bob))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isInvalid) and
@@ -579,7 +579,7 @@ object ValidatorSuite extends SimpleIOSuite {
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty))
+        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isValid)
@@ -602,7 +602,7 @@ object ValidatorSuite extends SimpleIOSuite {
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, "nonexistent", MapValue(Map.empty))
+        processUpdate = Updates.TransitionStateMachine(cid, "nonexistent", MapValue(Map.empty), FiberOrdinal.MinValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isInvalid) and
@@ -697,7 +697,7 @@ object ValidatorSuite extends SimpleIOSuite {
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createParent, createParentProof))
 
-        archiveParent = Updates.ArchiveStateMachine(parentId)
+        archiveParent = Updates.ArchiveStateMachine(parentId, FiberOrdinal.MinValue)
         archiveProof      <- fixture.registry.generateProofs(archiveParent, Set(Alice))
         stateAfterArchive <- combiner.insert(stateAfterCreate, Signed(archiveParent, archiveProof))
 
@@ -752,7 +752,7 @@ object ValidatorSuite extends SimpleIOSuite {
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createOracle, createProof))
 
-        invokeOracle = Updates.InvokeScriptOracle(oracleId, "test", MapValue(Map.empty))
+        invokeOracle = Updates.InvokeScriptOracle(oracleId, "test", MapValue(Map.empty), FiberOrdinal.MinValue)
         invokeProof <- fixture.registry.generateProofs(invokeOracle, Set(Bob))
         result      <- validator.validateSignedUpdate(stateAfterCreate, Signed(invokeOracle, invokeProof))
       } yield expect(result.isValid)
@@ -780,7 +780,7 @@ object ValidatorSuite extends SimpleIOSuite {
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createOracle, createProof))
 
-        invokeOracle = Updates.InvokeScriptOracle(oracleId, "test", MapValue(Map.empty))
+        invokeOracle = Updates.InvokeScriptOracle(oracleId, "test", MapValue(Map.empty), FiberOrdinal.MinValue)
         invokeProof <- fixture.registry.generateProofs(invokeOracle, Set(Bob))
         result      <- validator.validateSignedUpdate(stateAfterCreate, Signed(invokeOracle, invokeProof))
       } yield expect(result.isValid)
@@ -808,7 +808,7 @@ object ValidatorSuite extends SimpleIOSuite {
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createOracle, createProof))
 
-        invokeOracle = Updates.InvokeScriptOracle(oracleId, "test", MapValue(Map.empty))
+        invokeOracle = Updates.InvokeScriptOracle(oracleId, "test", MapValue(Map.empty), FiberOrdinal.MinValue)
         invokeProof <- fixture.registry.generateProofs(invokeOracle, Set(Charlie))
         result      <- validator.validateSignedUpdate(stateAfterCreate, Signed(invokeOracle, invokeProof))
       } yield expect(result.isInvalid) and

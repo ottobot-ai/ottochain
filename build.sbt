@@ -11,6 +11,7 @@ ThisBuild / assemblyMergeStrategy := {
   case x if x.contains("io.netty.versions.properties") => MergeStrategy.discard
   case PathList("xyz", "kd5ujc", "buildinfo", xs @ _*) => MergeStrategy.first
   case PathList(xs@_*) if xs.last == "module-info.class" => MergeStrategy.first
+  case PathList("META-INF", "versions", _, "OSGI-INF", _ @_*)    => MergeStrategy.discard
   case x =>
     val oldStrategy = (assembly / assemblyMergeStrategy).value
     oldStrategy(x)

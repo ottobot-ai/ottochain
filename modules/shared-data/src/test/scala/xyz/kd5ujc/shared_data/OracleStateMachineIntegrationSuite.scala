@@ -94,7 +94,8 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         submitEvent = Updates.TransitionStateMachine(
           machineCid,
           "submit",
-          MapValue(Map("amount" -> IntValue(150)))
+          MapValue(Map("amount" -> IntValue(150))),
+          FiberOrdinal.MinValue
         )
         submitProof <- registry.generateProofs(submitEvent, Set(Bob))
         finalState  <- combiner.insert(stateAfterMachine, Signed(submitEvent, submitProof))
@@ -206,7 +207,8 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         submitEvent = Updates.TransitionStateMachine(
           machineCid,
           "submit",
-          MapValue(Map("amount" -> IntValue(50)))
+          MapValue(Map("amount" -> IntValue(50))),
+          FiberOrdinal.MinValue
         )
         submitProof <- registry.generateProofs(submitEvent, Set(Bob))
         finalState  <- combiner.insert(stateAfterMachine, Signed(submitEvent, submitProof))
@@ -291,7 +293,8 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         unlockEvent = Updates.TransitionStateMachine(
           machineCid,
           "unlock",
-          MapValue(Map.empty)
+          MapValue(Map.empty),
+          FiberOrdinal.MinValue
         )
         unlockProof           <- registry.generateProofs(unlockEvent, Set(Bob))
         stateAfterFirstUnlock <- combiner.insert(stateAfterMachine, Signed(unlockEvent, unlockProof))
@@ -303,13 +306,20 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         invokeOracle = Updates.InvokeScriptOracle(
           fiberId = oracleCid,
           method = "increment",
-          args = MapValue(Map.empty)
+          args = MapValue(Map.empty),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
         invokeProof      <- registry.generateProofs(invokeOracle, Set(Alice))
         stateAfterInvoke <- combiner.insert(stateAfterFirstUnlock, Signed(invokeOracle, invokeProof))
 
-        secondUnlockProof <- registry.generateProofs(unlockEvent, Set(Bob))
-        finalState        <- combiner.insert(stateAfterInvoke, Signed(unlockEvent, secondUnlockProof))
+        secondUnlockEvent = Updates.TransitionStateMachine(
+          machineCid,
+          "unlock",
+          MapValue(Map.empty),
+          stateAfterInvoke.calculated.stateMachines(machineCid).sequenceNumber
+        )
+        secondUnlockProof <- registry.generateProofs(secondUnlockEvent, Set(Bob))
+        finalState        <- combiner.insert(stateAfterInvoke, Signed(secondUnlockEvent, secondUnlockProof))
 
         machineAfterSecondUnlock = finalState.calculated.stateMachines
           .get(machineCid)
@@ -411,7 +421,8 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         initiateEvent = Updates.TransitionStateMachine(
           machineCid,
           "initiate",
-          MapValue(Map("amount" -> IntValue(1000)))
+          MapValue(Map("amount" -> IntValue(1000))),
+          FiberOrdinal.MinValue
         )
         initiateProof      <- registry.generateProofs(initiateEvent, Set(Bob))
         stateAfterInitiate <- combiner.insert(stateAfterMachine, Signed(initiateEvent, initiateProof))
@@ -419,7 +430,8 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         finalizeEvent = Updates.TransitionStateMachine(
           machineCid,
           "finalize",
-          MapValue(Map.empty)
+          MapValue(Map.empty),
+          stateAfterInitiate.calculated.stateMachines(machineCid).sequenceNumber
         )
         finalizeProof <- registry.generateProofs(finalizeEvent, Set(Bob))
         finalState    <- combiner.insert(stateAfterInitiate, Signed(finalizeEvent, finalizeProof))
@@ -534,7 +546,8 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         validateEvent1 = Updates.TransitionStateMachine(
           machine1Cid,
           "validate",
-          MapValue(Map.empty)
+          MapValue(Map.empty),
+          FiberOrdinal.MinValue
         )
         validate1Proof      <- registry.generateProofs(validateEvent1, Set(Bob))
         stateAfterValidate1 <- combiner.insert(stateAfterMachine2, Signed(validateEvent1, validate1Proof))
@@ -542,7 +555,8 @@ object OracleStateMachineIntegrationSuite extends SimpleIOSuite {
         validateEvent2 = Updates.TransitionStateMachine(
           machine2Cid,
           "validate",
-          MapValue(Map.empty)
+          MapValue(Map.empty),
+          FiberOrdinal.MinValue
         )
         validate2Proof <- registry.generateProofs(validateEvent2, Set(Charlie))
         finalState     <- combiner.insert(stateAfterValidate1, Signed(validateEvent2, validate2Proof))

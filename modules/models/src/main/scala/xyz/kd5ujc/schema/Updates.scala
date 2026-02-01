@@ -5,7 +5,7 @@ import java.util.UUID
 import io.constellationnetwork.currency.dataApplication.DataUpdate
 import io.constellationnetwork.metagraph_sdk.json_logic.{JsonLogicExpression, JsonLogicValue}
 
-import xyz.kd5ujc.schema.fiber.{AccessControlPolicy, StateMachineDefinition}
+import xyz.kd5ujc.schema.fiber.{AccessControlPolicy, FiberOrdinal, StateMachineDefinition}
 
 import derevo.circe.magnolia.{decoder, encoder}
 import derevo.derive
@@ -39,15 +39,17 @@ object Updates {
    */
   @derive(decoder, encoder)
   final case class TransitionStateMachine(
-    fiberId:   UUID,
-    eventName: String,
-    payload:   JsonLogicValue
+    fiberId:              UUID,
+    eventName:            String,
+    payload:              JsonLogicValue,
+    targetSequenceNumber: FiberOrdinal
   ) extends StateMachineFiberOp
       with OttochainMessage
 
   @derive(decoder, encoder)
   final case class ArchiveStateMachine(
-    fiberId: UUID
+    fiberId:              UUID,
+    targetSequenceNumber: FiberOrdinal
   ) extends StateMachineFiberOp
       with OttochainMessage
 
@@ -64,9 +66,10 @@ object Updates {
 
   @derive(decoder, encoder)
   final case class InvokeScriptOracle(
-    fiberId: UUID,
-    method:  String,
-    args:    JsonLogicValue
+    fiberId:              UUID,
+    method:               String,
+    args:                 JsonLogicValue,
+    targetSequenceNumber: FiberOrdinal
   ) extends ScriptOracleFiberOp
       with OttochainMessage
 

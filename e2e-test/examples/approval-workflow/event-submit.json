@@ -1,7 +1,0 @@
-{
-  "eventType": { "value": "submit" },
-  "payload": {
-    "timestamp": "2025-10-16T09:00:00Z"
-  },
-  "idempotencyKey": null
-}

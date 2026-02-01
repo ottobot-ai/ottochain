@@ -116,15 +116,18 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
         confirmEvent = Updates.TransitionStateMachine(
           orderCid,
           "confirm",
-          MapValue(Map("timestamp" -> IntValue(1000)))
+          MapValue(Map("timestamp" -> IntValue(1000))),
+          FiberOrdinal.MinValue
         )
         confirmProof      <- registry.generateProofs(confirmEvent, Set(Alice))
         stateAfterConfirm <- combiner.insert(stateAfterCreate, Signed(confirmEvent, confirmProof))
 
+        orderSeqAfterConfirm = stateAfterConfirm.calculated.stateMachines(orderCid).sequenceNumber
         shipEvent = Updates.TransitionStateMachine(
           orderCid,
           "ship",
-          MapValue(Map("trackingNumber" -> StrValue("TRACK-456")))
+          MapValue(Map("trackingNumber" -> StrValue("TRACK-456"))),
+          orderSeqAfterConfirm
         )
         shipProof      <- registry.generateProofs(shipEvent, Set(Alice))
         stateAfterShip <- combiner.insert(stateAfterConfirm, Signed(shipEvent, shipProof))
@@ -231,11 +234,12 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
         childProof      <- registry.generateProofs(createChild, Set(Bob))
         stateAfterChild <- combiner.insert(stateAfterParent, Signed(createChild, childProof))
 
-        suspendUpdate = Updates.TransitionStateMachine(parentCid, "suspend", MapValue(Map.empty))
+        suspendUpdate = Updates.TransitionStateMachine(parentCid, "suspend", MapValue(Map.empty), FiberOrdinal.MinValue)
         suspendProof      <- registry.generateProofs(suspendUpdate, Set(Alice))
         stateAfterSuspend <- combiner.insert(stateAfterChild, Signed(suspendUpdate, suspendProof))
 
-        checkUpdate = Updates.TransitionStateMachine(childCid, "check_parent", MapValue(Map.empty))
+        checkUpdate = Updates
+          .TransitionStateMachine(childCid, "check_parent", MapValue(Map.empty), FiberOrdinal.MinValue)
         checkProof <- registry.generateProofs(checkUpdate, Set(Bob))
         finalState <- combiner.insert(stateAfterSuspend, Signed(checkUpdate, checkProof))
 
@@ -398,7 +402,12 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
 
         engine = FiberEngine.make[IO](baseState.calculated, fixture.ordinal)
 
-        dummyUpdate = Updates.TransitionStateMachine(cid, "alert", MapValue(Map("severity" -> StrValue("critical"))))
+        dummyUpdate = Updates.TransitionStateMachine(
+          cid,
+          "alert",
+          MapValue(Map("severity" -> StrValue("critical"))),
+          FiberOrdinal.MinValue
+        )
         proofs <- registry.generateProofs(dummyUpdate, Set(Alice)).map(_.toList)
         input = FiberInput.Transition("alert", MapValue(Map("severity" -> StrValue("critical"))))
 
@@ -485,7 +494,7 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
 
         engine = FiberEngine.make[IO](baseState.calculated, fixture.ordinal)
 
-        dummyUpdate = Updates.TransitionStateMachine(cid, "complete", MapValue(Map.empty))
+        dummyUpdate = Updates.TransitionStateMachine(cid, "complete", MapValue(Map.empty), FiberOrdinal.MinValue)
         proofs <- registry.generateProofs(dummyUpdate, Set(Alice)).map(_.toList)
         input = FiberInput.Transition("complete", MapValue(Map.empty))
 
@@ -559,7 +568,7 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
 
         engine = FiberEngine.make[IO](baseState.calculated, fixture.ordinal)
 
-        dummyUpdate = Updates.TransitionStateMachine(cid, "go", MapValue(Map.empty))
+        dummyUpdate = Updates.TransitionStateMachine(cid, "go", MapValue(Map.empty), FiberOrdinal.MinValue)
         proofs <- registry.generateProofs(dummyUpdate, Set(Alice)).map(_.toList)
         input = FiberInput.Transition("go", MapValue(Map.empty))
 

@@ -69,7 +69,8 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         invokeOracle = Updates.InvokeScriptOracle(
           fiberId = cid,
           method = "add",
-          args = MapValue(Map("a" -> IntValue(10), "b" -> IntValue(5)))
+          args = MapValue(Map("a" -> IntValue(10), "b" -> IntValue(5))),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
 
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
@@ -111,7 +112,8 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         invokeOracle = Updates.InvokeScriptOracle(
           fiberId = cid,
           method = "subtract",
-          args = MapValue(Map("a" -> IntValue(20), "b" -> IntValue(8)))
+          args = MapValue(Map("a" -> IntValue(20), "b" -> IntValue(8))),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
 
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
@@ -152,7 +154,8 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         invokeOracle = Updates.InvokeScriptOracle(
           fiberId = cid,
           method = "multiply",
-          args = MapValue(Map("a" -> IntValue(7), "b" -> IntValue(6)))
+          args = MapValue(Map("a" -> IntValue(7), "b" -> IntValue(6))),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
 
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
@@ -193,7 +196,8 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         invokeOracle = Updates.InvokeScriptOracle(
           fiberId = cid,
           method = "divide",
-          args = MapValue(Map("a" -> IntValue(100), "b" -> IntValue(4)))
+          args = MapValue(Map("a" -> IntValue(100), "b" -> IntValue(4))),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
 
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
@@ -234,7 +238,8 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         invokeOracle = Updates.InvokeScriptOracle(
           fiberId = cid,
           method = "unknownMethod",
-          args = MapValue(Map("a" -> IntValue(1), "b" -> IntValue(2)))
+          args = MapValue(Map("a" -> IntValue(1), "b" -> IntValue(2))),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
 
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
@@ -273,17 +278,32 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         )
 
         // First invocation: add
-        invoke1 = Updates.InvokeScriptOracle(cid, "add", MapValue(Map("a" -> IntValue(1), "b" -> IntValue(2))))
+        invoke1 = Updates.InvokeScriptOracle(
+          cid,
+          "add",
+          MapValue(Map("a" -> IntValue(1), "b" -> IntValue(2))),
+          FiberOrdinal.MinValue
+        )
         proof1 <- registry.generateProofs(invoke1, Set(Alice))
         state1 <- combiner.insert(state0, Signed(invoke1, proof1))
 
         // Second invocation: multiply
-        invoke2 = Updates.InvokeScriptOracle(cid, "multiply", MapValue(Map("a" -> IntValue(3), "b" -> IntValue(4))))
+        invoke2 = Updates.InvokeScriptOracle(
+          cid,
+          "multiply",
+          MapValue(Map("a" -> IntValue(3), "b" -> IntValue(4))),
+          state1.calculated.scriptOracles(cid).sequenceNumber
+        )
         proof2 <- registry.generateProofs(invoke2, Set(Alice))
         state2 <- combiner.insert(state1, Signed(invoke2, proof2))
 
         // Third invocation: subtract
-        invoke3 = Updates.InvokeScriptOracle(cid, "subtract", MapValue(Map("a" -> IntValue(10), "b" -> IntValue(5))))
+        invoke3 = Updates.InvokeScriptOracle(
+          cid,
+          "subtract",
+          MapValue(Map("a" -> IntValue(10), "b" -> IntValue(5))),
+          state2.calculated.scriptOracles(cid).sequenceNumber
+        )
         proof3 <- registry.generateProofs(invoke3, Set(Alice))
         state3 <- combiner.insert(state2, Signed(invoke3, proof3))
 
@@ -322,7 +342,8 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         invokeOracle = Updates.InvokeScriptOracle(
           fiberId = cid,
           method = "add",
-          args = MapValue(Map("a" -> IntValue(5), "b" -> IntValue(3)))
+          args = MapValue(Map("a" -> IntValue(5), "b" -> IntValue(3))),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
 
         // Bob invokes

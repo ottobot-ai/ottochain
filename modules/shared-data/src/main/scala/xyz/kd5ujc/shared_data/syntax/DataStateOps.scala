@@ -41,7 +41,7 @@ trait DataStateOps {
       record match {
         case sm: Records.StateMachineFiberRecord =>
           sm.computeDigest.map { recordHash =>
-            val commit = FiberCommit(recordHash, Some(sm.stateDataHash))
+            val commit = FiberCommit(recordHash, Some(sm.stateDataHash), sm.sequenceNumber)
             state
               .focus(_.onChain.fiberCommits)
               .modify(_.updated(id, commit))
@@ -50,7 +50,7 @@ trait DataStateOps {
           }
         case oracle: Records.ScriptOracleFiberRecord =>
           oracle.computeDigest.map { recordHash =>
-            val commit = FiberCommit(recordHash, oracle.stateDataHash)
+            val commit = FiberCommit(recordHash, oracle.stateDataHash, oracle.sequenceNumber)
             state
               .focus(_.onChain.fiberCommits)
               .modify(_.updated(id, commit))
@@ -76,10 +76,10 @@ trait DataStateOps {
 
       for {
         smHashes <- sms.toList.traverse { case (id, sm) =>
-          sm.computeDigest.map(recordHash => id -> FiberCommit(recordHash, Some(sm.stateDataHash)))
+          sm.computeDigest.map(recordHash => id -> FiberCommit(recordHash, Some(sm.stateDataHash), sm.sequenceNumber))
         }
         oracleHashes <- oracles.toList.traverse { case (id, o) =>
-          o.computeDigest.map(recordHash => id -> FiberCommit(recordHash, o.stateDataHash))
+          o.computeDigest.map(recordHash => id -> FiberCommit(recordHash, o.stateDataHash, o.sequenceNumber))
         }
       } yield state
         .focus(_.onChain.fiberCommits)

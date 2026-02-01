@@ -370,7 +370,8 @@ object NftMarketplaceSuite extends SimpleIOSuite {
               ),
               "timestamp" -> IntValue(1000)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         createListing1Proof <- registry.generateProofs(createListing1Update, Set(Alice))
         state1              <- combiner.insert(inState, Signed(createListing1Update, createListing1Proof))
@@ -413,7 +414,8 @@ object NftMarketplaceSuite extends SimpleIOSuite {
               ),
               "timestamp" -> IntValue(2000)
             )
-          )
+          ),
+          state1.calculated.stateMachines(marketplaceCid).sequenceNumber
         )
         createListing2Proof <- registry.generateProofs(createListing2Update, Set(Charlie))
         state2              <- combiner.insert(state1, Signed(createListing2Update, createListing2Proof))
@@ -430,7 +432,8 @@ object NftMarketplaceSuite extends SimpleIOSuite {
               "offerPrice" -> IntValue(1200),
               "timestamp"  -> IntValue(3000)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         purchaseNft1Proof <- registry.generateProofs(purchaseNft1Update, Set(Bob))
         state3            <- combiner.insert(state2, Signed(purchaseNft1Update, purchaseNft1Proof))
@@ -495,7 +498,8 @@ object NftMarketplaceSuite extends SimpleIOSuite {
               "offerPrice" -> IntValue(600),
               "timestamp"  -> IntValue(4000)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         purchaseNft2Proof <- registry.generateProofs(purchaseNft2Update, Set(Bob))
         finalState        <- combiner.insert(state3, Signed(purchaseNft2Update, purchaseNft2Proof))

@@ -59,6 +59,7 @@ object FiberValidator {
     def processEvent(update: TransitionStateMachine): F[ValidationResult] =
       for {
         cidExists      <- CommonRules.cidIsFound(update.fiberId, state)
+        seqNumOk       <- FiberRules.L1.sequenceNumberMatches(update.fiberId, update.targetSequenceNumber, state)
         payloadNotNull <- CommonRules.isNotNull(update.payload, "payload")
         payloadSize <- CommonRules.valueWithinSizeLimit(
           update.payload,
@@ -66,11 +67,14 @@ object FiberValidator {
           "payload"
         )
         payloadStructure <- CommonRules.payloadStructureValid(update.payload, "payload")
-      } yield List(cidExists, payloadNotNull, payloadSize, payloadStructure).combineAll
+      } yield List(cidExists, seqNumOk, payloadNotNull, payloadSize, payloadStructure).combineAll
 
     /** Validates an ArchiveFiber update */
     def archiveFiber(update: ArchiveStateMachine): F[ValidationResult] =
-      CommonRules.cidIsFound(update.fiberId, state)
+      for {
+        cidExists <- CommonRules.cidIsFound(update.fiberId, state)
+        seqNumOk  <- FiberRules.L1.sequenceNumberMatches(update.fiberId, update.targetSequenceNumber, state)
+      } yield List(cidExists, seqNumOk).combineAll
   }
 
   /**

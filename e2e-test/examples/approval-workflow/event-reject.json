@@ -1,8 +1,0 @@
-{
-  "eventType": { "value": "reject" },
-  "payload": {
-    "approver": "manager@example.com",
-    "reason": "Budget constraints"
-  },
-  "idempotencyKey": null
-}

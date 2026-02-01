@@ -6,12 +6,7 @@ on:
 jobs:
   call-workflow-setup-environment:
     uses: ./.github/workflows/setup-environment.yml
-    with: 
-      tessellation_commit_hash: "e38cf7129920802f9d4013e4abdc4916cb9c4409" 
+    with:
+      tessellation_commit_hash: "e38cf7129920802f9d4013e4abdc4916cb9c4409"
       use_merge_commit: true
-    secrets: inherit
-
-  call-fungible-token-tests:
-    needs: call-workflow-setup-environment
-    uses: ./.github/workflows/fungible_tests.yml
     secrets: inherit

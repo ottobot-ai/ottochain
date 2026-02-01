@@ -1812,16 +1812,19 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
               "unemploymentRate" -> FloatValue(0.04),
               "gdpGrowth"        -> FloatValue(0.03)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         proof1 <- registry.generateProofs(update1, Set(Yolanda))
         state1 <- combiner.insert(initialState, Signed(update1, proof1))
 
         // Event 2: Fed sets rate (returns to stable, broadcasts rate_adjustment to all banks)
+        seqNum2 = state1.calculated.stateMachines(yolandaCid).sequenceNumber
         update2 = Updates.TransitionStateMachine(
           yolandaCid,
           "set_rate",
-          MapValue(Map("timestamp" -> IntValue(1050)))
+          MapValue(Map("timestamp" -> IntValue(1050))),
+          seqNum2
         )
         proof2 <- registry.generateProofs(update2, Set(Yolanda))
         state2 <- combiner.insert(state1, Signed(update2, proof2))
@@ -1835,25 +1838,30 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
               "timestamp" -> IntValue(1100),
               "batchSize" -> IntValue(100)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         proof3 <- registry.generateProofs(update3, Set(Alice))
         state3 <- combiner.insert(state2, Signed(update3, proof3))
 
         // Event 4: Alice starts production
+        seqNum4 = state3.calculated.stateMachines(aliceCid).sequenceNumber
         update4 = Updates.TransitionStateMachine(
           aliceCid,
           "start_production",
-          MapValue(Map("timestamp" -> IntValue(1200)))
+          MapValue(Map("timestamp" -> IntValue(1200))),
+          seqNum4
         )
         proof4 <- registry.generateProofs(update4, Set(Alice))
         state4 <- combiner.insert(state3, Signed(update4, proof4))
 
         // Event 5: Alice completes batch
+        seqNum5 = state4.calculated.stateMachines(aliceCid).sequenceNumber
         update5 = Updates.TransitionStateMachine(
           aliceCid,
           "complete_batch",
-          MapValue(Map("timestamp" -> IntValue(2000)))
+          MapValue(Map("timestamp" -> IntValue(2000))),
+          seqNum5
         )
         proof5 <- registry.generateProofs(update5, Set(Alice))
         state5 <- combiner.insert(state4, Signed(update5, proof5))
@@ -1867,7 +1875,8 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
               "timestamp"  -> IntValue(2100),
               "shipmentId" -> StrValue("SHIP-001")
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         proof6 <- registry.generateProofs(update6, Set(Heidi))
         state6 <- combiner.insert(state5, Signed(update6, proof6))
@@ -1878,6 +1887,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Event 7: Ruth applies for loan from Oscar
+        seqNum7 = state6.calculated.stateMachines(oscarCid).sequenceNumber
         update7 = Updates.TransitionStateMachine(
           oscarCid,
           "apply_loan",
@@ -1889,16 +1899,19 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
               "creditScore" -> IntValue(720),
               "dti"         -> FloatValue(0.35)
             )
-          )
+          ),
+          seqNum7
         )
         proof7 <- registry.generateProofs(update7, Set(Oscar))
         state7 <- combiner.insert(state6, Signed(update7, proof7))
 
         // Event 8: Oscar underwrites loan (Fed must be in stable state)
+        seqNum8 = state7.calculated.stateMachines(oscarCid).sequenceNumber
         update8 = Updates.TransitionStateMachine(
           oscarCid,
           "underwrite",
-          MapValue(Map("timestamp" -> IntValue(2300)))
+          MapValue(Map("timestamp" -> IntValue(2300))),
+          seqNum8
         )
         proof8 <- registry.generateProofs(update8, Set(Oscar))
         state8 <- combiner.insert(state7, Signed(update8, proof8))
@@ -1911,7 +1924,8 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         update9 = Updates.TransitionStateMachine(
           charlieCid,
           "check_materials",
-          MapValue(Map("timestamp" -> IntValue(3000)))
+          MapValue(Map("timestamp" -> IntValue(3000))),
+          FiberOrdinal.MinValue
         )
         proof9 <- registry.generateProofs(update9, Set(Charlie))
         state9 <- combiner.insert(state8, Signed(update9, proof9))
@@ -1934,25 +1948,30 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
               "timestamp" -> IntValue(3100),
               "batchSize" -> IntValue(80)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         proof10 <- registry.generateProofs(update10, Set(Bob))
         state10 <- combiner.insert(state9, Signed(update10, proof10))
 
         // Event 11: Bob starts production
+        seqNum11 = state10.calculated.stateMachines(bobCid).sequenceNumber
         update11 = Updates.TransitionStateMachine(
           bobCid,
           "start_production",
-          MapValue(Map("timestamp" -> IntValue(3200)))
+          MapValue(Map("timestamp" -> IntValue(3200))),
+          seqNum11
         )
         proof11 <- registry.generateProofs(update11, Set(Bob))
         state11 <- combiner.insert(state10, Signed(update11, proof11))
 
         // Event 12: Bob completes batch
+        seqNum12 = state11.calculated.stateMachines(bobCid).sequenceNumber
         update12 = Updates.TransitionStateMachine(
           bobCid,
           "complete_batch",
-          MapValue(Map("timestamp" -> IntValue(4000)))
+          MapValue(Map("timestamp" -> IntValue(4000))),
+          seqNum12
         )
         proof12 <- registry.generateProofs(update12, Set(Bob))
         state12 <- combiner.insert(state11, Signed(update12, proof12))
@@ -1993,7 +2012,8 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
               "timestamp"  -> IntValue(4100),
               "shipmentId" -> StrValue("SHIP-002")
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         proof13 <- registry.generateProofs(update13, Set(Grace))
         state14 <- combiner.insert(state13, Signed(update13, proof13))
@@ -2003,15 +2023,18 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Event 14: Heidi reopens after restocking
+        seqNum14 = state14.calculated.stateMachines(heidiCid).sequenceNumber
         update14 = Updates.TransitionStateMachine(
           heidiCid,
           "reopen",
-          MapValue(Map("timestamp" -> IntValue(4150)))
+          MapValue(Map("timestamp" -> IntValue(4150))),
+          seqNum14
         )
         proof14 <- registry.generateProofs(update14, Set(Heidi))
         state15 <- combiner.insert(state14, Signed(update14, proof14))
 
         // Event 15: Ruth browses products at Heidi's store
+        seqNum15 = state15.calculated.stateMachines(ruthCid).sequenceNumber
         update15 = Updates.TransitionStateMachine(
           ruthCid,
           "browse_products",
@@ -2022,7 +2045,8 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
               "expectedCost" -> IntValue(50),
               "quantity"     -> IntValue(5)
             )
-          )
+          ),
+          seqNum15
         )
         proof15 <- registry.generateProofs(update15, Set(Ruth))
         state16 <- combiner.insert(state15, Signed(update15, proof15))
@@ -2032,6 +2056,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Event 16: Sybil applies for loan from Peggy
+        seqNum16 = state16.calculated.stateMachines(peggyCid).sequenceNumber
         update16 = Updates.TransitionStateMachine(
           peggyCid,
           "apply_loan",
@@ -2043,24 +2068,29 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
               "creditScore" -> IntValue(640),
               "dti"         -> FloatValue(0.42)
             )
-          )
+          ),
+          seqNum16
         )
         proof16 <- registry.generateProofs(update16, Set(Peggy))
         state17 <- combiner.insert(state16, Signed(update16, proof16))
 
         // Event 17: Peggy underwrites loan for Sybil
+        seqNum17 = state17.calculated.stateMachines(peggyCid).sequenceNumber
         update17 = Updates.TransitionStateMachine(
           peggyCid,
           "underwrite",
-          MapValue(Map("timestamp" -> IntValue(4400)))
+          MapValue(Map("timestamp" -> IntValue(4400))),
+          seqNum17
         )
         proof17 <- registry.generateProofs(update17, Set(Peggy))
         state18 <- combiner.insert(state17, Signed(update17, proof17))
         // Event 18: Sybil checks payment (misses payment - timestamp way past nextPaymentDue)
+        seqNum18 = state18.calculated.stateMachines(sybilCid).sequenceNumber
         update18 = Updates.TransitionStateMachine(
           sybilCid,
           "check_payment",
-          MapValue(Map("timestamp" -> IntValue(7100000))) // Way past due date (2592000 + 4400 = 2596400)
+          MapValue(Map("timestamp" -> IntValue(7100000))), // Way past due date (2592000 + 4400 = 2596400)
+          seqNum18
         )
         proof18 <- registry.generateProofs(update18, Set(Sybil))
         state19 <- combiner.insert(state18, Signed(update18, proof18))
@@ -2070,6 +2100,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Event 19: Fed initiates stress test due to high market volatility
+        seqNum19 = state19.calculated.stateMachines(yolandaCid).sequenceNumber
         update19 = Updates.TransitionStateMachine(
           yolandaCid,
           "initiate_stress_test",
@@ -2079,34 +2110,41 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
               "marketVolatility" -> FloatValue(0.35), // Above 0.30 threshold
               "systemicRisk"     -> FloatValue(0.45)
             )
-          )
+          ),
+          seqNum19
         )
         proof19 <- registry.generateProofs(update19, Set(Yolanda))
         state20 <- combiner.insert(state19, Signed(update19, proof19))
 
         // Event 20: Oscar completes stress test (passes - good capital ratio)
+        seqNum20 = state20.calculated.stateMachines(oscarCid).sequenceNumber
         update20 = Updates.TransitionStateMachine(
           oscarCid,
           "complete_stress_test",
-          MapValue(Map("timestamp" -> IntValue(7300000)))
+          MapValue(Map("timestamp" -> IntValue(7300000))),
+          seqNum20
         )
         proof20 <- registry.generateProofs(update20, Set(Oscar))
         state21 <- combiner.insert(state20, Signed(update20, proof20))
 
         // Event 21: Peggy completes stress test (passes - good capital ratio)
+        seqNum21 = state21.calculated.stateMachines(peggyCid).sequenceNumber
         update21 = Updates.TransitionStateMachine(
           peggyCid,
           "complete_stress_test",
-          MapValue(Map("timestamp" -> IntValue(7300050)))
+          MapValue(Map("timestamp" -> IntValue(7300050))),
+          seqNum21
         )
         proof21 <- registry.generateProofs(update21, Set(Peggy))
         state22 <- combiner.insert(state21, Signed(update21, proof21))
 
         // Event 22: Quentin completes stress test (passes - good capital ratio)
+        seqNum22 = state22.calculated.stateMachines(quentinCid).sequenceNumber
         update22 = Updates.TransitionStateMachine(
           quentinCid,
           "complete_stress_test",
-          MapValue(Map("timestamp" -> IntValue(7300100)))
+          MapValue(Map("timestamp" -> IntValue(7300100))),
+          seqNum22
         )
         proof22 <- registry.generateProofs(update22, Set(Quentin))
         state23 <- combiner.insert(state22, Signed(update22, proof22))
@@ -2116,6 +2154,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Event 23: Heidi starts holiday sale (20% discount)
+        seqNum23 = state23.calculated.stateMachines(heidiCid).sequenceNumber
         update23 = Updates.TransitionStateMachine(
           heidiCid,
           "start_sale",
@@ -2125,7 +2164,8 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
               "season"       -> StrValue("holiday"),
               "discountRate" -> FloatValue(0.20)
             )
-          )
+          ),
+          seqNum23
         )
         proof23 <- registry.generateProofs(update23, Set(Heidi))
         state24 <- combiner.insert(state23, Signed(update23, proof23))
@@ -2159,6 +2199,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         auctionCid <- UUIDGen.randomUUID[IO]
 
         // Event 24: Sybil lists handmade craft item for auction (spawns auction child machine)
+        seqNum24 = state24.calculated.stateMachines(sybilCid).sequenceNumber
         update24 = Updates.TransitionStateMachine(
           sybilCid,
           "list_item",
@@ -2169,7 +2210,8 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
               "reservePrice" -> IntValue(500),
               "timestamp"    -> IntValue(7500000)
             )
-          )
+          ),
+          seqNum24
         )
         proof24 <- registry.generateProofs(update24, Set(Sybil))
         state25 <- combiner.insert(state24, Signed(update24, proof24))
@@ -2184,16 +2226,19 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
               "bidderId"  -> StrValue(victorCid.toString),
               "timestamp" -> IntValue(7600000)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         proof25 <- registry.generateProofs(update25, Set(Victor))
         state26 <- combiner.insert(state25, Signed(update25, proof25))
 
         // Event 26: Auction accepts bid (triggers sale_completed to Sybil)
+        seqNum26 = state26.calculated.stateMachines(auctionCid).sequenceNumber
         update26 = Updates.TransitionStateMachine(
           auctionCid,
           "accept_bid",
-          MapValue(Map("timestamp" -> IntValue(7700000)))
+          MapValue(Map("timestamp" -> IntValue(7700000))),
+          seqNum26
         )
         proof26 <- registry.generateProofs(update26, Set(Sybil))
         state27 <- combiner.insert(state26, Signed(update26, proof26))
@@ -2212,10 +2257,12 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Event 27: Ruth makes first loan payment to Oscar
+        seqNum27 = state27.calculated.stateMachines(ruthCid).sequenceNumber
         update27 = Updates.TransitionStateMachine(
           ruthCid,
           "make_payment",
-          MapValue(Map("timestamp" -> IntValue(7750000)))
+          MapValue(Map("timestamp" -> IntValue(7750000))),
+          seqNum27
         )
         proof27 <- registry.generateProofs(update27, Set(Ruth))
         state28 <- combiner.insert(state27, Signed(update27, proof27))
@@ -2237,7 +2284,8 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
               "reservePrice" -> IntValue(2000),
               "timestamp"    -> IntValue(7800000)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         proof28 <- registry.generateProofs(update28, Set(Victor))
         state29 <- combiner.insert(state28, Signed(update28, proof28))
@@ -2252,16 +2300,19 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
               "bidderId"  -> StrValue(ruthCid.toString),
               "timestamp" -> IntValue(7900000)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         proof29 <- registry.generateProofs(update29, Set(Ruth))
         state30 <- combiner.insert(state29, Signed(update29, proof29))
 
         // Event 30: Victor accepts Ruth's bid
+        seqNum30 = state30.calculated.stateMachines(auction2Cid).sequenceNumber
         update30 = Updates.TransitionStateMachine(
           auction2Cid,
           "accept_bid",
-          MapValue(Map("timestamp" -> IntValue(8000000)))
+          MapValue(Map("timestamp" -> IntValue(8000000))),
+          seqNum30
         )
         proof30 <- registry.generateProofs(update30, Set(Victor))
         state31 <- combiner.insert(state30, Signed(update30, proof30))
@@ -2302,25 +2353,30 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
               "timestamp" -> IntValue(8100000),
               "batchSize" -> IntValue(150)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         proof32 <- registry.generateProofs(update32, Set(Dave))
         state33 <- combiner.insert(state32, Signed(update32, proof32))
 
         // Event 33: Dave starts production
+        seqNum33 = state33.calculated.stateMachines(daveCid).sequenceNumber
         update33 = Updates.TransitionStateMachine(
           daveCid,
           "start_production",
-          MapValue(Map("timestamp" -> IntValue(8200000)))
+          MapValue(Map("timestamp" -> IntValue(8200000))),
+          seqNum33
         )
         proof33 <- registry.generateProofs(update33, Set(Dave))
         state34 <- combiner.insert(state33, Signed(update33, proof33))
 
         // Event 34: Dave completes production
+        seqNum34 = state34.calculated.stateMachines(daveCid).sequenceNumber
         update34 = Updates.TransitionStateMachine(
           daveCid,
           "complete_batch",
-          MapValue(Map("timestamp" -> IntValue(8300000)))
+          MapValue(Map("timestamp" -> IntValue(8300000))),
+          seqNum34
         )
         proof34 <- registry.generateProofs(update34, Set(Dave))
         state35 <- combiner.insert(state34, Signed(update34, proof34))
@@ -2361,7 +2417,8 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
               "timestamp"  -> IntValue(8400000),
               "shipmentId" -> StrValue("SHIP-003")
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         proof36 <- registry.generateProofs(update36, Set(Ivan))
         state37 <- combiner.insert(state36, Signed(update36, proof36))
@@ -2371,6 +2428,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Event 37: Ruth provides freelance service (earns income)
+        seqNum37 = state37.calculated.stateMachines(ruthCid).sequenceNumber
         update37 = Updates.TransitionStateMachine(
           ruthCid,
           "provide_service",
@@ -2380,7 +2438,8 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
               "requestedService" -> StrValue("software_development"),
               "payment"          -> IntValue(3000)
             )
-          )
+          ),
+          seqNum37
         )
         proof37 <- registry.generateProofs(update37, Set(Ruth))
         state38 <- combiner.insert(state37, Signed(update37, proof37))
@@ -2390,6 +2449,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Event 38: Victor shops at Grace's FreshFoods Market
+        seqNum38 = state38.calculated.stateMachines(victorCid).sequenceNumber
         update38 = Updates.TransitionStateMachine(
           victorCid,
           "browse_products",
@@ -2400,25 +2460,30 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
               "expectedCost" -> IntValue(100),
               "quantity"     -> IntValue(10)
             )
-          )
+          ),
+          seqNum38
         )
         proof38 <- registry.generateProofs(update38, Set(Victor))
         state39 <- combiner.insert(state38, Signed(update38, proof38))
 
         // Event 39: Grace reopens after restocking
+        seqNum39 = state39.calculated.stateMachines(graceCid).sequenceNumber
         update39 = Updates.TransitionStateMachine(
           graceCid,
           "reopen",
-          MapValue(Map("timestamp" -> IntValue(8650000)))
+          MapValue(Map("timestamp" -> IntValue(8650000))),
+          seqNum39
         )
         proof39 <- registry.generateProofs(update39, Set(Grace))
         state40 <- combiner.insert(state39, Signed(update39, proof39))
 
         // Event 40: Ivan reopens after restocking from Dave
+        seqNum40 = state40.calculated.stateMachines(ivanCid).sequenceNumber
         update40 = Updates.TransitionStateMachine(
           ivanCid,
           "reopen",
-          MapValue(Map("timestamp" -> IntValue(8700000)))
+          MapValue(Map("timestamp" -> IntValue(8700000))),
+          seqNum40
         )
         proof40 <- registry.generateProofs(update40, Set(Ivan))
         state41 <- combiner.insert(state40, Signed(update40, proof40))
@@ -2428,6 +2493,7 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         // ========================================
 
         // Event 41: Alice schedules another production batch
+        seqNum41 = state41.calculated.stateMachines(aliceCid).sequenceNumber
         update41 = Updates.TransitionStateMachine(
           aliceCid,
           "schedule_production",
@@ -2436,25 +2502,30 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
               "timestamp" -> IntValue(8800000),
               "batchSize" -> IntValue(80)
             )
-          )
+          ),
+          seqNum41
         )
         proof41 <- registry.generateProofs(update41, Set(Alice))
         state42 <- combiner.insert(state41, Signed(update41, proof41))
 
         // Event 42: Alice starts second production run
+        seqNum42 = state42.calculated.stateMachines(aliceCid).sequenceNumber
         update42 = Updates.TransitionStateMachine(
           aliceCid,
           "start_production",
-          MapValue(Map("timestamp" -> IntValue(8900000)))
+          MapValue(Map("timestamp" -> IntValue(8900000))),
+          seqNum42
         )
         proof42 <- registry.generateProofs(update42, Set(Alice))
         state43 <- combiner.insert(state42, Signed(update42, proof42))
 
         // Event 43: Alice completes second batch
+        seqNum43 = state43.calculated.stateMachines(aliceCid).sequenceNumber
         update43 = Updates.TransitionStateMachine(
           aliceCid,
           "complete_batch",
-          MapValue(Map("timestamp" -> IntValue(9000000)))
+          MapValue(Map("timestamp" -> IntValue(9000000))),
+          seqNum43
         )
         proof43 <- registry.generateProofs(update43, Set(Alice))
         state44 <- combiner.insert(state43, Signed(update43, proof43))
@@ -2476,52 +2547,62 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
         )
 
         // Event 44: Alice pays taxes
-        update44 = Updates.TransitionStateMachine(aliceCid, "pay_taxes", taxPayload)
+        seqNum44 = state44.calculated.stateMachines(aliceCid).sequenceNumber
+        update44 = Updates.TransitionStateMachine(aliceCid, "pay_taxes", taxPayload, seqNum44)
         proof44 <- registry.generateProofs(update44, Set(Alice))
         state45 <- combiner.insert(state44, Signed(update44, proof44))
 
         // Event 45: Bob pays taxes
-        update45 = Updates.TransitionStateMachine(bobCid, "pay_taxes", taxPayload)
+        seqNum45 = state45.calculated.stateMachines(bobCid).sequenceNumber
+        update45 = Updates.TransitionStateMachine(bobCid, "pay_taxes", taxPayload, seqNum45)
         proof45 <- registry.generateProofs(update45, Set(Bob))
         state46 <- combiner.insert(state45, Signed(update45, proof45))
 
         // Event 46: Charlie pays taxes
-        update46 = Updates.TransitionStateMachine(charlieCid, "pay_taxes", taxPayload)
+        seqNum46 = state46.calculated.stateMachines(charlieCid).sequenceNumber
+        update46 = Updates.TransitionStateMachine(charlieCid, "pay_taxes", taxPayload, seqNum46)
         proof46 <- registry.generateProofs(update46, Set(Charlie))
         state47 <- combiner.insert(state46, Signed(update46, proof46))
 
         // Event 47: Dave pays taxes
-        update47 = Updates.TransitionStateMachine(daveCid, "pay_taxes", taxPayload)
+        seqNum47 = state47.calculated.stateMachines(daveCid).sequenceNumber
+        update47 = Updates.TransitionStateMachine(daveCid, "pay_taxes", taxPayload, seqNum47)
         proof47 <- registry.generateProofs(update47, Set(Dave))
         state48 <- combiner.insert(state47, Signed(update47, proof47))
 
         // Event 48: Heidi pays taxes
-        update48 = Updates.TransitionStateMachine(heidiCid, "pay_taxes", taxPayload)
+        seqNum48 = state48.calculated.stateMachines(heidiCid).sequenceNumber
+        update48 = Updates.TransitionStateMachine(heidiCid, "pay_taxes", taxPayload, seqNum48)
         proof48 <- registry.generateProofs(update48, Set(Heidi))
         state49 <- combiner.insert(state48, Signed(update48, proof48))
 
         // Event 49: Grace pays taxes
-        update49 = Updates.TransitionStateMachine(graceCid, "pay_taxes", taxPayload)
+        seqNum49 = state49.calculated.stateMachines(graceCid).sequenceNumber
+        update49 = Updates.TransitionStateMachine(graceCid, "pay_taxes", taxPayload, seqNum49)
         proof49 <- registry.generateProofs(update49, Set(Grace))
         state50 <- combiner.insert(state49, Signed(update49, proof49))
 
         // Event 50: Ivan pays taxes
-        update50 = Updates.TransitionStateMachine(ivanCid, "pay_taxes", taxPayload)
+        seqNum50 = state50.calculated.stateMachines(ivanCid).sequenceNumber
+        update50 = Updates.TransitionStateMachine(ivanCid, "pay_taxes", taxPayload, seqNum50)
         proof50 <- registry.generateProofs(update50, Set(Ivan))
         state51 <- combiner.insert(state50, Signed(update50, proof50))
 
         // Event 51: Ruth pays taxes
-        update51 = Updates.TransitionStateMachine(ruthCid, "pay_taxes", taxPayload)
+        seqNum51 = state51.calculated.stateMachines(ruthCid).sequenceNumber
+        update51 = Updates.TransitionStateMachine(ruthCid, "pay_taxes", taxPayload, seqNum51)
         proof51 <- registry.generateProofs(update51, Set(Ruth))
         state52 <- combiner.insert(state51, Signed(update51, proof51))
 
         // Event 52: Sybil pays taxes
-        update52 = Updates.TransitionStateMachine(sybilCid, "pay_taxes", taxPayload)
+        seqNum52 = state52.calculated.stateMachines(sybilCid).sequenceNumber
+        update52 = Updates.TransitionStateMachine(sybilCid, "pay_taxes", taxPayload, seqNum52)
         proof52 <- registry.generateProofs(update52, Set(Sybil))
         state53 <- combiner.insert(state52, Signed(update52, proof52))
 
         // Event 53: Victor pays taxes
-        update53 = Updates.TransitionStateMachine(victorCid, "pay_taxes", taxPayload)
+        seqNum53 = state53.calculated.stateMachines(victorCid).sequenceNumber
+        update53 = Updates.TransitionStateMachine(victorCid, "pay_taxes", taxPayload, seqNum53)
         proof53 <- registry.generateProofs(update53, Set(Victor))
         state54 <- combiner.insert(state53, Signed(update53, proof53))
 

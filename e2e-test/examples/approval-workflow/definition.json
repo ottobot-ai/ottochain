@@ -26,7 +26,7 @@
     {
       "from": { "value": "draft" },
       "to": { "value": "submitted" },
-      "eventType": { "value": "submit" },
+      "eventName": "submit",
       "guard": { "==": [1, 1] },
       "effect": { "merge": [{ "var": "state" }, { "submittedAt": { "var": "event.timestamp" } }] },
       "dependencies": []
@@ -34,7 +34,7 @@
     {
       "from": { "value": "submitted" },
       "to": { "value": "approved" },
-      "eventType": { "value": "approve" },
+      "eventName": "approve",
       "guard": { "==": [1, 1] },
       "effect": { "merge": [{ "var": "state" }, { "approvedBy": { "var": "event.approver" } }] },
       "dependencies": []
@@ -42,7 +42,7 @@
     {
       "from": { "value": "submitted" },
       "to": { "value": "rejected" },
-      "eventType": { "value": "reject" },
+      "eventName": "reject",
       "guard": { "==": [1, 1] },
       "effect": { "merge": [{ "var": "state" }, { "rejectedBy": { "var": "event.approver" }, "reason": { "var": "event.reason" } }] },
       "dependencies": []

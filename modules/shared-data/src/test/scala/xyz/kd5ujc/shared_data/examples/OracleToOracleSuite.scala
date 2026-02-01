@@ -93,7 +93,8 @@ object OracleToOracleSuite extends SimpleIOSuite {
         invoke1 = Updates.InvokeScriptOracle(
           fiberId = innerCid,
           method = "add",
-          args = MapValue(Map("a" -> IntValue(10), "b" -> IntValue(5)))
+          args = MapValue(Map("a" -> IntValue(10), "b" -> IntValue(5))),
+          FiberOrdinal.MinValue
         )
 
         invoke1Proof <- registry.generateProofs(invoke1, Set(Alice))
@@ -102,7 +103,8 @@ object OracleToOracleSuite extends SimpleIOSuite {
         invoke2 = Updates.InvokeScriptOracle(
           fiberId = innerCid,
           method = "add",
-          args = MapValue(Map("a" -> IntValue(20), "b" -> IntValue(30)))
+          args = MapValue(Map("a" -> IntValue(20), "b" -> IntValue(30))),
+          targetSequenceNumber = state2.calculated.scriptOracles(innerCid).sequenceNumber
         )
 
         invoke2Proof <- registry.generateProofs(invoke2, Set(Bob))
@@ -145,7 +147,8 @@ object OracleToOracleSuite extends SimpleIOSuite {
         invokeAlice = Updates.InvokeScriptOracle(
           fiberId = oracleCid,
           method = "add",
-          args = MapValue(Map("a" -> IntValue(1), "b" -> IntValue(2)))
+          args = MapValue(Map("a" -> IntValue(1), "b" -> IntValue(2))),
+          FiberOrdinal.MinValue
         )
 
         aliceProof <- registry.generateProofs(invokeAlice, Set(Alice))
@@ -157,7 +160,8 @@ object OracleToOracleSuite extends SimpleIOSuite {
         invokeBob = Updates.InvokeScriptOracle(
           fiberId = oracleCid,
           method = "add",
-          args = MapValue(Map("a" -> IntValue(10), "b" -> IntValue(20)))
+          args = MapValue(Map("a" -> IntValue(10), "b" -> IntValue(20))),
+          targetSequenceNumber = state2.calculated.scriptOracles(oracleCid).sequenceNumber
         )
 
         bobProof <- registry.generateProofs(invokeBob, Set(Bob))
@@ -225,17 +229,28 @@ object OracleToOracleSuite extends SimpleIOSuite {
         state2 <- combiner.insert(state1, Signed(createOracle2, proof2))
 
         // Invoke both oracles in sequence
-        invoke1 = Updates.InvokeScriptOracle(oracle1Cid, "add", MapValue(Map("a" -> IntValue(5), "b" -> IntValue(3))))
-        invoke2 = Updates.InvokeScriptOracle(oracle2Cid, "increment", MapValue(Map.empty))
-        invoke3 = Updates.InvokeScriptOracle(oracle2Cid, "increment", MapValue(Map.empty))
+        invoke1 = Updates.InvokeScriptOracle(
+          oracle1Cid,
+          "add",
+          MapValue(Map("a" -> IntValue(5), "b" -> IntValue(3))),
+          FiberOrdinal.MinValue
+        )
+        invoke2 = Updates.InvokeScriptOracle(oracle2Cid, "increment", MapValue(Map.empty), FiberOrdinal.MinValue)
 
         invokeProof1 <- registry.generateProofs(invoke1, Set(Alice))
         invokeProof2 <- registry.generateProofs(invoke2, Set(Alice))
-        invokeProof3 <- registry.generateProofs(invoke3, Set(Alice))
 
         state3 <- combiner.insert(state2, Signed(invoke1, invokeProof1))
         state4 <- combiner.insert(state3, Signed(invoke2, invokeProof2))
-        state5 <- combiner.insert(state4, Signed(invoke3, invokeProof3))
+
+        invoke3 = Updates.InvokeScriptOracle(
+          oracle2Cid,
+          "increment",
+          MapValue(Map.empty),
+          state4.calculated.scriptOracles(oracle2Cid).sequenceNumber
+        )
+        invokeProof3 <- registry.generateProofs(invoke3, Set(Alice))
+        state5       <- combiner.insert(state4, Signed(invoke3, invokeProof3))
 
         calculatorOracle = state5.calculated.scriptOracles.get(oracle1Cid)
         counterOracle = state5.calculated.scriptOracles.get(oracle2Cid)
@@ -291,7 +306,8 @@ object OracleToOracleSuite extends SimpleIOSuite {
         invokeValid = Updates.InvokeScriptOracle(
           fiberId = oracleCid,
           method = "validate",
-          args = MapValue(Map("amount" -> IntValue(200)))
+          args = MapValue(Map("amount" -> IntValue(200))),
+          FiberOrdinal.MinValue
         )
 
         validProof <- registry.generateProofs(invokeValid, Set(Alice))
@@ -303,7 +319,8 @@ object OracleToOracleSuite extends SimpleIOSuite {
         invokeInvalid = Updates.InvokeScriptOracle(
           fiberId = oracleCid,
           method = "validate",
-          args = MapValue(Map("amount" -> IntValue(50)))
+          args = MapValue(Map("amount" -> IntValue(50))),
+          targetSequenceNumber = state2.calculated.scriptOracles(oracleCid).sequenceNumber
         )
 
         invalidProof  <- registry.generateProofs(invokeInvalid, Set(Alice))

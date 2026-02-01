@@ -70,7 +70,7 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
         state0 <- combiner.insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createSM, createProof))
 
         // Process first event
-        event1 = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty))
+        event1 = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty), FiberOrdinal.MinValue)
         proof1 <- fixture.registry.generateProofs(event1, Set(Alice))
         state1 <- combiner.insert(state0, Signed(event1, proof1))
 
@@ -79,7 +79,8 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Process second event
-        event2 = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty))
+        seq1 = state1.calculated.stateMachines(cid).sequenceNumber
+        event2 = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty), seq1)
         proof2 <- fixture.registry.generateProofs(event2, Set(Alice))
         state2 <- combiner.insert(state1, Signed(event2, proof2))
 
@@ -145,7 +146,8 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
         )
 
         // Generate valid proofs via the registry
-        dummyUpdate = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty))
+        dummyUpdate = Updates
+          .TransitionStateMachine(cid, "increment", MapValue(Map.empty), FiberOrdinal.unsafeApply(4L))
         proofs <- fixture.registry.generateProofs(dummyUpdate, Set(Alice)).map(_.toList)
 
         input = FiberInput.Transition("increment", MapValue(Map.empty))
@@ -184,7 +186,7 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Process event
-        event1 = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty))
+        event1 = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty), FiberOrdinal.MinValue)
         proof1 <- fixture.registry.generateProofs(event1, Set(Alice))
         state1 <- combiner.insert(state0, Signed(event1, proof1))
 

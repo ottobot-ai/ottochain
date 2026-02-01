@@ -51,7 +51,8 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         invokeOracle = Updates.InvokeScriptOracle(
           fiberId = oracleCid,
           method = "test",
-          args = MapValue(Map.empty)
+          args = MapValue(Map.empty),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
         invokeProof <- fixture.registry.generateProofs(invokeOracle, Set(Alice))
         finalState  <- combiner.insert(stateAfterOracle, Signed(invokeOracle, invokeProof))
@@ -94,7 +95,8 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         invokeOracle = Updates.InvokeScriptOracle(
           fiberId = oracleCid,
           method = "test",
-          args = MapValue(Map.empty)
+          args = MapValue(Map.empty),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
         invokeProof <- fixture.registry.generateProofs(invokeOracle, Set(Bob))
 
@@ -139,23 +141,28 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         invokeOracle1 = Updates.InvokeScriptOracle(
           fiberId = oracleCid,
           method = "test",
-          args = MapValue(Map.empty)
+          args = MapValue(Map.empty),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
         invokeProof1    <- fixture.registry.generateProofs(invokeOracle1, Set(Alice))
         stateAfterAlice <- combiner.insert(stateAfterOracle, Signed(invokeOracle1, invokeProof1))
 
+        oracleSeq1 = stateAfterAlice.calculated.scriptOracles(oracleCid).sequenceNumber
         invokeOracle2 = Updates.InvokeScriptOracle(
           fiberId = oracleCid,
           method = "test",
-          args = MapValue(Map.empty)
+          args = MapValue(Map.empty),
+          targetSequenceNumber = oracleSeq1
         )
         invokeProof2  <- fixture.registry.generateProofs(invokeOracle2, Set(Bob))
         stateAfterBob <- combiner.insert(stateAfterAlice, Signed(invokeOracle2, invokeProof2))
 
+        oracleSeq2 = stateAfterBob.calculated.scriptOracles(oracleCid).sequenceNumber
         invokeOracle3 = Updates.InvokeScriptOracle(
           fiberId = oracleCid,
           method = "test",
-          args = MapValue(Map.empty)
+          args = MapValue(Map.empty),
+          targetSequenceNumber = oracleSeq2
         )
         invokeProof3  <- fixture.registry.generateProofs(invokeOracle3, Set(Charlie))
         charlieResult <- combiner.insert(stateAfterBob, Signed(invokeOracle3, invokeProof3)).attempt
@@ -239,7 +246,8 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         validateEvent = Updates.TransitionStateMachine(
           machineCid,
           "validate",
-          MapValue(Map.empty)
+          MapValue(Map.empty),
+          FiberOrdinal.MinValue
         )
         validateProof <- fixture.registry.generateProofs(validateEvent, Set(Alice))
         finalState    <- combiner.insert(stateAfterMachine, Signed(validateEvent, validateProof))
@@ -328,7 +336,8 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         validateEvent = Updates.TransitionStateMachine(
           machineCid,
           "validate",
-          MapValue(Map.empty)
+          MapValue(Map.empty),
+          FiberOrdinal.MinValue
         )
         validateProof <- fixture.registry.generateProofs(validateEvent, Set(Bob))
         finalState    <- combiner.insert(stateAfterMachine, Signed(validateEvent, validateProof))
@@ -431,7 +440,8 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         triggerEvent = Updates.TransitionStateMachine(
           machineCid,
           "trigger",
-          MapValue(Map.empty)
+          MapValue(Map.empty),
+          FiberOrdinal.MinValue
         )
         triggerProof <- fixture.registry.generateProofs(triggerEvent, Set(Bob))
         finalState   <- combiner.insert(stateAfterMachine, Signed(triggerEvent, triggerProof))
@@ -498,7 +508,8 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         invokeOracle = Updates.InvokeScriptOracle(
           fiberId = oracleCid,
           method = "process",
-          args = MapValue(Map.empty)
+          args = MapValue(Map.empty),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
 
         invokeProof  <- fixture.registry.generateProofs(invokeOracle, Set(Alice))

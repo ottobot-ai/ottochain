@@ -9,7 +9,7 @@ import io.constellationnetwork.metagraph_sdk.json_logic._
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema.fiber._
+import xyz.kd5ujc.schema.fiber.{FiberOrdinal, _}
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Participant._
@@ -76,7 +76,8 @@ object ProofValidationSuite extends SimpleIOSuite {
         approveEvent = Updates.TransitionStateMachine(
           machineCid,
           "approve",
-          MapValue(Map.empty)
+          MapValue(Map.empty),
+          FiberOrdinal.MinValue
         )
         approveProof <- registry.generateProofs(approveEvent, Set(Alice, Bob))
         finalState   <- combiner.insert(stateAfterCreate, Signed(approveEvent, approveProof))
@@ -173,7 +174,8 @@ object ProofValidationSuite extends SimpleIOSuite {
         approveBobEvent = Updates.TransitionStateMachine(
           machineCid,
           "approve",
-          MapValue(Map.empty)
+          MapValue(Map.empty),
+          FiberOrdinal.MinValue
         )
         bobProof      <- registry.generateProofs(approveBobEvent, Set(Bob))
         stateAfterBob <- combiner.insert(stateAfterCreate, Signed(approveBobEvent, bobProof))
@@ -186,7 +188,8 @@ object ProofValidationSuite extends SimpleIOSuite {
         approveAliceEvent = Updates.TransitionStateMachine(
           machineCid,
           "approve",
-          MapValue(Map.empty)
+          MapValue(Map.empty),
+          FiberOrdinal.MinValue
         )
         aliceProof      <- registry.generateProofs(approveAliceEvent, Set(Alice))
         stateAfterAlice <- combiner.insert(stateAfterBob, Signed(approveAliceEvent, aliceProof))
@@ -263,7 +266,8 @@ object ProofValidationSuite extends SimpleIOSuite {
         approveAliceOnly = Updates.TransitionStateMachine(
           machineCid,
           "approve",
-          MapValue(Map.empty)
+          MapValue(Map.empty),
+          FiberOrdinal.MinValue
         )
         aliceOnlyProof      <- registry.generateProofs(approveAliceOnly, Set(Alice))
         stateAfterAliceOnly <- combiner.insert(stateAfterCreate, Signed(approveAliceOnly, aliceOnlyProof))
@@ -276,7 +280,8 @@ object ProofValidationSuite extends SimpleIOSuite {
         approveAliceBob = Updates.TransitionStateMachine(
           machineCid,
           "approve",
-          MapValue(Map.empty)
+          MapValue(Map.empty),
+          FiberOrdinal.MinValue
         )
         aliceBobProof      <- registry.generateProofs(approveAliceBob, Set(Alice, Bob))
         stateAfterAliceBob <- combiner.insert(stateAfterAliceOnly, Signed(approveAliceBob, aliceBobProof))
@@ -363,7 +368,8 @@ object ProofValidationSuite extends SimpleIOSuite {
         approveEvent = Updates.TransitionStateMachine(
           machineCid,
           "approve",
-          MapValue(Map.empty)
+          MapValue(Map.empty),
+          FiberOrdinal.MinValue
         )
         approveProof <- registry.generateProofs(approveEvent, Set(Alice, Bob))
         finalState   <- combiner.insert(stateAfterCreate, Signed(approveEvent, approveProof))
@@ -445,7 +451,8 @@ object ProofValidationSuite extends SimpleIOSuite {
         logEvent = Updates.TransitionStateMachine(
           machineCid,
           "log",
-          MapValue(Map.empty)
+          MapValue(Map.empty),
+          FiberOrdinal.MinValue
         )
         logProof   <- registry.generateProofs(logEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterCreate, Signed(logEvent, logProof))

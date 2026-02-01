@@ -51,13 +51,14 @@ object OracleValidator {
     def invokeOracle(update: InvokeScriptOracle): F[ValidationResult] =
       for {
         cidExists     <- CommonRules.cidIsFound(update.fiberId, state)
+        seqNumOk      <- OracleRules.L1.sequenceNumberMatches(update.fiberId, update.targetSequenceNumber, state)
         argsStructure <- CommonRules.payloadStructureValid(update.args, "args")
         argsSize <- CommonRules.valueWithinSizeLimit(
           update.args,
           Limits.MaxEventPayloadBytes,
           "args"
         )
-      } yield List(cidExists, argsStructure, argsSize).combineAll
+      } yield List(cidExists, seqNumOk, argsStructure, argsSize).combineAll
   }
 
   /**

@@ -160,10 +160,12 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           Signed(createUpdate, createProof)
         )
 
+        seqAfterCreate = stateAfterCreate.calculated.stateMachines(cid).sequenceNumber
         processUpdate = Updates.TransitionStateMachine(
           cid,
           "start",
-          MapValue(Map.empty[String, JsonLogicValue])
+          MapValue(Map.empty[String, JsonLogicValue]),
+          seqAfterCreate
         )
         processProof    <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         stateAfterStart <- combiner.insert(stateAfterCreate, Signed(processUpdate, processProof))
@@ -222,7 +224,8 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         processUpdate = Updates.TransitionStateMachine(
           cid,
           "increment",
-          MapValue(Map.empty[String, JsonLogicValue])
+          MapValue(Map.empty[String, JsonLogicValue]),
+          FiberOrdinal.MinValue
         )
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         outState     <- combiner.insert(inState, Signed(processUpdate, processProof))
@@ -288,7 +291,8 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         processUpdate = Updates.TransitionStateMachine(
           cid,
           "finish",
-          MapValue(Map.empty[String, JsonLogicValue])
+          MapValue(Map.empty[String, JsonLogicValue]),
+          FiberOrdinal.MinValue
         )
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         outState     <- combiner.insert(inState, Signed(processUpdate, processProof))
@@ -354,7 +358,8 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         processUpdate = Updates.TransitionStateMachine(
           cid,
           "increment",
-          MapValue(Map.empty[String, JsonLogicValue])
+          MapValue(Map.empty[String, JsonLogicValue]),
+          FiberOrdinal.MinValue
         )
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
 
@@ -399,7 +404,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
 
         inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
 
-        archiveUpdate = Updates.ArchiveStateMachine(cid)
+        archiveUpdate = Updates.ArchiveStateMachine(cid, FiberOrdinal.MinValue)
         archiveProof <- fixture.registry.generateProofs(archiveUpdate, Set(Alice))
         outState     <- combiner.insert(inState, Signed(archiveUpdate, archiveProof))
 
@@ -441,15 +446,17 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
 
         // Archive the fiber first
-        archiveUpdate = Updates.ArchiveStateMachine(cid)
+        archiveUpdate = Updates.ArchiveStateMachine(cid, FiberOrdinal.MinValue)
         archiveProof  <- fixture.registry.generateProofs(archiveUpdate, Set(Alice))
         archivedState <- combiner.insert(inState, Signed(archiveUpdate, archiveProof))
 
         // Attempt to process an event on the archived fiber
+        seqAfterArchive = archivedState.calculated.stateMachines(cid).sequenceNumber
         processUpdate = Updates.TransitionStateMachine(
           cid,
           "start",
-          MapValue(Map.empty)
+          MapValue(Map.empty),
+          seqAfterArchive
         )
         eventProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
 
@@ -512,7 +519,8 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         processUpdate = Updates.TransitionStateMachine(
           cid,
           "increment",
-          MapValue(Map.empty[String, JsonLogicValue])
+          MapValue(Map.empty[String, JsonLogicValue]),
+          FiberOrdinal.MinValue
         )
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         finalState   <- combiner.insert(inState, Signed(processUpdate, processProof))
@@ -593,7 +601,8 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         processUpdate = Updates.TransitionStateMachine(
           cid,
           "lock",
-          MapValue(Map("authorized" -> BoolValue(true)))
+          MapValue(Map("authorized" -> BoolValue(true))),
+          FiberOrdinal.MinValue
         )
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         outState     <- combiner.insert(inState, Signed(processUpdate, processProof))
@@ -661,7 +670,8 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         processUpdate = Updates.TransitionStateMachine(
           cid,
           "lock",
-          MapValue(Map("authorized" -> BoolValue(false)))
+          MapValue(Map("authorized" -> BoolValue(false))),
+          FiberOrdinal.MinValue
         )
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- combiner.insert(inState, Signed(processUpdate, processProof))
@@ -713,10 +723,12 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
 
           finalState <- (1 to increments).toList.foldLeftM(inState) { (state, _) =>
+            val seqNum = state.calculated.stateMachines(cid).sequenceNumber
             val processUpdate = Updates.TransitionStateMachine(
               cid,
               "increment",
-              MapValue(Map.empty[String, JsonLogicValue])
+              MapValue(Map.empty[String, JsonLogicValue]),
+              seqNum
             )
             for {
               processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))

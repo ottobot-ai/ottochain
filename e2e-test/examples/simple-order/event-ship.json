@@ -1,9 +1,0 @@
-{
-  "eventType": { "value": "ship" },
-  "payload": {
-    "trackingNumber": "TRACK-12345",
-    "carrier": "FedEx",
-    "shippedAt": "2025-10-16T14:00:00Z"
-  },
-  "idempotencyKey": null
-}

@@ -1,13 +1,11 @@
 package xyz.kd5ujc.shared_test
 
 import cats.effect.Sync
-import cats.syntax.applicative._
-import cats.syntax.functor._
-import cats.syntax.option._
+import cats.syntax.all._
 
 import scala.collection.immutable.{SortedMap, SortedSet}
 
-import io.constellationnetwork.currency.dataApplication.{L0NodeContext, L1NodeContext}
+import io.constellationnetwork.currency.dataApplication.{FeeTransaction, L0NodeContext, L1NodeContext}
 import io.constellationnetwork.currency.schema.currency
 import io.constellationnetwork.currency.schema.currency.DataApplicationPart
 import io.constellationnetwork.domain.seedlist.SeedlistEntry
@@ -60,6 +58,14 @@ object Mock {
 
           def getLastSynchronizedGlobalSnapshotCombined: F[Option[(GlobalIncrementalSnapshot, GlobalSnapshotInfo)]] =
             ???
+
+          def getSnapshotFeeTransactions: F[Map[Hash, Signed[FeeTransaction]]] =
+            currencySnapshot
+              .flatMap(_.signed.value.feeTransactions)
+              .fold(Map.empty[Hash, Signed[FeeTransaction]]) {
+                _.map(sf => sf.value.dataUpdateRef -> sf).toMap
+              }
+              .pure[F]
         }
       )
     }

@@ -1,7 +1,0 @@
-{
-  "eventType": { "value": "approve" },
-  "payload": {
-    "approver": "manager@example.com"
-  },
-  "idempotencyKey": null
-}

@@ -92,7 +92,8 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         highPriorityEvent = Updates.TransitionStateMachine(
           machineCid,
           "process",
-          MapValue(Map("priority" -> IntValue(90)))
+          MapValue(Map("priority" -> IntValue(90))),
+          FiberOrdinal.MinValue
         )
         highProof      <- fixture.registry.generateProofs(highPriorityEvent, Set(Alice))
         stateAfterHigh <- combiner.insert(stateAfterCreate, Signed(highPriorityEvent, highProof))
@@ -189,7 +190,8 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         checkEvent = Updates.TransitionStateMachine(
           machineCid,
           "check",
-          MapValue(Map("value" -> IntValue(15)))
+          MapValue(Map("value" -> IntValue(15))),
+          FiberOrdinal.MinValue
         )
         checkProof <- fixture.registry.generateProofs(checkEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterCreate, Signed(checkEvent, checkProof))
@@ -293,7 +295,8 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         upgradeEvent = Updates.TransitionStateMachine(
           machineCid,
           "upgrade",
-          MapValue(Map("amount" -> IntValue(50)))
+          MapValue(Map("amount" -> IntValue(50))),
+          FiberOrdinal.MinValue
         )
         upgradeProof <- fixture.registry.generateProofs(upgradeEvent, Set(Alice))
         finalState   <- combiner.insert(stateAfterCreate, Signed(upgradeEvent, upgradeProof))
@@ -404,7 +407,8 @@ object MultipleGuardsSuite extends SimpleIOSuite {
               "income"   -> IntValue(150000),
               "verified" -> BoolValue(true)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         premiumProof <- fixture.registry.generateProofs(premiumEvent, Set(Alice))
         finalState   <- combiner.insert(stateAfterCreate, Signed(premiumEvent, premiumProof))
@@ -502,7 +506,8 @@ object MultipleGuardsSuite extends SimpleIOSuite {
               "role" -> StrValue("admin"),
               "code" -> IntValue(0)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         unlockProof <- fixture.registry.generateProofs(unlockEvent, Set(Alice))
         finalState  <- combiner.insert(stateAfterCreate, Signed(unlockEvent, unlockProof))

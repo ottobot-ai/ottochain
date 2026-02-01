@@ -127,7 +127,7 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
           .flatMap(_.withRecord[IO](buyerCid, buyerFiber))
 
         buyUpdate = Updates
-          .TransitionStateMachine(buyerCid, "buy", MapValue(Map.empty[String, JsonLogicValue]))
+          .TransitionStateMachine(buyerCid, "buy", MapValue(Map.empty[String, JsonLogicValue]), FiberOrdinal.MinValue)
         buyProof   <- registry.generateProofs(buyUpdate, Set(Bob))
         finalState <- combiner.insert(inState, Signed(buyUpdate, buyProof))
 

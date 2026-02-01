@@ -11,7 +11,6 @@ object Dependencies {
     val metakit = "1.7.0-rc.3"
     val pureConfig = "0.17.5"
     val weaver = "0.10.1"
-    val tessellation = "4.0.0-rc.2"
 
     val betterMonadicFor = "0.3.1"
     val kindProjector = "0.13.4"

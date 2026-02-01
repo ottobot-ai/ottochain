@@ -631,7 +631,8 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         submitUpdate = Updates.TransitionStateMachine(
           contractCid,
           "submit_for_approval",
-          MapValue(Map("timestamp" -> IntValue(1000)))
+          MapValue(Map("timestamp" -> IntValue(1000))),
+          FiberOrdinal.MinValue
         )
         submitProof <- registry.generateProofs(submitUpdate, Set(Alice))
         state1      <- combiner.insert(inState, Signed(submitUpdate, submitProof))
@@ -645,12 +646,14 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
               "timestamp" -> IntValue(1100),
               "reviewer"  -> StrValue(registry.addresses(Bob).toString)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         beginReviewProof <- registry.generateProofs(beginReviewUpdate, Set(Bob))
         state2           <- combiner.insert(state1, Signed(beginReviewUpdate, beginReviewProof))
 
         // STEP 3: Approve supplier
+        approveSupplierSeqNum = state2.calculated.stateMachines(supplierCid).sequenceNumber
         approveSupplierUpdate = Updates.TransitionStateMachine(
           supplierCid,
           "approve",
@@ -661,16 +664,19 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
               "licenseValid"    -> BoolValue(true),
               "approver"        -> StrValue(registry.addresses(Bob).toString)
             )
-          )
+          ),
+          approveSupplierSeqNum
         )
         approveSupplierProof <- registry.generateProofs(approveSupplierUpdate, Set(Bob))
         state3               <- combiner.insert(state2, Signed(approveSupplierUpdate, approveSupplierProof))
 
         // STEP 4: Contract receives supplier approval
+        supplierApprovedSeqNum = state3.calculated.stateMachines(contractCid).sequenceNumber
         supplierApprovedUpdate = Updates.TransitionStateMachine(
           contractCid,
           "supplier_approved",
-          MapValue(Map("timestamp" -> IntValue(1300)))
+          MapValue(Map("timestamp" -> IntValue(1300))),
+          supplierApprovedSeqNum
         )
         supplierApprovedProof <- registry.generateProofs(supplierApprovedUpdate, Set(Alice))
         state4                <- combiner.insert(state3, Signed(supplierApprovedUpdate, supplierApprovedProof))
@@ -684,12 +690,14 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
               "timestamp" -> IntValue(1400),
               "vehicleId" -> StrValue("TRUCK-42")
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         activateGpsProof <- registry.generateProofs(activateGpsUpdate, Set(Alice))
         state5           <- combiner.insert(state4, Signed(activateGpsUpdate, activateGpsProof))
 
         // STEP 6: Prepare shipment (contract checks GPS is active)
+        prepareShipmentSeqNum = state5.calculated.stateMachines(contractCid).sequenceNumber
         prepareShipmentUpdate = Updates.TransitionStateMachine(
           contractCid,
           "prepare_shipment",
@@ -699,12 +707,14 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
               "vehicleId" -> StrValue("TRUCK-42"),
               "driverId"  -> StrValue(registry.addresses(Dave).toString)
             )
-          )
+          ),
+          prepareShipmentSeqNum
         )
         prepareShipmentProof <- registry.generateProofs(prepareShipmentUpdate, Set(Alice))
         state6               <- combiner.insert(state5, Signed(prepareShipmentUpdate, prepareShipmentProof))
 
         // STEP 7: Start GPS tracking
+        startTrackingSeqNum = state6.calculated.stateMachines(gpsTrackerCid).sequenceNumber
         startTrackingUpdate = Updates.TransitionStateMachine(
           gpsTrackerCid,
           "start_tracking",
@@ -714,12 +724,14 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
               "latitude"  -> IntValue(40_7128),
               "longitude" -> IntValue(-74_0060)
             )
-          )
+          ),
+          startTrackingSeqNum
         )
         startTrackingProof <- registry.generateProofs(startTrackingUpdate, Set(Alice))
         state7             <- combiner.insert(state6, Signed(startTrackingUpdate, startTrackingProof))
 
         // STEP 8: Begin transit (contract checks GPS is tracking)
+        beginTransitSeqNum = state7.calculated.stateMachines(contractCid).sequenceNumber
         beginTransitUpdate = Updates.TransitionStateMachine(
           contractCid,
           "begin_transit",
@@ -728,12 +740,14 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
               "timestamp"        -> IntValue(1700),
               "estimatedArrival" -> IntValue(3000)
             )
-          )
+          ),
+          beginTransitSeqNum
         )
         beginTransitProof <- registry.generateProofs(beginTransitUpdate, Set(Alice))
         state8            <- combiner.insert(state7, Signed(beginTransitUpdate, beginTransitProof))
 
         // STEP 9-11: Log GPS positions during transit
+        logPosition1SeqNum = state8.calculated.stateMachines(gpsTrackerCid).sequenceNumber
         logPosition1Update = Updates.TransitionStateMachine(
           gpsTrackerCid,
           "log_position",
@@ -744,11 +758,13 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
               "longitude"     -> IntValue(-73_9855),
               "distanceDelta" -> IntValue(5)
             )
-          )
+          ),
+          logPosition1SeqNum
         )
         logPosition1Proof <- registry.generateProofs(logPosition1Update, Set(Alice))
         state9            <- combiner.insert(state8, Signed(logPosition1Update, logPosition1Proof))
 
+        logPosition2SeqNum = state9.calculated.stateMachines(gpsTrackerCid).sequenceNumber
         logPosition2Update = Updates.TransitionStateMachine(
           gpsTrackerCid,
           "log_position",
@@ -759,11 +775,13 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
               "longitude"     -> IntValue(-73_8700),
               "distanceDelta" -> IntValue(8)
             )
-          )
+          ),
+          logPosition2SeqNum
         )
         logPosition2Proof <- registry.generateProofs(logPosition2Update, Set(Alice))
         state10           <- combiner.insert(state9, Signed(logPosition2Update, logPosition2Proof))
 
+        logPosition3SeqNum = state10.calculated.stateMachines(gpsTrackerCid).sequenceNumber
         logPosition3Update = Updates.TransitionStateMachine(
           gpsTrackerCid,
           "log_position",
@@ -774,25 +792,30 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
               "longitude"     -> IntValue(-73_7500),
               "distanceDelta" -> IntValue(12)
             )
-          )
+          ),
+          logPosition3SeqNum
         )
         logPosition3Proof <- registry.generateProofs(logPosition3Update, Set(Alice))
         state11           <- combiner.insert(state10, Signed(logPosition3Update, logPosition3Proof))
 
         // STEP 12: Stop GPS tracking
+        stopTrackingSeqNum = state11.calculated.stateMachines(gpsTrackerCid).sequenceNumber
         stopTrackingUpdate = Updates.TransitionStateMachine(
           gpsTrackerCid,
           "stop_tracking",
-          MapValue(Map("timestamp" -> IntValue(2500)))
+          MapValue(Map("timestamp" -> IntValue(2500))),
+          stopTrackingSeqNum
         )
         stopTrackingProof <- registry.generateProofs(stopTrackingUpdate, Set(Alice))
         state12           <- combiner.insert(state11, Signed(stopTrackingUpdate, stopTrackingProof))
 
         // STEP 13: Confirm delivery (contract checks GPS stopped and has data)
+        confirmDeliverySeqNum = state12.calculated.stateMachines(contractCid).sequenceNumber
         confirmDeliveryUpdate = Updates.TransitionStateMachine(
           contractCid,
           "confirm_delivery",
-          MapValue(Map("timestamp" -> IntValue(2600)))
+          MapValue(Map("timestamp" -> IntValue(2600))),
+          confirmDeliverySeqNum
         )
         confirmDeliveryProof <- registry.generateProofs(confirmDeliveryUpdate, Set(Alice))
         state13              <- combiner.insert(state12, Signed(confirmDeliveryUpdate, confirmDeliveryProof))
@@ -806,30 +829,36 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
               "timestamp" -> IntValue(2700),
               "inspector" -> StrValue(registry.addresses(Charlie).toString)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         scheduleInspectionProof <- registry.generateProofs(scheduleInspectionUpdate, Set(Charlie))
         state14                 <- combiner.insert(state13, Signed(scheduleInspectionUpdate, scheduleInspectionProof))
 
         // STEP 15: Contract initiates inspection
+        initiateInspectionSeqNum = state14.calculated.stateMachines(contractCid).sequenceNumber
         initiateInspectionUpdate = Updates.TransitionStateMachine(
           contractCid,
           "initiate_inspection",
-          MapValue(Map("timestamp" -> IntValue(2800)))
+          MapValue(Map("timestamp" -> IntValue(2800))),
+          initiateInspectionSeqNum
         )
         initiateInspectionProof <- registry.generateProofs(initiateInspectionUpdate, Set(Alice))
         state15                 <- combiner.insert(state14, Signed(initiateInspectionUpdate, initiateInspectionProof))
 
         // STEP 16: Begin inspection
+        beginInspectionSeqNum = state15.calculated.stateMachines(inspectionCid).sequenceNumber
         beginInspectionUpdate = Updates.TransitionStateMachine(
           inspectionCid,
           "begin_inspection",
-          MapValue(Map("timestamp" -> IntValue(2900)))
+          MapValue(Map("timestamp" -> IntValue(2900))),
+          beginInspectionSeqNum
         )
         beginInspectionProof <- registry.generateProofs(beginInspectionUpdate, Set(Charlie))
         state16              <- combiner.insert(state15, Signed(beginInspectionUpdate, beginInspectionProof))
 
         // STEP 17: Complete inspection (passed)
+        completeInspectionSeqNum = state16.calculated.stateMachines(inspectionCid).sequenceNumber
         completeInspectionUpdate = Updates.TransitionStateMachine(
           inspectionCid,
           "complete",
@@ -840,30 +869,36 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
               "contaminationDetected" -> BoolValue(false),
               "reportId"              -> StrValue("QC-REPORT-001")
             )
-          )
+          ),
+          completeInspectionSeqNum
         )
         completeInspectionProof <- registry.generateProofs(completeInspectionUpdate, Set(Charlie))
         state17                 <- combiner.insert(state16, Signed(completeInspectionUpdate, completeInspectionProof))
 
         // STEP 18: Contract receives inspection completion
+        inspectionCompleteSeqNum = state17.calculated.stateMachines(contractCid).sequenceNumber
         inspectionCompleteUpdate = Updates.TransitionStateMachine(
           contractCid,
           "inspection_complete",
-          MapValue(Map("timestamp" -> IntValue(3100)))
+          MapValue(Map("timestamp" -> IntValue(3100))),
+          inspectionCompleteSeqNum
         )
         inspectionCompleteProof <- registry.generateProofs(inspectionCompleteUpdate, Set(Alice))
         state18                 <- combiner.insert(state17, Signed(inspectionCompleteUpdate, inspectionCompleteProof))
 
         // STEP 19: Initiate settlement
+        initiateSettlementSeqNum = state18.calculated.stateMachines(contractCid).sequenceNumber
         initiateSettlementUpdate = Updates.TransitionStateMachine(
           contractCid,
           "initiate_settlement",
-          MapValue(Map("timestamp" -> IntValue(3200)))
+          MapValue(Map("timestamp" -> IntValue(3200))),
+          initiateSettlementSeqNum
         )
         initiateSettlementProof <- registry.generateProofs(initiateSettlementUpdate, Set(Alice))
         state19                 <- combiner.insert(state18, Signed(initiateSettlementUpdate, initiateSettlementProof))
 
         // STEP 20: Finalize settlement
+        finalizeSettlementSeqNum = state19.calculated.stateMachines(contractCid).sequenceNumber
         finalizeSettlementUpdate = Updates.TransitionStateMachine(
           contractCid,
           "finalize_settlement",
@@ -872,7 +907,8 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
               "timestamp"           -> IntValue(3300),
               "paymentConfirmation" -> IntValue(10000)
             )
-          )
+          ),
+          finalizeSettlementSeqNum
         )
         finalizeSettlementProof <- registry.generateProofs(finalizeSettlementUpdate, Set(Alice))
         finalState              <- combiner.insert(state19, Signed(finalizeSettlementUpdate, finalizeSettlementProof))

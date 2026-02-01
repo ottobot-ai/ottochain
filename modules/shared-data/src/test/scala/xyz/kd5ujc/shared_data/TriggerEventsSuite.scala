@@ -106,7 +106,7 @@ object TriggerEventsSuite extends SimpleIOSuite {
         stateAfterTarget <- combiner.insert(stateAfterInitiator, Signed(createTarget, targetProof))
 
         // Send start event to initiator - should trigger target
-        startEvent = Updates.TransitionStateMachine(initiatorCid, "start", MapValue(Map.empty))
+        startEvent = Updates.TransitionStateMachine(initiatorCid, "start", MapValue(Map.empty), FiberOrdinal.MinValue)
         startProof <- fixture.registry.generateProofs(startEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterTarget, Signed(startEvent, startProof))
 
@@ -269,7 +269,7 @@ object TriggerEventsSuite extends SimpleIOSuite {
         stateAfterC <- combiner.insert(stateAfterB, Signed(createC, cProof))
 
         // Send start to A - should cascade to B then C
-        startEvent = Updates.TransitionStateMachine(machineCid, "start", MapValue(Map.empty))
+        startEvent = Updates.TransitionStateMachine(machineCid, "start", MapValue(Map.empty), FiberOrdinal.MinValue)
         startProof <- fixture.registry.generateProofs(startEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterC, Signed(startEvent, startProof))
 
@@ -413,7 +413,8 @@ object TriggerEventsSuite extends SimpleIOSuite {
               "amount"  -> IntValue(250),
               "message" -> StrValue("Hello from source")
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         sendProof  <- fixture.registry.generateProofs(sendEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterTarget, Signed(sendEvent, sendProof))
@@ -516,7 +517,8 @@ object TriggerEventsSuite extends SimpleIOSuite {
         )
 
         // Send event - should fail because trigger target doesn't exist
-        triggerEvent = Updates.TransitionStateMachine(sourceCid, "try_trigger", MapValue(Map.empty))
+        triggerEvent = Updates
+          .TransitionStateMachine(sourceCid, "try_trigger", MapValue(Map.empty), FiberOrdinal.MinValue)
         triggerProof <- fixture.registry.generateProofs(triggerEvent, Set(Alice))
         finalState   <- combiner.insert(stateAfterSource, Signed(triggerEvent, triggerProof))
 
@@ -658,7 +660,7 @@ object TriggerEventsSuite extends SimpleIOSuite {
         stateAfterB <- combiner.insert(stateAfterA, Signed(createB, bProof))
 
         // Send ping to A - should trigger B which tries to trigger A again (cycle)
-        pingEvent = Updates.TransitionStateMachine(machineACid, "ping", MapValue(Map.empty))
+        pingEvent = Updates.TransitionStateMachine(machineACid, "ping", MapValue(Map.empty), FiberOrdinal.MinValue)
         pingProof  <- fixture.registry.generateProofs(pingEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterB, Signed(pingEvent, pingProof))
 

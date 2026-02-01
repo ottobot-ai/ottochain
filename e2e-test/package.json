@@ -1,25 +1,26 @@
 {
-  "name": "scripts",
+  "name": "ottochain-e2e-test",
   "version": "1.0.0",
-  "description": "",
-  "main": "send_data_transaction.js",
+  "description": "E2E tests for ottochain metagraph",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "terminal": "node terminal.js",
-    "terminal:help": "node terminal.js --help",
-    "terminal:list": "node terminal.js list"
+    "terminal": "npx tsx terminal.ts",
+    "terminal:help": "npx tsx terminal.ts --help",
+    "terminal:list": "npx tsx terminal.ts list",
+    "test": "npx tsx runner.ts",
+    "test:ci": "npx tsx runner.ts --target ci"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@stardust-collective/dag4": "^2.2.2",
-    "axios": "^1.7.9",
-    "elliptic": "^6.6.1",
-    "js-sha256": "^0.11.0",
-    "js-sha512": "^0.9.0",
-    "dotenv": "^16.4.7",
+    "@ottochain/sdk": "file:../sdk",
     "commander": "13.1.0",
-    "canonicalize": "2.0.0"
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0"
   }
 }

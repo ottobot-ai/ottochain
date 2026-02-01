@@ -117,7 +117,8 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         earlyUpdate = Updates.TransitionStateMachine(
           lockCid,
           "unlock",
-          MapValue(Map("currentTime" -> IntValue(900)))
+          MapValue(Map("currentTime" -> IntValue(900))),
+          FiberOrdinal.MinValue
         )
         earlyProof  <- registry.generateProofs(earlyUpdate, Set(Alice))
         earlyResult <- combiner.insert(inState, Signed(earlyUpdate, earlyProof)).attempt
@@ -129,7 +130,8 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         validUpdate = Updates.TransitionStateMachine(
           lockCid,
           "unlock",
-          MapValue(Map("currentTime" -> IntValue(1500)))
+          MapValue(Map("currentTime" -> IntValue(1500))),
+          FiberOrdinal.MinValue
         )
         validProof <- registry.generateProofs(validUpdate, Set(Alice))
         finalState <- combiner.insert(inState, Signed(validUpdate, validProof))
@@ -299,7 +301,8 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
               "claimant"    -> StrValue(bobAddr.toString),
               "currentTime" -> IntValue(1000)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         wrongClaimProof  <- registry.generateProofs(wrongClaimUpdate, Set(Bob))
         wrongClaimResult <- combiner.insert(inState, Signed(wrongClaimUpdate, wrongClaimProof)).attempt
@@ -317,7 +320,8 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
               "claimant"    -> StrValue(bobAddr.toString),
               "currentTime" -> IntValue(1500)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         correctClaimProof <- registry.generateProofs(correctClaimUpdate, Set(Bob))
         claimedState      <- combiner.insert(inState, Signed(correctClaimUpdate, correctClaimProof))
@@ -392,7 +396,8 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
               "refunder"    -> StrValue(aliceAddr.toString),
               "currentTime" -> IntValue(1500)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         earlyRefundProof  <- registry.generateProofs(earlyRefundUpdate, Set(Alice))
         earlyRefundResult <- combiner.insert(inState2, Signed(earlyRefundUpdate, earlyRefundProof)).attempt
@@ -408,7 +413,8 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
               "refunder"    -> StrValue(aliceAddr.toString),
               "currentTime" -> IntValue(2500)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         refundProof   <- registry.generateProofs(refundUpdate, Set(Alice))
         refundedState <- combiner.insert(inState2, Signed(refundUpdate, refundProof))
@@ -1275,7 +1281,8 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
               "amount"    -> IntValue(5000),
               "timestamp" -> IntValue(1000)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         lockFundsProof <- registry.generateProofs(lockFundsUpdate, Set(Bob))
         state1         <- combiner.insert(inState, Signed(lockFundsUpdate, lockFundsProof))
@@ -1283,15 +1290,18 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         confirmFundingUpdate = Updates.TransitionStateMachine(
           orderCid,
           "confirm_funding",
-          MapValue(Map("timestamp" -> IntValue(1100)))
+          MapValue(Map("timestamp" -> IntValue(1100))),
+          FiberOrdinal.MinValue
         )
         confirmFundingProof <- registry.generateProofs(confirmFundingUpdate, Set(Alice))
         state2              <- combiner.insert(state1, Signed(confirmFundingUpdate, confirmFundingProof))
 
+        shipSeqNum = state2.calculated.stateMachines(orderCid).sequenceNumber
         shipUpdate = Updates.TransitionStateMachine(
           orderCid,
           "ship",
-          MapValue(Map("timestamp" -> IntValue(1200)))
+          MapValue(Map("timestamp" -> IntValue(1200))),
+          shipSeqNum
         )
         shipProof <- registry.generateProofs(shipUpdate, Set(Alice))
         state3    <- combiner.insert(state2, Signed(shipUpdate, shipProof))
@@ -1299,63 +1309,78 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         pickupUpdate = Updates.TransitionStateMachine(
           shippingCid,
           "pickup",
-          MapValue(Map("timestamp" -> IntValue(1300)))
+          MapValue(Map("timestamp" -> IntValue(1300))),
+          FiberOrdinal.MinValue
         )
         pickupProof <- registry.generateProofs(pickupUpdate, Set(Alice))
         state4      <- combiner.insert(state3, Signed(pickupUpdate, pickupProof))
 
+        holdSeqNum = state4.calculated.stateMachines(escrowCid).sequenceNumber
         holdUpdate = Updates.TransitionStateMachine(
           escrowCid,
           "hold",
-          MapValue(Map("timestamp" -> IntValue(1400)))
+          MapValue(Map("timestamp" -> IntValue(1400))),
+          holdSeqNum
         )
         holdProof <- registry.generateProofs(holdUpdate, Set(Alice))
         state5    <- combiner.insert(state4, Signed(holdUpdate, holdProof))
 
+        acceptShipmentSeqNum = state5.calculated.stateMachines(orderCid).sequenceNumber
         acceptShipmentUpdate = Updates.TransitionStateMachine(
           orderCid,
           "accept_shipment",
-          MapValue(Map("timestamp" -> IntValue(1500)))
+          MapValue(Map("timestamp" -> IntValue(1500))),
+          acceptShipmentSeqNum
         )
         acceptShipmentProof <- registry.generateProofs(acceptShipmentUpdate, Set(Alice))
         state6              <- combiner.insert(state5, Signed(acceptShipmentUpdate, acceptShipmentProof))
 
+        checkpointSeqNum = state6.calculated.stateMachines(shippingCid).sequenceNumber
         checkpointUpdate = Updates.TransitionStateMachine(
           shippingCid,
           "checkpoint",
-          MapValue(Map("timestamp" -> IntValue(1600)))
+          MapValue(Map("timestamp" -> IntValue(1600))),
+          checkpointSeqNum
         )
         checkpointProof <- registry.generateProofs(checkpointUpdate, Set(Alice))
         state7          <- combiner.insert(state6, Signed(checkpointUpdate, checkpointProof))
 
+        enterCustomsSeqNum = state7.calculated.stateMachines(shippingCid).sequenceNumber
         enterCustomsUpdate = Updates.TransitionStateMachine(
           shippingCid,
           "enter_customs",
-          MapValue(Map("timestamp" -> IntValue(2000)))
+          MapValue(Map("timestamp" -> IntValue(2000))),
+          enterCustomsSeqNum
         )
         enterCustomsProof <- registry.generateProofs(enterCustomsUpdate, Set(Alice))
         state8            <- combiner.insert(state7, Signed(enterCustomsUpdate, enterCustomsProof))
 
+        clearCustomsSeqNum = state8.calculated.stateMachines(shippingCid).sequenceNumber
         clearCustomsUpdate = Updates.TransitionStateMachine(
           shippingCid,
           "clear_customs",
-          MapValue(Map("timestamp" -> IntValue(3000)))
+          MapValue(Map("timestamp" -> IntValue(3000))),
+          clearCustomsSeqNum
         )
         clearCustomsProof <- registry.generateProofs(clearCustomsUpdate, Set(Alice))
         state9            <- combiner.insert(state8, Signed(clearCustomsUpdate, clearCustomsProof))
 
+        deliverSeqNum = state9.calculated.stateMachines(shippingCid).sequenceNumber
         deliverUpdate = Updates.TransitionStateMachine(
           shippingCid,
           "deliver",
-          MapValue(Map("timestamp" -> IntValue(4000)))
+          MapValue(Map("timestamp" -> IntValue(4000))),
+          deliverSeqNum
         )
         deliverProof <- registry.generateProofs(deliverUpdate, Set(Alice))
         state10      <- combiner.insert(state9, Signed(deliverUpdate, deliverProof))
 
+        confirmDeliverySeqNum = state10.calculated.stateMachines(orderCid).sequenceNumber
         confirmDeliveryUpdate = Updates.TransitionStateMachine(
           orderCid,
           "confirm_delivery",
-          MapValue(Map("timestamp" -> IntValue(4100)))
+          MapValue(Map("timestamp" -> IntValue(4100))),
+          confirmDeliverySeqNum
         )
         confirmDeliveryProof <- registry.generateProofs(confirmDeliveryUpdate, Set(Alice))
         state11              <- combiner.insert(state10, Signed(confirmDeliveryUpdate, confirmDeliveryProof))
@@ -1363,27 +1388,33 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         scheduleUpdate = Updates.TransitionStateMachine(
           inspectionCid,
           "schedule",
-          MapValue(Map("timestamp" -> IntValue(4200)))
+          MapValue(Map("timestamp" -> IntValue(4200))),
+          FiberOrdinal.MinValue
         )
         scheduleProof <- registry.generateProofs(scheduleUpdate, Set(Charlie))
         state12       <- combiner.insert(state11, Signed(scheduleUpdate, scheduleProof))
 
+        startInspectionSeqNum = state12.calculated.stateMachines(orderCid).sequenceNumber
         startInspectionUpdate = Updates.TransitionStateMachine(
           orderCid,
           "start_inspection",
-          MapValue(Map("timestamp" -> IntValue(4300)))
+          MapValue(Map("timestamp" -> IntValue(4300))),
+          startInspectionSeqNum
         )
         startInspectionProof <- registry.generateProofs(startInspectionUpdate, Set(Alice))
         state13              <- combiner.insert(state12, Signed(startInspectionUpdate, startInspectionProof))
 
+        beginInspectionSeqNum = state13.calculated.stateMachines(inspectionCid).sequenceNumber
         beginInspectionUpdate = Updates.TransitionStateMachine(
           inspectionCid,
           "begin_inspection",
-          MapValue(Map("timestamp" -> IntValue(4400)))
+          MapValue(Map("timestamp" -> IntValue(4400))),
+          beginInspectionSeqNum
         )
         beginInspectionProof <- registry.generateProofs(beginInspectionUpdate, Set(Charlie))
         state14              <- combiner.insert(state13, Signed(beginInspectionUpdate, beginInspectionProof))
 
+        completeInspectionSeqNum = state14.calculated.stateMachines(inspectionCid).sequenceNumber
         completeInspectionUpdate = Updates.TransitionStateMachine(
           inspectionCid,
           "complete_inspection",
@@ -1393,31 +1424,38 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
               "qualityScore" -> IntValue(9),
               "damaged"      -> BoolValue(false)
             )
-          )
+          ),
+          completeInspectionSeqNum
         )
         completeInspectionProof <- registry.generateProofs(completeInspectionUpdate, Set(Charlie))
         state15                 <- combiner.insert(state14, Signed(completeInspectionUpdate, completeInspectionProof))
 
+        releaseSeqNum = state15.calculated.stateMachines(escrowCid).sequenceNumber
         releaseUpdate = Updates.TransitionStateMachine(
           escrowCid,
           "release",
-          MapValue(Map("timestamp" -> IntValue(90000)))
+          MapValue(Map("timestamp" -> IntValue(90000))),
+          releaseSeqNum
         )
         releaseProof <- registry.generateProofs(releaseUpdate, Set(Alice))
         state16      <- combiner.insert(state15, Signed(releaseUpdate, releaseProof))
 
+        finalizeReleaseSeqNum = state16.calculated.stateMachines(escrowCid).sequenceNumber
         finalizeReleaseUpdate = Updates.TransitionStateMachine(
           escrowCid,
           "finalize_release",
-          MapValue(Map("timestamp" -> IntValue(90100)))
+          MapValue(Map("timestamp" -> IntValue(90100))),
+          finalizeReleaseSeqNum
         )
         finalizeReleaseProof <- registry.generateProofs(finalizeReleaseUpdate, Set(Alice))
         state17              <- combiner.insert(state16, Signed(finalizeReleaseUpdate, finalizeReleaseProof))
 
+        completeOrderSeqNum = state17.calculated.stateMachines(orderCid).sequenceNumber
         completeOrderUpdate = Updates.TransitionStateMachine(
           orderCid,
           "complete_order",
-          MapValue(Map("timestamp" -> IntValue(90200)))
+          MapValue(Map("timestamp" -> IntValue(90200))),
+          completeOrderSeqNum
         )
         completeOrderProof <- registry.generateProofs(completeOrderUpdate, Set(Alice))
         finalState         <- combiner.insert(state17, Signed(completeOrderUpdate, completeOrderProof))
@@ -1850,7 +1888,8 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
               "submitter"  -> StrValue(registry.addresses(Charlie).toString),
               "actionData" -> StrValue("early submission data")
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         earlySubmitProof      <- registry.generateProofs(earlySubmitUpdate, Set(Charlie))
         stateAfterEarlySubmit <- combiner.insert(inState, Signed(earlySubmitUpdate, earlySubmitProof))
@@ -1884,7 +1923,8 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         collectUpdate1 = Updates.TransitionStateMachine(
           proposalCid,
           "collect",
-          MapValue(Map("timestamp" -> IntValue(1000)))
+          MapValue(Map("timestamp" -> IntValue(1000))),
+          FiberOrdinal.MinValue
         )
         collectProof1 <- registry.generateProofs(collectUpdate1, Set(Alice))
         state1        <- combiner.insert(inState, Signed(collectUpdate1, collectProof1))
@@ -1903,7 +1943,8 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
               "submitter"  -> StrValue(registry.addresses(Charlie).toString),
               "actionData" -> StrValue("valid submission data")
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         validSubmitProof <- registry.generateProofs(validSubmitUpdate, Set(Charlie))
         state1_5         <- combiner.insert(state1, Signed(validSubmitUpdate, validSubmitProof))
@@ -1922,7 +1963,8 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
               "timestamp"  -> IntValue(1100),
               "proposalId" -> StrValue(proposalCid.toString)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         aliceVoteProof <- registry.generateProofs(aliceVoteUpdate, Set(Alice))
         state2         <- combiner.insert(state1_5, Signed(aliceVoteUpdate, aliceVoteProof))
@@ -1941,7 +1983,8 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
               "timestamp"  -> IntValue(1200),
               "proposalId" -> StrValue(proposalCid.toString)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         bobVoteProof <- registry.generateProofs(bobVoteUpdate, Set(Bob))
         state3       <- combiner.insert(state2, Signed(bobVoteUpdate, bobVoteProof))
@@ -1978,10 +2021,12 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         }
 
         // Step 5: Close voting (open -> closing)
+        closeSeqNum = state4.calculated.stateMachines(proposalCid).sequenceNumber
         closeUpdate = Updates.TransitionStateMachine(
           proposalCid,
           "close",
-          MapValue(Map("timestamp" -> IntValue(2100)))
+          MapValue(Map("timestamp" -> IntValue(2100))),
+          closeSeqNum
         )
         closeProof <- registry.generateProofs(closeUpdate, Set(Alice))
         state5     <- combiner.insert(state4, Signed(closeUpdate, closeProof))
@@ -1991,10 +2036,12 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Step 6: Finalize (closing -> finalized)
+        finalCollectSeqNum = state5.calculated.stateMachines(proposalCid).sequenceNumber
         finalCollectUpdate = Updates.TransitionStateMachine(
           proposalCid,
           "collect",
-          MapValue(Map("timestamp" -> IntValue(2200)))
+          MapValue(Map("timestamp" -> IntValue(2200))),
+          finalCollectSeqNum
         )
         finalCollectProof <- registry.generateProofs(finalCollectUpdate, Set(Alice))
         finalState        <- combiner.insert(state5, Signed(finalCollectUpdate, finalCollectProof))

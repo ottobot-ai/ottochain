@@ -84,7 +84,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           Signed(createParent, parentProof)
         )
 
-        spawnEvent = Updates.TransitionStateMachine(parentCid, "spawn_child", MapValue(Map.empty))
+        spawnEvent = Updates
+          .TransitionStateMachine(parentCid, "spawn_child", MapValue(Map.empty), FiberOrdinal.MinValue)
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -201,7 +202,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           Signed(createParent, parentProof)
         )
 
-        spawnEvent = Updates.TransitionStateMachine(parentCid, "spawn_multiple", MapValue(Map.empty))
+        spawnEvent = Updates
+          .TransitionStateMachine(parentCid, "spawn_multiple", MapValue(Map.empty), FiberOrdinal.MinValue)
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -334,7 +336,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           Signed(createParent, parentProof)
         )
 
-        spawnEvent = Updates.TransitionStateMachine(parentCid, "spawn_and_trigger", MapValue(Map.empty))
+        spawnEvent = Updates
+          .TransitionStateMachine(parentCid, "spawn_and_trigger", MapValue(Map.empty), FiberOrdinal.MinValue)
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -424,7 +427,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           Signed(createParent, parentProof)
         )
 
-        spawnEvent = Updates.TransitionStateMachine(parentCid, "spawn_child", MapValue(Map.empty))
+        spawnEvent = Updates
+          .TransitionStateMachine(parentCid, "spawn_child", MapValue(Map.empty), FiberOrdinal.MinValue)
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -530,7 +534,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           Signed(createParent, parentProof)
         )
 
-        spawnEvent = Updates.TransitionStateMachine(parentCid, "create_child", MapValue(Map.empty))
+        spawnEvent = Updates
+          .TransitionStateMachine(parentCid, "create_child", MapValue(Map.empty), FiberOrdinal.MinValue)
         spawnProof      <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         stateAfterSpawn <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -538,7 +543,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           .get(childCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        startWorkEvent = Updates.TransitionStateMachine(childCid, "start_work", MapValue(Map.empty))
+        childSeq0 = stateAfterSpawn.calculated.stateMachines(childCid).sequenceNumber
+        startWorkEvent = Updates.TransitionStateMachine(childCid, "start_work", MapValue(Map.empty), childSeq0)
         startProof      <- fixture.registry.generateProofs(startWorkEvent, Set(Alice))
         stateAfterStart <- combiner.insert(stateAfterSpawn, Signed(startWorkEvent, startProof))
 
@@ -546,7 +552,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           .get(childCid)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finishWorkEvent = Updates.TransitionStateMachine(childCid, "finish_work", MapValue(Map.empty))
+        childSeq1 = stateAfterStart.calculated.stateMachines(childCid).sequenceNumber
+        finishWorkEvent = Updates.TransitionStateMachine(childCid, "finish_work", MapValue(Map.empty), childSeq1)
         finishProof      <- fixture.registry.generateProofs(finishWorkEvent, Set(Alice))
         stateAfterFinish <- combiner.insert(stateAfterStart, Signed(finishWorkEvent, finishProof))
 
@@ -561,7 +568,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           }
         }
 
-        archiveChild = Updates.ArchiveStateMachine(childCid)
+        childSeq2 = stateAfterFinish.calculated.stateMachines(childCid).sequenceNumber
+        archiveChild = Updates.ArchiveStateMachine(childCid, childSeq2)
         archiveProof      <- fixture.registry.generateProofs(archiveChild, Set(Alice))
         stateAfterArchive <- combiner.insert(stateAfterFinish, Signed(archiveChild, archiveProof))
 
@@ -667,7 +675,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           Signed(createParent, parentProof)
         )
 
-        spawnEvent = Updates.TransitionStateMachine(parentCid, "spawn_and_trigger", MapValue(Map.empty))
+        spawnEvent = Updates
+          .TransitionStateMachine(parentCid, "spawn_and_trigger", MapValue(Map.empty), FiberOrdinal.MinValue)
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -830,12 +839,13 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         )
 
         spawnParentEvent = Updates
-          .TransitionStateMachine(grandparentCid, "spawn_parent", MapValue(Map.empty))
+          .TransitionStateMachine(grandparentCid, "spawn_parent", MapValue(Map.empty), FiberOrdinal.MinValue)
         spawnParentProof <- fixture.registry.generateProofs(spawnParentEvent, Set(Alice))
         stateAfterParent <- combiner.insert(stateAfterGrandparent, Signed(spawnParentEvent, spawnParentProof))
 
+        parentSeq = stateAfterParent.calculated.stateMachines(parentCid).sequenceNumber
         spawnGrandchildEvent = Updates
-          .TransitionStateMachine(parentCid, "spawn_grandchild", MapValue(Map.empty))
+          .TransitionStateMachine(parentCid, "spawn_grandchild", MapValue(Map.empty), parentSeq)
         spawnGrandchildProof <- fixture.registry.generateProofs(spawnGrandchildEvent, Set(Alice))
         finalState           <- combiner.insert(stateAfterParent, Signed(spawnGrandchildEvent, spawnGrandchildProof))
 
@@ -979,7 +989,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         )
 
         spawnEvent = Updates
-          .TransitionStateMachine(parentCid, "spawn_with_failing_trigger", MapValue(Map.empty))
+          .TransitionStateMachine(parentCid, "spawn_with_failing_trigger", MapValue(Map.empty), FiberOrdinal.MinValue)
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -1464,7 +1474,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         )
 
         // Spawn child (only Alice signs the spawn event)
-        spawnEvent = Updates.TransitionStateMachine(parentCid, "spawn_child", MapValue(Map.empty))
+        spawnEvent = Updates
+          .TransitionStateMachine(parentCid, "spawn_child", MapValue(Map.empty), FiberOrdinal.MinValue)
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
@@ -1556,7 +1567,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
             Map(
               "customOwners" -> ArrayValue(List(StrValue(charlieAddress.value.value)))
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))

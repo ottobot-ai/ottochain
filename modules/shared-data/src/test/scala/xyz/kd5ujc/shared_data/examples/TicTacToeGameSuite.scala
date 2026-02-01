@@ -109,7 +109,8 @@ object TicTacToeGameSuite extends SimpleIOSuite {
               "playerO" -> StrValue(bobAddr.toString),
               "gameId"  -> StrValue("test-game-001")
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         startGameProof <- registry.generateProofs(startGameUpdate, Set(Alice))
         state1         <- combiner.insert(stateAfterMachine, Signed(startGameUpdate, startGameProof))
@@ -125,46 +126,56 @@ object TicTacToeGameSuite extends SimpleIOSuite {
 
         // Step 2-6: Play game - X wins with top row (0, 1, 2)
         // Move 1: X plays top left (0)
+        move1SeqNum = state1.calculated.stateMachines(machineCid).sequenceNumber
         move1Update = Updates.TransitionStateMachine(
           machineCid,
           "make_move",
-          MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(0)))
+          MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(0))),
+          move1SeqNum
         )
         move1Proof <- registry.generateProofs(move1Update, Set(Alice))
         state2     <- combiner.insert(state1, Signed(move1Update, move1Proof))
 
         // Move 2: O plays middle left (3)
+        move2SeqNum = state2.calculated.stateMachines(machineCid).sequenceNumber
         move2Update = Updates.TransitionStateMachine(
           machineCid,
           "make_move",
-          MapValue(Map("player" -> StrValue("O"), "cell" -> IntValue(3)))
+          MapValue(Map("player" -> StrValue("O"), "cell" -> IntValue(3))),
+          move2SeqNum
         )
         move2Proof <- registry.generateProofs(move2Update, Set(Bob))
         state3     <- combiner.insert(state2, Signed(move2Update, move2Proof))
 
         // Move 3: X plays top middle (1)
+        move3SeqNum = state3.calculated.stateMachines(machineCid).sequenceNumber
         move3Update = Updates.TransitionStateMachine(
           machineCid,
           "make_move",
-          MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(1)))
+          MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(1))),
+          move3SeqNum
         )
         move3Proof <- registry.generateProofs(move3Update, Set(Alice))
         state4     <- combiner.insert(state3, Signed(move3Update, move3Proof))
 
         // Move 4: O plays center (4)
+        move4SeqNum = state4.calculated.stateMachines(machineCid).sequenceNumber
         move4Update = Updates.TransitionStateMachine(
           machineCid,
           "make_move",
-          MapValue(Map("player" -> StrValue("O"), "cell" -> IntValue(4)))
+          MapValue(Map("player" -> StrValue("O"), "cell" -> IntValue(4))),
+          move4SeqNum
         )
         move4Proof <- registry.generateProofs(move4Update, Set(Bob))
         state5     <- combiner.insert(state4, Signed(move4Update, move4Proof))
 
         // Move 5: X plays top right (2) - should trigger win
+        move5SeqNum = state5.calculated.stateMachines(machineCid).sequenceNumber
         move5Update = Updates.TransitionStateMachine(
           machineCid,
           "make_move",
-          MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(2)))
+          MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(2))),
+          move5SeqNum
         )
         move5Proof <- registry.generateProofs(move5Update, Set(Alice))
         finalState <- combiner.insert(state5, Signed(move5Update, move5Proof))
@@ -312,7 +323,8 @@ object TicTacToeGameSuite extends SimpleIOSuite {
               "playerO" -> StrValue(bobAddr.toString),
               "gameId"  -> StrValue("test-game-draw")
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         startGameProof <- registry.generateProofs(startGameUpdate, Set(Alice))
         state1         <- combiner.insert(stateAfterMachine, Signed(startGameUpdate, startGameProof))
@@ -331,10 +343,12 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         )
 
         finalState <- drawMoves.foldLeftM(state1) { case (currentState, (player, cell, signer)) =>
+          val seqNum = currentState.calculated.stateMachines(machineCid).sequenceNumber
           val moveUpdate = Updates.TransitionStateMachine(
             machineCid,
             "make_move",
-            MapValue(Map("player" -> StrValue(player), "cell" -> IntValue(cell)))
+            MapValue(Map("player" -> StrValue(player), "cell" -> IntValue(cell))),
+            seqNum
           )
           for {
             moveProof <- registry.generateProofs(moveUpdate, Set(signer))
@@ -455,25 +469,30 @@ object TicTacToeGameSuite extends SimpleIOSuite {
               "playerO" -> StrValue(bobAddr.toString),
               "gameId"  -> StrValue("test-game-invalid")
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         startGameProof <- registry.generateProofs(startGameUpdate, Set(Alice))
         state1         <- combiner.insert(stateAfterMachine, Signed(startGameUpdate, startGameProof))
 
         // Move 1: X plays cell 0
+        move1SeqNum = state1.calculated.stateMachines(machineCid).sequenceNumber
         move1Update = Updates.TransitionStateMachine(
           machineCid,
           "make_move",
-          MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(0)))
+          MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(0))),
+          move1SeqNum
         )
         move1Proof <- registry.generateProofs(move1Update, Set(Alice))
         state2     <- combiner.insert(state1, Signed(move1Update, move1Proof))
 
         // Invalid move: O tries to play same cell again (should be recorded as failed)
+        invalidMoveSeqNum = state2.calculated.stateMachines(machineCid).sequenceNumber
         invalidMoveUpdate = Updates.TransitionStateMachine(
           machineCid,
           "make_move",
-          MapValue(Map("player" -> StrValue("O"), "cell" -> IntValue(0)))
+          MapValue(Map("player" -> StrValue("O"), "cell" -> IntValue(0))),
+          invalidMoveSeqNum
         )
         invalidMoveProof <- registry.generateProofs(invalidMoveUpdate, Set(Bob))
         state3           <- combiner.insert(state2, Signed(invalidMoveUpdate, invalidMoveProof))
@@ -582,7 +601,8 @@ object TicTacToeGameSuite extends SimpleIOSuite {
               "playerO" -> StrValue(bobAddr.toString),
               "gameId"  -> StrValue("test-game-reset")
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         startGameProof <- registry.generateProofs(startGameUpdate, Set(Alice))
         state1         <- combiner.insert(stateAfterMachine, Signed(startGameUpdate, startGameProof))
@@ -591,10 +611,12 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         quickWin = List(("X", 0, Alice), ("O", 3, Bob), ("X", 1, Alice), ("O", 4, Bob), ("X", 2, Alice))
 
         stateAfterWin <- quickWin.foldLeftM(state1) { case (currentState, (player, cell, signer)) =>
+          val seqNum = currentState.calculated.stateMachines(machineCid).sequenceNumber
           val moveUpdate = Updates.TransitionStateMachine(
             machineCid,
             "make_move",
-            MapValue(Map("player" -> StrValue(player), "cell" -> IntValue(cell)))
+            MapValue(Map("player" -> StrValue(player), "cell" -> IntValue(cell))),
+            seqNum
           )
           for {
             moveProof <- registry.generateProofs(moveUpdate, Set(signer))
@@ -612,10 +634,12 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         )
 
         // Reset for round 2
+        resetSeqNum = stateAfterWin.calculated.stateMachines(machineCid).sequenceNumber
         resetUpdate = Updates.TransitionStateMachine(
           machineCid,
           "reset_board",
-          MapValue(Map.empty[String, JsonLogicValue])
+          MapValue(Map.empty[String, JsonLogicValue]),
+          resetSeqNum
         )
         resetProof      <- registry.generateProofs(resetUpdate, Set(Alice))
         stateAfterReset <- combiner.insert(stateAfterWin, Signed(resetUpdate, resetProof))

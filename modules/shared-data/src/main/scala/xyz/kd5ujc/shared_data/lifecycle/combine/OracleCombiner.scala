@@ -52,14 +52,23 @@ class OracleCombiner[F[_]: Async: SecurityProvider](
   ): CombineResult[F] = for {
     currentOrdinal <- ctx.getCurrentOrdinal
 
-    // Verify oracle exists before processing
-    _ <- current.calculated.scriptOracles
+    // Verify oracle exists and sequence number matches before processing
+    oracleRecord <- current.calculated.scriptOracles
       .get(update.fiberId)
       .fold(
         Async[F].raiseError[Records.ScriptOracleFiberRecord](
           new RuntimeException(s"Oracle ${update.fiberId} not found")
         )
       )(_.pure[F])
+
+    // Defense-in-depth: reject stale sequence numbers
+    _ <- Async[F]
+      .raiseError(
+        new RuntimeException(
+          s"Sequence number mismatch: target=${update.targetSequenceNumber}, actual=${oracleRecord.sequenceNumber}"
+        )
+      )
+      .whenA(oracleRecord.sequenceNumber =!= update.targetSequenceNumber)
 
     caller <- update.proofs.toList.headOption
       .fold(Async[F].raiseError[Address](new RuntimeException("No proof provided")))(

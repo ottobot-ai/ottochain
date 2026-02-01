@@ -12,8 +12,8 @@ import io.constellationnetwork.schema.address.Address
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.signature.SignatureProof
 
-import xyz.kd5ujc.schema.CalculatedState
-import xyz.kd5ujc.schema.fiber.AccessControlPolicy
+import xyz.kd5ujc.schema.fiber.{AccessControlPolicy, FiberOrdinal}
+import xyz.kd5ujc.schema.{CalculatedState, OnChain}
 import xyz.kd5ujc.shared_data.lifecycle.validate.ValidationResult
 import xyz.kd5ujc.shared_data.syntax.all._
 
@@ -31,14 +31,14 @@ object OracleRules {
   // ============================================================================
 
   object L1 {
-    // Oracle L1 rules are primarily covered by CommonRules:
-    // - cidNotUsed (for create)
-    // - cidIsFound (for invoke)
-    // - isMapValueOrNull (for initial state)
-    // - expressionWithinDepthLimit (for script program)
-    //
-    // No additional oracle-specific L1 rules needed at this time.
-    // This object exists for consistency and future extensibility.
+
+    /** Validates that targetSequenceNumber matches the oracle's current sequence number */
+    def sequenceNumberMatches[F[_]: Applicative](
+      fiberId:              UUID,
+      targetSequenceNumber: FiberOrdinal,
+      state:                OnChain
+    ): F[ValidationResult] =
+      FiberRules.L1.sequenceNumberMatches(fiberId, targetSequenceNumber, state)
   }
 
   // ============================================================================

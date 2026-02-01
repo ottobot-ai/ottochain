@@ -1,7 +1,0 @@
-{
-  "eventType": { "value": "deliver" },
-  "payload": {
-    "timestamp": "2025-10-18T16:00:00Z"
-  },
-  "idempotencyKey": null
-}

@@ -1071,7 +1071,8 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
               "consentSigned" -> BoolValue(true),
               "patientName"   -> StrValue("John Doe")
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         enrollProof <- registry.generateProofs(enrollUpdate, Set(Bob))
         state1      <- combiner.insert(inState, Signed(enrollUpdate, enrollProof))
@@ -1080,25 +1081,30 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         startTrialUpdate = Updates.TransitionStateMachine(
           trialCid,
           "start_trial",
-          MapValue(Map("timestamp" -> IntValue(1100)))
+          MapValue(Map("timestamp" -> IntValue(1100))),
+          FiberOrdinal.MinValue
         )
         startTrialProof <- registry.generateProofs(startTrialUpdate, Set(Alice))
         state2          <- combiner.insert(state1, Signed(startTrialUpdate, startTrialProof))
 
         // Step 3: Activate patient
+        activateSeqNum = state2.calculated.stateMachines(patientCid).sequenceNumber
         activateUpdate = Updates.TransitionStateMachine(
           patientCid,
           "activate",
-          MapValue(Map("timestamp" -> IntValue(1200)))
+          MapValue(Map("timestamp" -> IntValue(1200))),
+          activateSeqNum
         )
         activateProof <- registry.generateProofs(activateUpdate, Set(Bob))
         state3        <- combiner.insert(state2, Signed(activateUpdate, activateProof))
 
         // Step 4: Schedule visit
+        scheduleVisitSeqNum = state3.calculated.stateMachines(patientCid).sequenceNumber
         scheduleVisitUpdate = Updates.TransitionStateMachine(
           patientCid,
           "schedule_visit",
-          MapValue(Map("visitTime" -> IntValue(2000)))
+          MapValue(Map("visitTime" -> IntValue(2000))),
+          scheduleVisitSeqNum
         )
         scheduleVisitProof <- registry.generateProofs(scheduleVisitUpdate, Set(Bob))
         state4             <- combiner.insert(state3, Signed(scheduleVisitUpdate, scheduleVisitProof))
@@ -1107,16 +1113,19 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         receiveSampleUpdate = Updates.TransitionStateMachine(
           labCid,
           "receive_sample",
-          MapValue(Map("timestamp" -> IntValue(2100)))
+          MapValue(Map("timestamp" -> IntValue(2100))),
+          FiberOrdinal.MinValue
         )
         receiveSampleProof <- registry.generateProofs(receiveSampleUpdate, Set(Charlie))
         state5             <- combiner.insert(state4, Signed(receiveSampleUpdate, receiveSampleProof))
 
         // Step 6: Complete visit (triggers lab processing)
+        completeVisitSeqNum = state5.calculated.stateMachines(patientCid).sequenceNumber
         completeVisitUpdate = Updates.TransitionStateMachine(
           patientCid,
           "complete_visit",
-          MapValue(Map("timestamp" -> IntValue(2200)))
+          MapValue(Map("timestamp" -> IntValue(2200))),
+          completeVisitSeqNum
         )
         completeVisitProof <- registry.generateProofs(completeVisitUpdate, Set(Bob))
         state6             <- combiner.insert(state5, Signed(completeVisitUpdate, completeVisitProof))
@@ -1134,6 +1143,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         }
 
         // Step 7: Complete lab processing with high quality (passed)
+        completeLabSeqNum = state6.calculated.stateMachines(labCid).sequenceNumber
         completeLabUpdate = Updates.TransitionStateMachine(
           labCid,
           "complete",
@@ -1144,7 +1154,8 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
               "contaminated"   -> BoolValue(false),
               "biomarkerLevel" -> IntValue(50)
             )
-          )
+          ),
+          completeLabSeqNum
         )
         completeLabProof <- registry.generateProofs(completeLabUpdate, Set(Charlie))
         state7           <- combiner.insert(state6, Signed(completeLabUpdate, completeLabProof))
@@ -1161,10 +1172,12 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         }
 
         // Step 8: Patient continues after passed result
+        continueSeqNum = state7.calculated.stateMachines(patientCid).sequenceNumber
         continueUpdate = Updates.TransitionStateMachine(
           patientCid,
           "continue",
-          MapValue(Map("timestamp" -> IntValue(2400)))
+          MapValue(Map("timestamp" -> IntValue(2400))),
+          continueSeqNum
         )
         continueProof <- registry.generateProofs(continueUpdate, Set(Bob))
         state8        <- combiner.insert(state7, Signed(continueUpdate, continueProof))

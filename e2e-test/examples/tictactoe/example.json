@@ -1,0 +1,78 @@
+{
+  "name": "Tic-Tac-Toe Game",
+  "description": "Complete tic-tac-toe implementation demonstrating the oracle-centric architecture pattern where the oracle holds game state and the state machine orchestrates the lifecycle",
+  "type": "combined",
+
+  "oracle": {
+    "definition": "oracle-definition.json",
+    "methods": [
+      { "name": "initialize", "description": "Initialize game with two players" },
+      { "name": "makeMove", "description": "Make a move on the board" },
+      { "name": "checkWinner", "description": "Check current game status (read-only)" },
+      { "name": "getBoard", "description": "Get current board state (read-only)" },
+      { "name": "resetGame", "description": "Reset board for a new round" },
+      { "name": "cancelGame", "description": "Cancel the game" }
+    ]
+  },
+
+  "stateMachine": {
+    "definition": "sm-definition.ts",
+    "initialData": "sm-initial-data.ts",
+    "events": [
+      { "name": "start_game", "description": "Start the game with two players", "file": "event-start-game.ts", "from": "setup", "to": "playing" },
+      { "name": "make_move", "description": "Make a move (stays in playing or goes to finished)", "file": "event-move.ts", "from": "playing", "to": "playing/finished" },
+      { "name": "reset_board", "description": "Reset the board for another round", "file": "event-reset.ts", "from": "playing", "to": "playing" },
+      { "name": "cancel_game", "description": "Cancel the game", "file": "event-cancel.ts", "from": "setup/playing", "to": "cancelled" }
+    ]
+  },
+
+  "testFlows": [
+    {
+      "name": "X wins with top row",
+      "description": "Play a game where X wins by completing the top row (cells 0, 1, 2)",
+      "steps": [
+        { "action": "createOracle", "definition": "oracle-definition.json" },
+        { "action": "createStateMachine", "definition": "sm-definition.ts", "initialData": "sm-initial-data.ts" },
+        { "action": "processEvent", "event": "event-start-game.ts" },
+        { "action": "processEvent", "event": "event-move.ts", "eventData": { "player": "X", "cell": 0 } },
+        { "action": "processEvent", "event": "event-move.ts", "eventData": { "player": "O", "cell": 3 } },
+        { "action": "processEvent", "event": "event-move.ts", "eventData": { "player": "X", "cell": 1 } },
+        { "action": "processEvent", "event": "event-move.ts", "eventData": { "player": "O", "cell": 4 } },
+        { "action": "processEvent", "event": "event-move.ts", "eventData": { "player": "X", "cell": 2 } }
+      ]
+    },
+    {
+      "name": "O wins with left column",
+      "description": "Play a game where O wins by completing the left column (cells 0, 3, 6)",
+      "steps": [
+        { "action": "createOracle", "definition": "oracle-definition.json" },
+        { "action": "createStateMachine", "definition": "sm-definition.ts", "initialData": "sm-initial-data.ts" },
+        { "action": "processEvent", "event": "event-start-game.ts" },
+        { "action": "processEvent", "event": "event-move.ts", "eventData": { "player": "X", "cell": 1 } },
+        { "action": "processEvent", "event": "event-move.ts", "eventData": { "player": "O", "cell": 0 } },
+        { "action": "processEvent", "event": "event-move.ts", "eventData": { "player": "X", "cell": 2 } },
+        { "action": "processEvent", "event": "event-move.ts", "eventData": { "player": "O", "cell": 3 } },
+        { "action": "processEvent", "event": "event-move.ts", "eventData": { "player": "X", "cell": 8 } },
+        { "action": "processEvent", "event": "event-move.ts", "eventData": { "player": "O", "cell": 6 } }
+      ]
+    },
+    {
+      "name": "Draw game",
+      "description": "Play a game that ends in a draw",
+      "steps": [
+        { "action": "createOracle", "definition": "oracle-definition.json" },
+        { "action": "createStateMachine", "definition": "sm-definition.ts", "initialData": "sm-initial-data.ts" },
+        { "action": "processEvent", "event": "event-start-game.ts" },
+        { "action": "processEvent", "event": "event-move.ts", "eventData": { "player": "X", "cell": 0 } },
+        { "action": "processEvent", "event": "event-move.ts", "eventData": { "player": "O", "cell": 4 } },
+        { "action": "processEvent", "event": "event-move.ts", "eventData": { "player": "X", "cell": 8 } },
+        { "action": "processEvent", "event": "event-move.ts", "eventData": { "player": "O", "cell": 2 } },
+        { "action": "processEvent", "event": "event-move.ts", "eventData": { "player": "X", "cell": 6 } },
+        { "action": "processEvent", "event": "event-move.ts", "eventData": { "player": "O", "cell": 3 } },
+        { "action": "processEvent", "event": "event-move.ts", "eventData": { "player": "X", "cell": 5 } },
+        { "action": "processEvent", "event": "event-move.ts", "eventData": { "player": "O", "cell": 7 } },
+        { "action": "processEvent", "event": "event-move.ts", "eventData": { "player": "X", "cell": 1 } }
+      ]
+    }
+  ]
+}

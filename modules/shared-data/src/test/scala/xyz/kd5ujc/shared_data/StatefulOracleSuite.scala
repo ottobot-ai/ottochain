@@ -83,7 +83,8 @@ object StatefulOracleSuite extends SimpleIOSuite {
         invokeOracle = Updates.InvokeScriptOracle(
           fiberId = cid,
           method = "increment",
-          args = MapValue(Map.empty)
+          args = MapValue(Map.empty),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
 
         invokeProof <- fixture.registry.generateProofs(invokeOracle, Set(Alice))
@@ -127,7 +128,8 @@ object StatefulOracleSuite extends SimpleIOSuite {
         invokeOracle = Updates.InvokeScriptOracle(
           fiberId = cid,
           method = "increment",
-          args = MapValue(Map.empty)
+          args = MapValue(Map.empty),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
 
         invokeProof <- fixture.registry.generateProofs(invokeOracle, Set(Alice))
@@ -175,7 +177,8 @@ object StatefulOracleSuite extends SimpleIOSuite {
         invokeOracle = Updates.InvokeScriptOracle(
           fiberId = cid,
           method = "visit",
-          args = MapValue(Map.empty)
+          args = MapValue(Map.empty),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
 
         invokeProof <- fixture.registry.generateProofs(invokeOracle, Set(Alice))
@@ -226,14 +229,15 @@ object StatefulOracleSuite extends SimpleIOSuite {
         )
 
         // First invocation
-        invoke1 = Updates.InvokeScriptOracle(cid, "inc", MapValue(Map.empty))
+        invoke1 = Updates.InvokeScriptOracle(cid, "inc", MapValue(Map.empty), FiberOrdinal.MinValue)
         proof1 <- fixture.registry.generateProofs(invoke1, Set(Alice))
         state1 <- combiner.insert(state0, Signed(invoke1, proof1))
 
         oracle1 = state1.calculated.scriptOracles.get(cid)
 
         // Second invocation
-        invoke2 = Updates.InvokeScriptOracle(cid, "inc", MapValue(Map.empty))
+        invoke2 = Updates
+          .InvokeScriptOracle(cid, "inc", MapValue(Map.empty), state1.calculated.scriptOracles(cid).sequenceNumber)
         proof2 <- fixture.registry.generateProofs(invoke2, Set(Alice))
         state2 <- combiner.insert(state1, Signed(invoke2, proof2))
 

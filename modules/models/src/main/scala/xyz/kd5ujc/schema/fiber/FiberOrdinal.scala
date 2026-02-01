@@ -2,6 +2,7 @@ package xyz.kd5ujc.schema.fiber
 
 import cats.kernel.{Next, PartialOrder, PartialPrevious}
 import cats.{Order, Show}
+
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV

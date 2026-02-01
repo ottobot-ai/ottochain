@@ -7,7 +7,7 @@ import io.constellationnetwork.metagraph_sdk.json_logic.JsonLogicValue
 import io.constellationnetwork.schema.SnapshotOrdinal
 import io.constellationnetwork.schema.address.Address
 
-import xyz.kd5ujc.schema.{Records}
+import xyz.kd5ujc.schema.Records
 
 import derevo.circe.magnolia.{decoder, encoder}
 import derevo.derive

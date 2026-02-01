@@ -103,7 +103,8 @@ object CounterOracleSuite extends SimpleIOSuite {
         invokeOracle = Updates.InvokeScriptOracle(
           fiberId = cid,
           method = "increment",
-          args = MapValue(Map.empty)
+          args = MapValue(Map.empty),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
 
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
@@ -145,7 +146,8 @@ object CounterOracleSuite extends SimpleIOSuite {
         invokeOracle = Updates.InvokeScriptOracle(
           fiberId = cid,
           method = "decrement",
-          args = MapValue(Map.empty)
+          args = MapValue(Map.empty),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
 
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
@@ -190,7 +192,8 @@ object CounterOracleSuite extends SimpleIOSuite {
         invokeOracle = Updates.InvokeScriptOracle(
           fiberId = cid,
           method = "reset",
-          args = MapValue(Map.empty)
+          args = MapValue(Map.empty),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
 
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
@@ -230,21 +233,31 @@ object CounterOracleSuite extends SimpleIOSuite {
         )
 
         // First increment (0 -> 1)
-        invoke1 = Updates.InvokeScriptOracle(cid, "increment", MapValue(Map.empty))
+        invoke1 = Updates.InvokeScriptOracle(cid, "increment", MapValue(Map.empty), FiberOrdinal.MinValue)
         proof1 <- registry.generateProofs(invoke1, Set(Alice))
         state1 <- combiner.insert(state0, Signed(invoke1, proof1))
 
         oracle1 = state1.calculated.scriptOracles.get(cid)
 
         // Second increment (1 -> 2)
-        invoke2 = Updates.InvokeScriptOracle(cid, "increment", MapValue(Map.empty))
+        invoke2 = Updates.InvokeScriptOracle(
+          cid,
+          "increment",
+          MapValue(Map.empty),
+          state1.calculated.scriptOracles(cid).sequenceNumber
+        )
         proof2 <- registry.generateProofs(invoke2, Set(Alice))
         state2 <- combiner.insert(state1, Signed(invoke2, proof2))
 
         oracle2 = state2.calculated.scriptOracles.get(cid)
 
         // Third increment (2 -> 3)
-        invoke3 = Updates.InvokeScriptOracle(cid, "increment", MapValue(Map.empty))
+        invoke3 = Updates.InvokeScriptOracle(
+          cid,
+          "increment",
+          MapValue(Map.empty),
+          state2.calculated.scriptOracles(cid).sequenceNumber
+        )
         proof3 <- registry.generateProofs(invoke3, Set(Alice))
         state3 <- combiner.insert(state2, Signed(invoke3, proof3))
 
@@ -283,17 +296,27 @@ object CounterOracleSuite extends SimpleIOSuite {
         )
 
         // First increment (0 -> 1)
-        invoke1 = Updates.InvokeScriptOracle(cid, "increment", MapValue(Map.empty))
+        invoke1 = Updates.InvokeScriptOracle(cid, "increment", MapValue(Map.empty), FiberOrdinal.MinValue)
         proof1 <- registry.generateProofs(invoke1, Set(Alice))
         state1 <- combiner.insert(state0, Signed(invoke1, proof1))
 
         // Second increment (1 -> 2)
-        invoke2 = Updates.InvokeScriptOracle(cid, "increment", MapValue(Map.empty))
+        invoke2 = Updates.InvokeScriptOracle(
+          cid,
+          "increment",
+          MapValue(Map.empty),
+          state1.calculated.scriptOracles(cid).sequenceNumber
+        )
         proof2 <- registry.generateProofs(invoke2, Set(Alice))
         state2 <- combiner.insert(state1, Signed(invoke2, proof2))
 
         // Decrement (2 -> 1)
-        invoke3 = Updates.InvokeScriptOracle(cid, "decrement", MapValue(Map.empty))
+        invoke3 = Updates.InvokeScriptOracle(
+          cid,
+          "decrement",
+          MapValue(Map.empty),
+          state2.calculated.scriptOracles(cid).sequenceNumber
+        )
         proof3 <- registry.generateProofs(invoke3, Set(Alice))
         state3 <- combiner.insert(state2, Signed(invoke3, proof3))
 
@@ -336,7 +359,8 @@ object CounterOracleSuite extends SimpleIOSuite {
         invokeOracle = Updates.InvokeScriptOracle(
           fiberId = cid,
           method = "increment",
-          args = MapValue(Map.empty)
+          args = MapValue(Map.empty),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
 
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
@@ -381,7 +405,8 @@ object CounterOracleSuite extends SimpleIOSuite {
         invokeOracle = Updates.InvokeScriptOracle(
           fiberId = cid,
           method = "increment",
-          args = MapValue(Map.empty)
+          args = MapValue(Map.empty),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
 
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
@@ -458,7 +483,8 @@ object CounterOracleSuite extends SimpleIOSuite {
         invokeOracle = Updates.InvokeScriptOracle(
           fiberId = cid,
           method = "increment",
-          args = MapValue(Map.empty)
+          args = MapValue(Map.empty),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
 
         // Bob invokes the oracle (should work for Public access control)
@@ -505,7 +531,8 @@ object CounterOracleSuite extends SimpleIOSuite {
         invokeOracle = Updates.InvokeScriptOracle(
           fiberId = cid,
           method = "increment",
-          args = MapValue(Map.empty)
+          args = MapValue(Map.empty),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
 
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))

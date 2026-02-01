@@ -87,7 +87,8 @@ object OracleValidationSuite extends SimpleIOSuite {
         invokeUpdate = Updates.InvokeScriptOracle(
           fiberId = cid,
           method = "validate",
-          args = MapValue(Map("value" -> IntValue(15)))
+          args = MapValue(Map("value" -> IntValue(15))),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
 
         invokeProof <- fixture.registry.generateProofs(invokeUpdate, Set(Alice))
@@ -146,7 +147,8 @@ object OracleValidationSuite extends SimpleIOSuite {
         invokeUpdate = Updates.InvokeScriptOracle(
           fiberId = cid,
           method = "validate",
-          args = MapValue(Map("value" -> IntValue(5)))
+          args = MapValue(Map("value" -> IntValue(5))),
+          targetSequenceNumber = FiberOrdinal.MinValue
         )
 
         invokeProof <- fixture.registry.generateProofs(invokeUpdate, Set(Alice))

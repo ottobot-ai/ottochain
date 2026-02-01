@@ -1447,7 +1447,8 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "earnestMoney"  -> IntValue(10000),
               "closingDate"   -> IntValue(3000)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         signContractProof <- registry.generateProofs(signContractUpdate, Set(Alice, Bob))
         state1            <- combiner.insert(inState, Signed(signContractUpdate, signContractProof))
@@ -1462,7 +1463,8 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "offerAmount" -> IntValue(500000),
               "buyerId"     -> StrValue(bobAddr.toString)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         acceptOfferProof <- registry.generateProofs(acceptOfferUpdate, Set(Alice))
         state2           <- combiner.insert(state1, Signed(acceptOfferUpdate, acceptOfferProof))
@@ -1476,25 +1478,30 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "timestamp" -> IntValue(1200),
               "amount"    -> IntValue(10000)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         depositProof <- registry.generateProofs(depositUpdate, Set(Bob))
         state3       <- combiner.insert(state2, Signed(depositUpdate, depositProof))
 
         // Step 4: Hold escrow
+        holdEscrowSeqNum = state3.calculated.stateMachines(escrowCid).sequenceNumber
         holdEscrowUpdate = Updates.TransitionStateMachine(
           escrowCid,
           "hold",
-          MapValue(Map("timestamp" -> IntValue(1300)))
+          MapValue(Map("timestamp" -> IntValue(1300))),
+          holdEscrowSeqNum
         )
         holdEscrowProof <- registry.generateProofs(holdEscrowUpdate, Set(Charlie))
         state4          <- combiner.insert(state3, Signed(holdEscrowUpdate, holdEscrowProof))
 
         // Step 5: Enter contingency period
+        enterContingencySeqNum = state4.calculated.stateMachines(contractCid).sequenceNumber
         enterContingencyUpdate = Updates.TransitionStateMachine(
           contractCid,
           "enter_contingency",
-          MapValue(Map("timestamp" -> IntValue(1400)))
+          MapValue(Map("timestamp" -> IntValue(1400))),
+          enterContingencySeqNum
         )
         enterContingencyProof <- registry.generateProofs(enterContingencyUpdate, Set(Alice, Bob))
         state5                <- combiner.insert(state4, Signed(enterContingencyUpdate, enterContingencyProof))
@@ -1504,11 +1511,13 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         scheduleInspectionUpdate = Updates.TransitionStateMachine(
           inspectionCid,
           "schedule",
-          MapValue(Map("inspectionDate" -> IntValue(1500)))
+          MapValue(Map("inspectionDate" -> IntValue(1500))),
+          FiberOrdinal.MinValue
         )
         scheduleInspectionProof <- registry.generateProofs(scheduleInspectionUpdate, Set(Dave))
         state6                  <- combiner.insert(state5, Signed(scheduleInspectionUpdate, scheduleInspectionProof))
 
+        completeInspectionSeqNum = state6.calculated.stateMachines(inspectionCid).sequenceNumber
         completeInspectionUpdate = Updates.TransitionStateMachine(
           inspectionCid,
           "complete",
@@ -1517,11 +1526,13 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "timestamp" -> IntValue(1600),
               "issues"    -> IntValue(1)
             )
-          )
+          ),
+          completeInspectionSeqNum
         )
         completeInspectionProof <- registry.generateProofs(completeInspectionUpdate, Set(Dave))
         state7                  <- combiner.insert(state6, Signed(completeInspectionUpdate, completeInspectionProof))
 
+        approveInspectionSeqNum = state7.calculated.stateMachines(inspectionCid).sequenceNumber
         approveInspectionUpdate = Updates.TransitionStateMachine(
           inspectionCid,
           "approve",
@@ -1530,7 +1541,8 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "timestamp"     -> IntValue(1700),
               "repairsAgreed" -> BoolValue(true)
             )
-          )
+          ),
+          approveInspectionSeqNum
         )
         approveInspectionProof <- registry.generateProofs(approveInspectionUpdate, Set(Dave))
         state8                 <- combiner.insert(state7, Signed(approveInspectionUpdate, approveInspectionProof))
@@ -1544,11 +1556,13 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "timestamp"     -> IntValue(1800),
               "purchasePrice" -> IntValue(500000)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         orderAppraisalProof <- registry.generateProofs(orderAppraisalUpdate, Set(Eve))
         state9              <- combiner.insert(state8, Signed(orderAppraisalUpdate, orderAppraisalProof))
 
+        completeAppraisalSeqNum = state9.calculated.stateMachines(appraisalCid).sequenceNumber
         completeAppraisalUpdate = Updates.TransitionStateMachine(
           appraisalCid,
           "complete",
@@ -1557,15 +1571,18 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "timestamp"      -> IntValue(1900),
               "appraisedValue" -> IntValue(510000)
             )
-          )
+          ),
+          completeAppraisalSeqNum
         )
         completeAppraisalProof <- registry.generateProofs(completeAppraisalUpdate, Set(Eve))
         state10                <- combiner.insert(state9, Signed(completeAppraisalUpdate, completeAppraisalProof))
 
+        reviewAppraisalSeqNum = state10.calculated.stateMachines(appraisalCid).sequenceNumber
         reviewAppraisalUpdate = Updates.TransitionStateMachine(
           appraisalCid,
           "review",
-          MapValue(Map("timestamp" -> IntValue(2000)))
+          MapValue(Map("timestamp" -> IntValue(2000))),
+          reviewAppraisalSeqNum
         )
         reviewAppraisalProof <- registry.generateProofs(reviewAppraisalUpdate, Set(Eve))
         state11              <- combiner.insert(state10, Signed(reviewAppraisalUpdate, reviewAppraisalProof))
@@ -1581,11 +1598,13 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "lender"     -> StrValue(registry.addresses(Faythe).toString),
               "borrower"   -> StrValue(bobAddr.toString)
             )
-          )
+          ),
+          FiberOrdinal.MinValue
         )
         submitMortgageProof <- registry.generateProofs(submitMortgageUpdate, Set(Faythe))
         state12             <- combiner.insert(state11, Signed(submitMortgageUpdate, submitMortgageProof))
 
+        underwriteMortgageSeqNum = state12.calculated.stateMachines(mortgageCid).sequenceNumber
         underwriteMortgageUpdate = Updates.TransitionStateMachine(
           mortgageCid,
           "underwrite",
@@ -1597,16 +1616,19 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "interestRate" -> IntValue(4),
               "term"         -> IntValue(360)
             )
-          )
+          ),
+          underwriteMortgageSeqNum
         )
         underwriteMortgageProof <- registry.generateProofs(underwriteMortgageUpdate, Set(Faythe))
         state13                 <- combiner.insert(state12, Signed(underwriteMortgageUpdate, underwriteMortgageProof))
 
         // Step 9: Pass all contingencies
+        passContingenciesSeqNum = state13.calculated.stateMachines(propertyCid).sequenceNumber
         passContingenciesUpdate = Updates.TransitionStateMachine(
           propertyCid,
           "pass_contingencies",
-          MapValue(Map("timestamp" -> IntValue(2300)))
+          MapValue(Map("timestamp" -> IntValue(2300))),
+          passContingenciesSeqNum
         )
         passContingenciesProof <- registry.generateProofs(passContingenciesUpdate, Set(Alice))
         state14                <- combiner.insert(state13, Signed(passContingenciesUpdate, passContingenciesProof))
@@ -1616,11 +1638,13 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         searchTitleUpdate = Updates.TransitionStateMachine(
           titleCid,
           "search",
-          MapValue(Map("timestamp" -> IntValue(2400)))
+          MapValue(Map("timestamp" -> IntValue(2400))),
+          FiberOrdinal.MinValue
         )
         searchTitleProof <- registry.generateProofs(searchTitleUpdate, Set(Grace))
         state15          <- combiner.insert(state14, Signed(searchTitleUpdate, searchTitleProof))
 
+        completeSearchSeqNum = state15.calculated.stateMachines(titleCid).sequenceNumber
         completeSearchUpdate = Updates.TransitionStateMachine(
           titleCid,
           "complete_search",
@@ -1629,19 +1653,23 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "timestamp"   -> IntValue(2500),
               "issuesFound" -> IntValue(0)
             )
-          )
+          ),
+          completeSearchSeqNum
         )
         completeSearchProof <- registry.generateProofs(completeSearchUpdate, Set(Grace))
         state16             <- combiner.insert(state15, Signed(completeSearchUpdate, completeSearchProof))
 
+        insureTitleSeqNum = state16.calculated.stateMachines(titleCid).sequenceNumber
         insureTitleUpdate = Updates.TransitionStateMachine(
           titleCid,
           "insure",
-          MapValue(Map("timestamp" -> IntValue(2600)))
+          MapValue(Map("timestamp" -> IntValue(2600))),
+          insureTitleSeqNum
         )
         insureTitleProof <- registry.generateProofs(insureTitleUpdate, Set(Grace))
         state17          <- combiner.insert(state16, Signed(insureTitleUpdate, insureTitleProof))
 
+        transferTitleSeqNum = state17.calculated.stateMachines(titleCid).sequenceNumber
         transferTitleUpdate = Updates.TransitionStateMachine(
           titleCid,
           "transfer",
@@ -1651,33 +1679,40 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "fromOwner" -> StrValue(aliceAddr.toString),
               "toOwner"   -> StrValue(bobAddr.toString)
             )
-          )
+          ),
+          transferTitleSeqNum
         )
         transferTitleProof <- registry.generateProofs(transferTitleUpdate, Set(Grace))
         state18            <- combiner.insert(state17, Signed(transferTitleUpdate, transferTitleProof))
 
         // Step 11: Disburse and close escrow
+        disburseEscrowSeqNum = state18.calculated.stateMachines(escrowCid).sequenceNumber
         disburseEscrowUpdate = Updates.TransitionStateMachine(
           escrowCid,
           "disburse",
-          MapValue(Map("timestamp" -> IntValue(2800)))
+          MapValue(Map("timestamp" -> IntValue(2800))),
+          disburseEscrowSeqNum
         )
         disburseEscrowProof <- registry.generateProofs(disburseEscrowUpdate, Set(Charlie))
         state19             <- combiner.insert(state18, Signed(disburseEscrowUpdate, disburseEscrowProof))
 
+        closeEscrowSeqNum = state19.calculated.stateMachines(escrowCid).sequenceNumber
         closeEscrowUpdate = Updates.TransitionStateMachine(
           escrowCid,
           "close",
-          MapValue(Map("timestamp" -> IntValue(2900)))
+          MapValue(Map("timestamp" -> IntValue(2900))),
+          closeEscrowSeqNum
         )
         closeEscrowProof <- registry.generateProofs(closeEscrowUpdate, Set(Charlie))
         state20          <- combiner.insert(state19, Signed(closeEscrowUpdate, closeEscrowProof))
 
         // Step 12: Close sale on property (triggers mortgage activation)
+        closeSaleSeqNum = state20.calculated.stateMachines(propertyCid).sequenceNumber
         closeSaleUpdate = Updates.TransitionStateMachine(
           propertyCid,
           "close_sale",
-          MapValue(Map("timestamp" -> IntValue(3000)))
+          MapValue(Map("timestamp" -> IntValue(3000))),
+          closeSaleSeqNum
         )
         closeSaleProof <- registry.generateProofs(closeSaleUpdate, Set(Alice))
         state21        <- combiner.insert(state20, Signed(closeSaleUpdate, closeSaleProof))
@@ -1695,15 +1730,18 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         }
 
         // Step 13: Close contract
+        closeContractSeqNum = state21.calculated.stateMachines(contractCid).sequenceNumber
         closeContractUpdate = Updates.TransitionStateMachine(
           contractCid,
           "close",
-          MapValue(Map("timestamp" -> IntValue(3100)))
+          MapValue(Map("timestamp" -> IntValue(3100))),
+          closeContractSeqNum
         )
         closeContractProof <- registry.generateProofs(closeContractUpdate, Set(Alice, Bob))
         state22            <- combiner.insert(state21, Signed(closeContractUpdate, closeContractProof))
 
         // PHASE 4: OWNERSHIP PHASE - Make first mortgage payment
+        firstPaymentSeqNum = state22.calculated.stateMachines(mortgageCid).sequenceNumber
         firstPaymentUpdate = Updates.TransitionStateMachine(
           mortgageCid,
           "first_payment",
@@ -1712,7 +1750,8 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "timestamp"     -> IntValue(5000),
               "principalPaid" -> IntValue(500)
             )
-          )
+          ),
+          firstPaymentSeqNum
         )
         firstPaymentProof <- registry.generateProofs(firstPaymentUpdate, Set(Bob))
         state23           <- combiner.insert(state22, Signed(firstPaymentUpdate, firstPaymentProof))

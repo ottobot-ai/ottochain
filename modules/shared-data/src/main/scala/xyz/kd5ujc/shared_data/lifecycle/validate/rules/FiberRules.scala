@@ -12,7 +12,7 @@ import io.constellationnetwork.metagraph_sdk.json_logic.{BoolValue, ConstExpress
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.signature.SignatureProof
 
-import xyz.kd5ujc.schema.fiber.{FiberStatus, StateId, StateMachineDefinition}
+import xyz.kd5ujc.schema.fiber.{FiberOrdinal, FiberStatus, StateId, StateMachineDefinition}
 import xyz.kd5ujc.schema.{CalculatedState, OnChain}
 import xyz.kd5ujc.shared_data.lifecycle.validate.{Limits, ValidationResult}
 import xyz.kd5ujc.shared_data.syntax.calculatedState._
@@ -136,6 +136,31 @@ object FiberRules {
 
       (guardValidations ++ effectValidations).sequence.map(_.combineAll)
     }
+
+    /** Validates that targetSequenceNumber matches the fiber's current sequence number */
+    def sequenceNumberMatches[F[_]: Applicative](
+      fiberId:              UUID,
+      targetSequenceNumber: FiberOrdinal,
+      state:                OnChain
+    ): F[ValidationResult] =
+      state.fiberCommits
+        .get(fiberId)
+        .fold(
+          // Fiber not found — cidIsFound already catches this, pass here
+          ().validNec[DataApplicationValidationError].pure[F]
+        ) { commit =>
+          Validated
+            .condNec(
+              commit.sequenceNumber === targetSequenceNumber,
+              (),
+              Errors.SequenceNumberMismatch(
+                fiberId,
+                targetSequenceNumber,
+                commit.sequenceNumber
+              ): DataApplicationValidationError
+            )
+            .pure[F]
+        }
 
     /** Validates parent fiber exists in on-chain state (L1 structural check) */
     def parentFiberExistsInOnChain[F[_]: Applicative](
@@ -328,6 +353,18 @@ object FiberRules {
 
     final case object NotSignedByOwner extends DataApplicationValidationError {
       override val message: String = "Update not signed by any fiber owner"
+    }
+
+    // --- Sequence number errors ---
+
+    final case class SequenceNumberMismatch(
+      fiberId:  UUID,
+      expected: FiberOrdinal,
+      actual:   FiberOrdinal
+    ) extends DataApplicationValidationError {
+
+      override val message: String =
+        s"Sequence number mismatch for fiber $fiberId: update targets ${expected.value.value} but fiber is at ${actual.value.value}"
     }
 
     // --- Transition errors ---
