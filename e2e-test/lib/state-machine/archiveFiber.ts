@@ -1,0 +1,39 @@
+import type { OttochainMessage } from '@ottochain/sdk';
+import type { StatesMap } from '../types.ts';
+
+export const generator = ({ cid }: { cid: string }): OttochainMessage => {
+  return {
+    ArchiveStateMachine: {
+      fiberId: cid,
+    },
+  };
+};
+
+export const validator = ({ cid, statesMap }: { cid: string; statesMap: StatesMap }) => {
+  for (const [url, { initial, final }] of Object.entries(statesMap)) {
+    const initialRecord = initial?.state?.stateMachines?.[cid];
+    const finalRecord = final?.state?.stateMachines?.[cid];
+
+    if (!initialRecord) {
+      throw new Error(
+        `\x1b[33m[archiveFiber.validator]\x1b[0m No initial state machine fiber found for fiberId = ${cid} from ${url}.`
+      );
+    }
+
+    if (!finalRecord) {
+      throw new Error(
+        `\x1b[33m[archiveFiber.validator]\x1b[0m No final state machine fiber found for fiberId = ${cid} from ${url}.`
+      );
+    }
+
+    if (finalRecord.status !== 'Archived') {
+      throw new Error(
+        `\x1b[33m[archiveFiber.validator]\x1b[0m Expected fiber status "Archived" but found "${finalRecord.status}" for fiberId = ${cid} at ${url}.`
+      );
+    }
+
+    console.log(
+      `\x1b[33m[archiveFiber.validator]\x1b[32m Fiber archived successfully for fiberId = ${cid} at ${url}!\x1b[0m`
+    );
+  }
+};
