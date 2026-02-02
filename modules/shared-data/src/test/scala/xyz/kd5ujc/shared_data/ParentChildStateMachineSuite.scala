@@ -30,8 +30,8 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       val registry = fixture.registry
       for {
-        combiner <- Combiner.make[IO]().pure[IO]
-        orderCid <- UUIDGen.randomUUID[IO]
+        combiner     <- Combiner.make[IO]().pure[IO]
+        orderfiberId <- UUIDGen.randomUUID[IO]
 
         orderJson = s"""{
           "states": {
@@ -106,7 +106,7 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
           )
         )
 
-        createOrder = Updates.CreateStateMachine(orderCid, orderDef, initialData)
+        createOrder = Updates.CreateStateMachine(orderfiberId, orderDef, initialData)
         createProof <- registry.generateProofs(createOrder, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -114,7 +114,7 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
         )
 
         confirmEvent = Updates.TransitionStateMachine(
-          orderCid,
+          orderfiberId,
           "confirm",
           MapValue(Map("timestamp" -> IntValue(1000))),
           FiberOrdinal.MinValue
@@ -122,9 +122,9 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
         confirmProof      <- registry.generateProofs(confirmEvent, Set(Alice))
         stateAfterConfirm <- combiner.insert(stateAfterCreate, Signed(confirmEvent, confirmProof))
 
-        orderSeqAfterConfirm = stateAfterConfirm.calculated.stateMachines(orderCid).sequenceNumber
+        orderSeqAfterConfirm = stateAfterConfirm.calculated.stateMachines(orderfiberId).sequenceNumber
         shipEvent = Updates.TransitionStateMachine(
-          orderCid,
+          orderfiberId,
           "ship",
           MapValue(Map("trackingNumber" -> StrValue("TRACK-456"))),
           orderSeqAfterConfirm
@@ -133,7 +133,7 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
         stateAfterShip <- combiner.insert(stateAfterConfirm, Signed(shipEvent, shipProof))
 
         finalOrder = stateAfterShip.calculated.stateMachines
-          .get(orderCid)
+          .get(orderfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         orderState = finalOrder.flatMap(_.stateData match {
@@ -168,8 +168,8 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        parentCid <- UUIDGen.randomUUID[IO]
-        childCid  <- UUIDGen.randomUUID[IO]
+        parentfiberId <- UUIDGen.randomUUID[IO]
+        childfiberId  <- UUIDGen.randomUUID[IO]
 
         parentJson = s"""{
           "states": {
@@ -223,32 +223,33 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
         parentInitialData = MapValue(Map("status" -> StrValue("active")))
         childInitialData = MapValue(Map("status" -> StrValue("running")))
 
-        createParent = Updates.CreateStateMachine(parentCid, parentDef, parentInitialData)
+        createParent = Updates.CreateStateMachine(parentfiberId, parentDef, parentInitialData)
         parentProof <- registry.generateProofs(createParent, Set(Alice))
         stateAfterParent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createParent, parentProof)
         )
 
-        createChild = Updates.CreateStateMachine(childCid, childDef, childInitialData, Some(parentCid))
+        createChild = Updates.CreateStateMachine(childfiberId, childDef, childInitialData, Some(parentfiberId))
         childProof      <- registry.generateProofs(createChild, Set(Bob))
         stateAfterChild <- combiner.insert(stateAfterParent, Signed(createChild, childProof))
 
-        suspendUpdate = Updates.TransitionStateMachine(parentCid, "suspend", MapValue(Map.empty), FiberOrdinal.MinValue)
+        suspendUpdate = Updates
+          .TransitionStateMachine(parentfiberId, "suspend", MapValue(Map.empty), FiberOrdinal.MinValue)
         suspendProof      <- registry.generateProofs(suspendUpdate, Set(Alice))
         stateAfterSuspend <- combiner.insert(stateAfterChild, Signed(suspendUpdate, suspendProof))
 
         checkUpdate = Updates
-          .TransitionStateMachine(childCid, "check_parent", MapValue(Map.empty), FiberOrdinal.MinValue)
+          .TransitionStateMachine(childfiberId, "check_parent", MapValue(Map.empty), FiberOrdinal.MinValue)
         checkProof <- registry.generateProofs(checkUpdate, Set(Bob))
         finalState <- combiner.insert(stateAfterSuspend, Signed(checkUpdate, checkProof))
 
         finalParent = finalState.calculated.stateMachines
-          .get(parentCid)
+          .get(parentfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         finalChild = finalState.calculated.stateMachines
-          .get(childCid)
+          .get(childfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         parentStatus = finalParent.flatMap { f =>
@@ -281,7 +282,7 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
       expect(finalChild.map(_.currentState).contains(StateId("paused"))) and
       expect(childStatus.contains("paused")) and
       expect(childReason.contains("parent_suspended")) and
-      expect(childParentId.contains(parentCid))
+      expect(childParentId.contains(parentfiberId))
     }
   }
 
@@ -293,9 +294,9 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        parentCid <- UUIDGen.randomUUID[IO]
-        child1Cid <- UUIDGen.randomUUID[IO]
-        child2Cid <- UUIDGen.randomUUID[IO]
+        parentfiberId <- UUIDGen.randomUUID[IO]
+        child1fiberId <- UUIDGen.randomUUID[IO]
+        child2fiberId <- UUIDGen.randomUUID[IO]
 
         simpleDef = StateMachineDefinition(
           states = Map(
@@ -307,38 +308,38 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
 
         initialData = MapValue(Map("status" -> StrValue("active")))
 
-        createParent = Updates.CreateStateMachine(parentCid, simpleDef, initialData)
+        createParent = Updates.CreateStateMachine(parentfiberId, simpleDef, initialData)
         parentProof <- registry.generateProofs(createParent, Set(Alice))
         stateAfterParent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createParent, parentProof)
         )
 
-        createChild1 = Updates.CreateStateMachine(child1Cid, simpleDef, initialData, Some(parentCid))
+        createChild1 = Updates.CreateStateMachine(child1fiberId, simpleDef, initialData, Some(parentfiberId))
         child1Proof      <- registry.generateProofs(createChild1, Set(Alice))
         stateAfterChild1 <- combiner.insert(stateAfterParent, Signed(createChild1, child1Proof))
 
-        createChild2 = Updates.CreateStateMachine(child2Cid, simpleDef, initialData, Some(parentCid))
+        createChild2 = Updates.CreateStateMachine(child2fiberId, simpleDef, initialData, Some(parentfiberId))
         child2Proof <- registry.generateProofs(createChild2, Set(Alice))
         finalState  <- combiner.insert(stateAfterChild1, Signed(createChild2, child2Proof))
 
         parent = finalState.calculated.stateMachines
-          .get(parentCid)
+          .get(parentfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         child1 = finalState.calculated.stateMachines
-          .get(child1Cid)
+          .get(child1fiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         child2 = finalState.calculated.stateMachines
-          .get(child2Cid)
+          .get(child2fiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
       } yield expect(parent.isDefined) and
       expect(child1.isDefined) and
       expect(child2.isDefined) and
-      expect(child1.flatMap(_.parentFiberId).contains(parentCid)) and
-      expect(child2.flatMap(_.parentFiberId).contains(parentCid))
+      expect(child1.flatMap(_.parentFiberId).contains(parentfiberId)) and
+      expect(child2.flatMap(_.parentFiberId).contains(parentfiberId))
     }
   }
 
@@ -347,7 +348,7 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       val registry = fixture.registry
       for {
-        cid <- UUIDGen.randomUUID[IO]
+        fiberId <- UUIDGen.randomUUID[IO]
 
         json = s"""{
           "states": {
@@ -384,7 +385,7 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
         owners = Set(Alice).map(registry.addresses)
 
         fiber = Records.StateMachineFiberRecord(
-          cid = cid,
+          fiberId = fiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -398,12 +399,12 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
           lastReceipt = None
         )
 
-        baseState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
+        baseState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](fiberId, fiber)
 
         engine = FiberEngine.make[IO](baseState.calculated, fixture.ordinal)
 
         dummyUpdate = Updates.TransitionStateMachine(
-          cid,
+          fiberId,
           "alert",
           MapValue(Map("severity" -> StrValue("critical"))),
           FiberOrdinal.MinValue
@@ -411,7 +412,7 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
         proofs <- registry.generateProofs(dummyUpdate, Set(Alice)).map(_.toList)
         input = FiberInput.Transition("alert", MapValue(Map("severity" -> StrValue("critical"))))
 
-        result <- engine.process(cid, input, proofs)
+        result <- engine.process(fiberId, input, proofs)
 
         // Extract logEntries from the committed result
         logEntries = result match {
@@ -435,7 +436,7 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       val registry = fixture.registry
       for {
-        cid <- UUIDGen.randomUUID[IO]
+        fiberId <- UUIDGen.randomUUID[IO]
 
         json = s"""{
           "states": {
@@ -476,7 +477,7 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
         owners = Set(Alice).map(registry.addresses)
 
         fiber = Records.StateMachineFiberRecord(
-          cid = cid,
+          fiberId = fiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -490,15 +491,15 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
           lastReceipt = None
         )
 
-        baseState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
+        baseState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](fiberId, fiber)
 
         engine = FiberEngine.make[IO](baseState.calculated, fixture.ordinal)
 
-        dummyUpdate = Updates.TransitionStateMachine(cid, "complete", MapValue(Map.empty), FiberOrdinal.MinValue)
+        dummyUpdate = Updates.TransitionStateMachine(fiberId, "complete", MapValue(Map.empty), FiberOrdinal.MinValue)
         proofs <- registry.generateProofs(dummyUpdate, Set(Alice)).map(_.toList)
         input = FiberInput.Transition("complete", MapValue(Map.empty))
 
-        result <- engine.process(cid, input, proofs)
+        result <- engine.process(fiberId, input, proofs)
 
         logEntries = result match {
           case TransactionResult.Committed(_, _, entries, _, _, _) => entries
@@ -522,7 +523,7 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       val registry = fixture.registry
       for {
-        cid <- UUIDGen.randomUUID[IO]
+        fiberId <- UUIDGen.randomUUID[IO]
 
         json = s"""{
           "states": {
@@ -550,7 +551,7 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
         owners = Set(Alice).map(registry.addresses)
 
         fiber = Records.StateMachineFiberRecord(
-          cid = cid,
+          fiberId = fiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -564,15 +565,15 @@ object ParentChildStateMachineSuite extends SimpleIOSuite {
           lastReceipt = None
         )
 
-        baseState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
+        baseState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](fiberId, fiber)
 
         engine = FiberEngine.make[IO](baseState.calculated, fixture.ordinal)
 
-        dummyUpdate = Updates.TransitionStateMachine(cid, "go", MapValue(Map.empty), FiberOrdinal.MinValue)
+        dummyUpdate = Updates.TransitionStateMachine(fiberId, "go", MapValue(Map.empty), FiberOrdinal.MinValue)
         proofs <- registry.generateProofs(dummyUpdate, Set(Alice)).map(_.toList)
         input = FiberInput.Transition("go", MapValue(Map.empty))
 
-        result <- engine.process(cid, input, proofs)
+        result <- engine.process(fiberId, input, proofs)
 
         logEntries = result match {
           case TransactionResult.Committed(_, _, entries, _, _, _) => entries

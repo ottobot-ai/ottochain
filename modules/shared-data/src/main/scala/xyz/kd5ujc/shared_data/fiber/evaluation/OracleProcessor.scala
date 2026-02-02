@@ -50,7 +50,7 @@ object OracleProcessor {
     stateDataHashOpt <- update.initialState.traverse[F, Hash](_.computeDigest)
 
     oracleRecord = Records.ScriptOracleFiberRecord(
-      cid = update.fiberId,
+      fiberId = update.fiberId,
       creationOrdinal = currentOrdinal,
       latestUpdateOrdinal = currentOrdinal,
       scriptProgram = update.scriptProgram,

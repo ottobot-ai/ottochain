@@ -33,12 +33,12 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         combiner                            <- Combiner.make[IO]().pure[IO]
         ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
-        trialCid        <- UUIDGen.randomUUID[IO]
-        patientCid      <- UUIDGen.randomUUID[IO]
-        labCid          <- UUIDGen.randomUUID[IO]
-        adverseEventCid <- UUIDGen.randomUUID[IO]
-        regulatorCid    <- UUIDGen.randomUUID[IO]
-        insuranceCid    <- UUIDGen.randomUUID[IO]
+        trialfiberId        <- UUIDGen.randomUUID[IO]
+        patientfiberId      <- UUIDGen.randomUUID[IO]
+        labfiberId          <- UUIDGen.randomUUID[IO]
+        adverseEventfiberId <- UUIDGen.randomUUID[IO]
+        regulatorfiberId    <- UUIDGen.randomUUID[IO]
+        insurancefiberId    <- UUIDGen.randomUUID[IO]
 
         // Trial Coordinator: manages overall trial phases
         trialJson =
@@ -63,14 +63,14 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
               "guard": {
                 "and": [
                   { ">=": [{ "var": "state.enrolledCount" }, { "var": "state.minParticipants" }] },
-                  { "===": [{ "var": "machines.${regulatorCid}.state.status" }, "approved"] }
+                  { "===": [{ "var": "machines.${regulatorfiberId}.state.status" }, "approved"] }
                 ]
               },
               "effect": [
                 ["status", "active"],
                 ["startedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${regulatorCid}"]
+              "dependencies": ["${regulatorfiberId}"]
             },
             {
               "from": { "value": "active" },
@@ -79,7 +79,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
               "guard": {
                 "and": [
                   { ">=": [{ "var": "state.completedVisits" }, 3] },
-                  { "===": [{ "var": "machines.${adverseEventCid}.state.hasCriticalEvent" }, false] }
+                  { "===": [{ "var": "machines.${adverseEventfiberId}.state.hasCriticalEvent" }, false] }
                 ]
               },
               "effect": [
@@ -87,7 +87,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
                 ["phase", 1],
                 ["phaseStartedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${adverseEventCid}"]
+              "dependencies": ["${adverseEventfiberId}"]
             },
             {
               "from": { "value": "phase_1" },
@@ -96,8 +96,8 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
               "guard": {
                 "and": [
                   { ">=": [{ "var": "state.completedVisits" }, 8] },
-                  { "===": [{ "var": "machines.${labCid}.state.passRate" }, 100] },
-                  { "===": [{ "var": "machines.${adverseEventCid}.state.hasCriticalEvent" }, false] }
+                  { "===": [{ "var": "machines.${labfiberId}.state.passRate" }, 100] },
+                  { "===": [{ "var": "machines.${adverseEventfiberId}.state.hasCriticalEvent" }, false] }
                 ]
               },
               "effect": [
@@ -105,7 +105,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
                 ["phase", 2],
                 ["phaseStartedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${labCid}", "${adverseEventCid}"]
+              "dependencies": ["${labfiberId}", "${adverseEventfiberId}"]
             },
             {
               "from": { "value": "phase_2" },
@@ -114,7 +114,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
               "guard": {
                 "and": [
                   { ">=": [{ "var": "state.completedVisits" }, 15] },
-                  { ">=": [{ "var": "machines.${labCid}.state.passRate" }, 95] }
+                  { ">=": [{ "var": "machines.${labfiberId}.state.passRate" }, 95] }
                 ]
               },
               "effect": [
@@ -122,7 +122,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
                 ["phase", 3],
                 ["phaseStartedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${labCid}"]
+              "dependencies": ["${labfiberId}"]
             },
             {
               "from": { "value": "phase_3" },
@@ -131,13 +131,13 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
               "guard": {
                 "and": [
                   { ">=": [{ "var": "state.completedVisits" }, 20] },
-                  { "===": [{ "var": "machines.${patientCid}.state.status" }, "completed"] }
+                  { "===": [{ "var": "machines.${patientfiberId}.state.status" }, "completed"] }
                 ]
               },
               "effect": [
                 ["_triggers", [
                   {
-                    "targetMachineId": "${regulatorCid}",
+                    "targetMachineId": "${regulatorfiberId}",
                     "eventName": "begin_review",
                     "payload": {
                       "trialId": { "var": "machineId" },
@@ -149,34 +149,34 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
                 ["status", "under_review"],
                 ["submittedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${patientCid}"]
+              "dependencies": ["${patientfiberId}"]
             },
             {
               "from": { "value": "under_review" },
               "to": { "value": "completed" },
               "eventName": "finalize",
               "guard": {
-                "===": [{ "var": "machines.${regulatorCid}.state.reviewResult" }, "approved"]
+                "===": [{ "var": "machines.${regulatorfiberId}.state.reviewResult" }, "approved"]
               },
               "effect": [
                 ["status", "completed"],
                 ["completedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${regulatorCid}"]
+              "dependencies": ["${regulatorfiberId}"]
             },
             {
               "from": { "value": "active" },
               "to": { "value": "suspended" },
               "eventName": "suspend",
               "guard": {
-                "===": [{ "var": "machines.${adverseEventCid}.state.hasCriticalEvent" }, true]
+                "===": [{ "var": "machines.${adverseEventfiberId}.state.hasCriticalEvent" }, true]
               },
               "effect": [
                 ["status", "suspended"],
                 ["suspendedAt", { "var": "event.timestamp" }],
                 ["suspensionReason", "critical_adverse_event"]
               ],
-              "dependencies": ["${adverseEventCid}"]
+              "dependencies": ["${adverseEventfiberId}"]
             },
             {
               "from": { "value": "suspended" },
@@ -184,29 +184,29 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
               "eventName": "resume",
               "guard": {
                 "and": [
-                  { "===": [{ "var": "machines.${adverseEventCid}.state.resolved" }, true] },
-                  { "===": [{ "var": "machines.${regulatorCid}.state.allowResume" }, true] }
+                  { "===": [{ "var": "machines.${adverseEventfiberId}.state.resolved" }, true] },
+                  { "===": [{ "var": "machines.${regulatorfiberId}.state.allowResume" }, true] }
                 ]
               },
               "effect": [
                 ["status", "active"],
                 ["resumedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${adverseEventCid}", "${regulatorCid}"]
+              "dependencies": ["${adverseEventfiberId}", "${regulatorfiberId}"]
             },
             {
               "from": { "value": "suspended" },
               "to": { "value": "terminated" },
               "eventName": "terminate",
               "guard": {
-                "===": [{ "var": "machines.${regulatorCid}.state.terminationRequired" }, true]
+                "===": [{ "var": "machines.${regulatorfiberId}.state.terminationRequired" }, true]
               },
               "effect": [
                 ["status", "terminated"],
                 ["terminatedAt", { "var": "event.timestamp" }],
                 ["terminationReason", { "var": "event.reason" }]
               ],
-              "dependencies": ["${regulatorCid}"]
+              "dependencies": ["${regulatorfiberId}"]
             }
           ]
         }"""
@@ -235,7 +235,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
                 "and": [
                   { ">=": [{ "var": "event.age" }, 18] },
                   { "===": [{ "var": "event.consentSigned" }, true] },
-                  { "===": [{ "var": "machines.${insuranceCid}.state.coverageActive" }, true] }
+                  { "===": [{ "var": "machines.${insurancefiberId}.state.coverageActive" }, true] }
                 ]
               },
               "effect": [
@@ -245,7 +245,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
                     "data": {
                       "event": "patient.enrolled",
                       "patientId": { "var": "machineId" },
-                      "trialId": "${trialCid}",
+                      "trialId": "${trialfiberId}",
                       "timestamp": { "var": "event.timestamp" }
                     },
                     "destination": "https://trial-system.example.com/webhooks"
@@ -256,21 +256,21 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
                 ["patientName", { "var": "event.patientName" }],
                 ["age", { "var": "event.age" }]
               ],
-              "dependencies": ["${insuranceCid}"]
+              "dependencies": ["${insurancefiberId}"]
             },
             {
               "from": { "value": "enrolled" },
               "to": { "value": "active" },
               "eventName": "activate",
               "guard": {
-                "===": [{ "var": "machines.${trialCid}.state.status" }, "active"]
+                "===": [{ "var": "machines.${trialfiberId}.state.status" }, "active"]
               },
               "effect": [
                 ["status", "active"],
                 ["activatedAt", { "var": "event.timestamp" }],
                 ["visitCount", 0]
               ],
-              "dependencies": ["${trialCid}"]
+              "dependencies": ["${trialfiberId}"]
             },
             {
               "from": { "value": "active" },
@@ -290,7 +290,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
               "eventName": "resume",
               "guard": {
                 "and": [
-                  { "===": [{ "var": "machines.${trialCid}.state.status" }, "active"] },
+                  { "===": [{ "var": "machines.${trialfiberId}.state.status" }, "active"] },
                   { "<": [{ "-": [{ "var": "event.timestamp" }, { "var": "state.pausedAt" }] }, 2592000] }
                 ]
               },
@@ -298,7 +298,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
                 ["status", "active"],
                 ["resumedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${trialCid}"]
+              "dependencies": ["${trialfiberId}"]
             },
             {
               "from": { "value": "active" },
@@ -318,12 +318,12 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
               "to": { "value": "visit_completed" },
               "eventName": "complete_visit",
               "guard": {
-                "===": [{ "var": "machines.${labCid}.state.sampleStatus" }, "collected"]
+                "===": [{ "var": "machines.${labfiberId}.state.sampleStatus" }, "collected"]
               },
               "effect": [
                 ["_triggers", [
                   {
-                    "targetMachineId": "${labCid}",
+                    "targetMachineId": "${labfiberId}",
                     "eventName": "process_sample",
                     "payload": {
                       "patientId": { "var": "machineId" },
@@ -336,7 +336,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
                 ["visitCount", { "+": [{ "var": "state.visitCount" }, 1] }],
                 ["lastVisitAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${labCid}"]
+              "dependencies": ["${labfiberId}"]
             },
             {
               "from": { "value": "visit_completed" },
@@ -344,14 +344,14 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
               "eventName": "continue",
               "guard": {
                 "and": [
-                  { "===": [{ "var": "machines.${labCid}.state.result" }, "passed"] },
+                  { "===": [{ "var": "machines.${labfiberId}.state.result" }, "passed"] },
                   { "<": [{ "var": "state.visitCount" }, 20] }
                 ]
               },
               "effect": [
                 ["status", "active"]
               ],
-              "dependencies": ["${labCid}"]
+              "dependencies": ["${labfiberId}"]
             },
             {
               "from": { "value": "visit_completed" },
@@ -359,18 +359,18 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
               "eventName": "continue",
               "guard": {
                 "or": [
-                  { "===": [{ "var": "machines.${labCid}.state.result" }, "failed"] },
-                  { "===": [{ "var": "machines.${labCid}.state.result" }, "critical"] }
+                  { "===": [{ "var": "machines.${labfiberId}.state.result" }, "failed"] },
+                  { "===": [{ "var": "machines.${labfiberId}.state.result" }, "critical"] }
                 ]
               },
               "effect": [
                 ["_triggers", [
                   {
-                    "targetMachineId": "${adverseEventCid}",
+                    "targetMachineId": "${adverseEventfiberId}",
                     "eventName": "report_event",
                     "payload": {
                       "patientId": { "var": "machineId" },
-                      "severity": { "var": "machines.${labCid}.state.result" },
+                      "severity": { "var": "machines.${labfiberId}.state.result" },
                       "detectedAt": { "var": "event.timestamp" }
                     }
                   }
@@ -378,20 +378,20 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
                 ["status", "adverse_event"],
                 ["eventDetectedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${labCid}"]
+              "dependencies": ["${labfiberId}"]
             },
             {
               "from": { "value": "adverse_event" },
               "to": { "value": "active" },
               "eventName": "resolve",
               "guard": {
-                "===": [{ "var": "machines.${adverseEventCid}.state.resolved" }, true]
+                "===": [{ "var": "machines.${adverseEventfiberId}.state.resolved" }, true]
               },
               "effect": [
                 ["status", "active"],
                 ["resolvedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${adverseEventCid}"]
+              "dependencies": ["${adverseEventfiberId}"]
             },
             {
               "from": { "value": "visit_completed" },
@@ -400,7 +400,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
               "guard": {
                 "and": [
                   { ">=": [{ "var": "state.visitCount" }, 20] },
-                  { "===": [{ "var": "machines.${labCid}.state.result" }, "passed"] }
+                  { "===": [{ "var": "machines.${labfiberId}.state.result" }, "passed"] }
                 ]
               },
               "effect": [
@@ -417,7 +417,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
                 ["status", "completed"],
                 ["completedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${labCid}"]
+              "dependencies": ["${labfiberId}"]
             },
             {
               "from": { "value": "paused" },
@@ -436,14 +436,14 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
               "to": { "value": "withdrawn" },
               "eventName": "withdraw",
               "guard": {
-                "===": [{ "var": "machines.${adverseEventCid}.state.severity" }, "critical"]
+                "===": [{ "var": "machines.${adverseEventfiberId}.state.severity" }, "critical"]
               },
               "effect": [
                 ["status", "withdrawn"],
                 ["withdrawnAt", { "var": "event.timestamp" }],
                 ["withdrawalReason", "critical_adverse_event"]
               ],
-              "dependencies": ["${adverseEventCid}"]
+              "dependencies": ["${adverseEventfiberId}"]
             }
           ]
         }"""
@@ -966,7 +966,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         insuranceHash <- (insuranceData: JsonLogicValue).computeDigest
 
         trialFiber = Records.StateMachineFiberRecord(
-          cid = trialCid,
+          fiberId = trialfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -980,7 +980,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         )
 
         patientFiber = Records.StateMachineFiberRecord(
-          cid = patientCid,
+          fiberId = patientfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -994,7 +994,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         )
 
         labFiber = Records.StateMachineFiberRecord(
-          cid = labCid,
+          fiberId = labfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1008,7 +1008,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         )
 
         adverseEventFiber = Records.StateMachineFiberRecord(
-          cid = adverseEventCid,
+          fiberId = adverseEventfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1022,7 +1022,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         )
 
         regulatorFiber = Records.StateMachineFiberRecord(
-          cid = regulatorCid,
+          fiberId = regulatorfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1036,7 +1036,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         )
 
         insuranceFiber = Records.StateMachineFiberRecord(
-          cid = insuranceCid,
+          fiberId = insurancefiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1051,18 +1051,18 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
 
         inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecords[IO](
           Map(
-            trialCid        -> trialFiber,
-            patientCid      -> patientFiber,
-            labCid          -> labFiber,
-            adverseEventCid -> adverseEventFiber,
-            regulatorCid    -> regulatorFiber,
-            insuranceCid    -> insuranceFiber
+            trialfiberId        -> trialFiber,
+            patientfiberId      -> patientFiber,
+            labfiberId          -> labFiber,
+            adverseEventfiberId -> adverseEventFiber,
+            regulatorfiberId    -> regulatorFiber,
+            insurancefiberId    -> insuranceFiber
           )
         )
 
         // Step 1: Enroll patient
         enrollUpdate = Updates.TransitionStateMachine(
-          patientCid,
+          patientfiberId,
           "enroll",
           MapValue(
             Map(
@@ -1079,7 +1079,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
 
         // Step 2: Start trial
         startTrialUpdate = Updates.TransitionStateMachine(
-          trialCid,
+          trialfiberId,
           "start_trial",
           MapValue(Map("timestamp" -> IntValue(1100))),
           FiberOrdinal.MinValue
@@ -1088,9 +1088,9 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         state2          <- combiner.insert(state1, Signed(startTrialUpdate, startTrialProof))
 
         // Step 3: Activate patient
-        activateSeqNum = state2.calculated.stateMachines(patientCid).sequenceNumber
+        activateSeqNum = state2.calculated.stateMachines(patientfiberId).sequenceNumber
         activateUpdate = Updates.TransitionStateMachine(
-          patientCid,
+          patientfiberId,
           "activate",
           MapValue(Map("timestamp" -> IntValue(1200))),
           activateSeqNum
@@ -1099,9 +1099,9 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         state3        <- combiner.insert(state2, Signed(activateUpdate, activateProof))
 
         // Step 4: Schedule visit
-        scheduleVisitSeqNum = state3.calculated.stateMachines(patientCid).sequenceNumber
+        scheduleVisitSeqNum = state3.calculated.stateMachines(patientfiberId).sequenceNumber
         scheduleVisitUpdate = Updates.TransitionStateMachine(
-          patientCid,
+          patientfiberId,
           "schedule_visit",
           MapValue(Map("visitTime" -> IntValue(2000))),
           scheduleVisitSeqNum
@@ -1111,7 +1111,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
 
         // Step 5: Lab receives sample
         receiveSampleUpdate = Updates.TransitionStateMachine(
-          labCid,
+          labfiberId,
           "receive_sample",
           MapValue(Map("timestamp" -> IntValue(2100))),
           FiberOrdinal.MinValue
@@ -1120,9 +1120,9 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         state5             <- combiner.insert(state4, Signed(receiveSampleUpdate, receiveSampleProof))
 
         // Step 6: Complete visit (triggers lab processing)
-        completeVisitSeqNum = state5.calculated.stateMachines(patientCid).sequenceNumber
+        completeVisitSeqNum = state5.calculated.stateMachines(patientfiberId).sequenceNumber
         completeVisitUpdate = Updates.TransitionStateMachine(
-          patientCid,
+          patientfiberId,
           "complete_visit",
           MapValue(Map("timestamp" -> IntValue(2200))),
           completeVisitSeqNum
@@ -1132,7 +1132,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
 
         // Verify trigger fired and lab is now processing
         labAfterTrigger = state6.calculated.stateMachines
-          .get(labCid)
+          .get(labfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         labProcessingStatus: Option[String] = labAfterTrigger.flatMap { f =>
@@ -1143,9 +1143,9 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         }
 
         // Step 7: Complete lab processing with high quality (passed)
-        completeLabSeqNum = state6.calculated.stateMachines(labCid).sequenceNumber
+        completeLabSeqNum = state6.calculated.stateMachines(labfiberId).sequenceNumber
         completeLabUpdate = Updates.TransitionStateMachine(
-          labCid,
+          labfiberId,
           "complete",
           MapValue(
             Map(
@@ -1161,7 +1161,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         state7           <- combiner.insert(state6, Signed(completeLabUpdate, completeLabProof))
 
         labAfterComplete = state7.calculated.stateMachines
-          .get(labCid)
+          .get(labfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         labResult: Option[String] = labAfterComplete.flatMap { f =>
@@ -1172,9 +1172,9 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         }
 
         // Step 8: Patient continues after passed result
-        continueSeqNum = state7.calculated.stateMachines(patientCid).sequenceNumber
+        continueSeqNum = state7.calculated.stateMachines(patientfiberId).sequenceNumber
         continueUpdate = Updates.TransitionStateMachine(
-          patientCid,
+          patientfiberId,
           "continue",
           MapValue(Map("timestamp" -> IntValue(2400))),
           continueSeqNum
@@ -1183,7 +1183,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         state8        <- combiner.insert(state7, Signed(continueUpdate, continueProof))
 
         patientAfterContinue = state8.calculated.stateMachines
-          .get(patientCid)
+          .get(patientfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         patientStatus: Option[String] = patientAfterContinue.flatMap { f =>
@@ -1201,7 +1201,7 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
         }
 
         trialAfterVisit = state8.calculated.stateMachines
-          .get(trialCid)
+          .get(trialfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         trialStatus: Option[String] = trialAfterVisit.flatMap { f =>
@@ -1213,27 +1213,27 @@ object ClinicalTrialStateMachineSuite extends SimpleIOSuite {
 
       } yield expect.all(
         // Verify patient enrollment succeeded
-        state1.calculated.stateMachines.get(patientCid).exists {
+        state1.calculated.stateMachines.get(patientfiberId).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateId("enrolled")
           case _                                  => false
         },
         // Verify trial started
-        state2.calculated.stateMachines.get(trialCid).exists {
+        state2.calculated.stateMachines.get(trialfiberId).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateId("active")
           case _                                  => false
         },
         // Verify patient activated
-        state3.calculated.stateMachines.get(patientCid).exists {
+        state3.calculated.stateMachines.get(patientfiberId).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateId("active")
           case _                                  => false
         },
         // Verify visit scheduled
-        state4.calculated.stateMachines.get(patientCid).exists {
+        state4.calculated.stateMachines.get(patientfiberId).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateId("visit_scheduled")
           case _                                  => false
         },
         // Verify lab received sample
-        state5.calculated.stateMachines.get(labCid).exists {
+        state5.calculated.stateMachines.get(labfiberId).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateId("sample_received")
           case _                                  => false
         },

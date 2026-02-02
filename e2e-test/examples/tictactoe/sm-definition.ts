@@ -6,12 +6,12 @@ import crypto from 'crypto';
  * Orchestrates the game lifecycle: setup -> playing -> finished/cancelled
  * Coordinates with the oracle via _oracleCall effects.
  *
- * The oracle CID is injected dynamically from context.session.oracleCid
+ * The oracle fiberId is injected dynamically from context.session.oracleFiberId
  * so each test run uses a fresh oracle.
  */
 export default (context: Record<string, unknown>) => {
-  const session = context?.session as { oracleCid?: string } | undefined;
-  const oracleCid = session?.oracleCid || crypto.randomUUID();
+  const session = context?.session as { oracleFiberId?: string } | undefined;
+  const oracleFiberId = session?.oracleFiberId || crypto.randomUUID();
 
   return {
     states: {
@@ -52,7 +52,7 @@ export default (context: Record<string, unknown>) => {
         },
         effect: {
           _oracleCall: {
-            cid: { var: 'state.oracleCid' },
+            fiberId: { var: 'state.oracleFiberId' },
             method: 'initialize',
             args: {
               playerX: { var: 'event.playerX' },
@@ -74,11 +74,11 @@ export default (context: Record<string, unknown>) => {
         to: { value: 'playing' },
         eventName: 'make_move',
         guard: {
-          '===': [{ var: `scriptOracles.${oracleCid}.state.status` }, 'InProgress'],
+          '===': [{ var: `scriptOracles.${oracleFiberId}.state.status` }, 'InProgress'],
         },
         effect: {
           _oracleCall: {
-            cid: { var: 'state.oracleCid' },
+            fiberId: { var: 'state.oracleFiberId' },
             method: 'makeMove',
             args: {
               player: { var: 'event.player' },
@@ -90,7 +90,7 @@ export default (context: Record<string, unknown>) => {
             cell: { var: 'event.cell' },
           },
         },
-        dependencies: [oracleCid],
+        dependencies: [oracleFiberId],
       },
 
       // playing -> finished (make_move, game ends with win/draw)
@@ -100,35 +100,35 @@ export default (context: Record<string, unknown>) => {
         eventName: 'make_move',
         guard: {
           or: [
-            { '===': [{ var: `scriptOracles.${oracleCid}.state.status` }, 'Won'] },
-            { '===': [{ var: `scriptOracles.${oracleCid}.state.status` }, 'Draw'] },
+            { '===': [{ var: `scriptOracles.${oracleFiberId}.state.status` }, 'Won'] },
+            { '===': [{ var: `scriptOracles.${oracleFiberId}.state.status` }, 'Draw'] },
           ],
         },
         effect: {
           _oracleCall: {
-            cid: { var: 'state.oracleCid' },
+            fiberId: { var: 'state.oracleFiberId' },
             method: 'makeMove',
             args: {
               player: { var: 'event.player' },
               cell: { var: 'event.cell' },
             },
           },
-          finalStatus: { var: `scriptOracles.${oracleCid}.state.status` },
-          winner: { var: `scriptOracles.${oracleCid}.state.winner` },
-          finalBoard: { var: `scriptOracles.${oracleCid}.state.board` },
+          finalStatus: { var: `scriptOracles.${oracleFiberId}.state.status` },
+          winner: { var: `scriptOracles.${oracleFiberId}.state.winner` },
+          finalBoard: { var: `scriptOracles.${oracleFiberId}.state.board` },
           _emit: [
             {
               name: 'game_completed',
               data: {
                 gameId: { var: 'state.gameId' },
-                winner: { var: `scriptOracles.${oracleCid}.state.winner` },
-                status: { var: `scriptOracles.${oracleCid}.state.status` },
-                moveCount: { var: `scriptOracles.${oracleCid}.state.moveCount` },
+                winner: { var: `scriptOracles.${oracleFiberId}.state.winner` },
+                status: { var: `scriptOracles.${oracleFiberId}.state.status` },
+                moveCount: { var: `scriptOracles.${oracleFiberId}.state.moveCount` },
               },
             },
           ],
         },
-        dependencies: [oracleCid],
+        dependencies: [oracleFiberId],
       },
 
       // playing -> playing (reset_board, start new round)
@@ -138,19 +138,19 @@ export default (context: Record<string, unknown>) => {
         eventName: 'reset_board',
         guard: {
           or: [
-            { '===': [{ var: `scriptOracles.${oracleCid}.state.status` }, 'Won'] },
-            { '===': [{ var: `scriptOracles.${oracleCid}.state.status` }, 'Draw'] },
+            { '===': [{ var: `scriptOracles.${oracleFiberId}.state.status` }, 'Won'] },
+            { '===': [{ var: `scriptOracles.${oracleFiberId}.state.status` }, 'Draw'] },
           ],
         },
         effect: {
           _oracleCall: {
-            cid: { var: 'state.oracleCid' },
+            fiberId: { var: 'state.oracleFiberId' },
             method: 'resetGame',
             args: {},
           },
           roundCount: { '+': [{ var: 'state.roundCount' }, 1] },
         },
-        dependencies: [oracleCid],
+        dependencies: [oracleFiberId],
       },
 
       // playing -> cancelled (cancel_game)
@@ -161,7 +161,7 @@ export default (context: Record<string, unknown>) => {
         guard: { '==': [1, 1] },
         effect: {
           _oracleCall: {
-            cid: { var: 'state.oracleCid' },
+            fiberId: { var: 'state.oracleFiberId' },
             method: 'cancelGame',
             args: {
               requestedBy: { var: 'event.requestedBy' },

@@ -121,18 +121,18 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        cid <- UUIDGen.randomUUID[IO]
+        fiberId <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
         initialData = MapValue(Map.empty[String, JsonLogicValue])
 
-        update = Updates.CreateStateMachine(cid, definition, initialData)
+        update = Updates.CreateStateMachine(fiberId, definition, initialData)
         updateProof <- fixture.registry.generateProofs(update, Set(Alice, Bob))
 
         inState = DataState(OnChain.genesis, CalculatedState.genesis)
         outState <- combiner.insert(inState, Signed(update, updateProof))
 
         fiber = outState.calculated.stateMachines
-          .get(cid)
+          .get(fiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
       } yield expect(fiber.isDefined) and
@@ -149,20 +149,20 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        cid <- UUIDGen.randomUUID[IO]
+        fiberId <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
         initialData = MapValue(Map.empty[String, JsonLogicValue])
 
-        createUpdate = Updates.CreateStateMachine(cid, definition, initialData)
+        createUpdate = Updates.CreateStateMachine(fiberId, definition, initialData)
         createProof <- fixture.registry.generateProofs(createUpdate, Set(Alice, Bob))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createUpdate, createProof)
         )
 
-        seqAfterCreate = stateAfterCreate.calculated.stateMachines(cid).sequenceNumber
+        seqAfterCreate = stateAfterCreate.calculated.stateMachines(fiberId).sequenceNumber
         processUpdate = Updates.TransitionStateMachine(
-          cid,
+          fiberId,
           "start",
           MapValue(Map.empty[String, JsonLogicValue]),
           seqAfterCreate
@@ -171,7 +171,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         stateAfterStart <- combiner.insert(stateAfterCreate, Signed(processUpdate, processProof))
 
         fiber = stateAfterStart.calculated.stateMachines
-          .get(cid)
+          .get(fiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         counterValue: Option[BigInt] = fiber.flatMap { f =>
@@ -194,7 +194,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        cid <- UUIDGen.randomUUID[IO]
+        fiberId <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
 
         initialData = MapValue(
@@ -206,7 +206,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = cid,
+          fiberId = fiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -219,10 +219,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           status = FiberStatus.Active
         )
 
-        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](fiberId, fiber)
 
         processUpdate = Updates.TransitionStateMachine(
-          cid,
+          fiberId,
           "increment",
           MapValue(Map.empty[String, JsonLogicValue]),
           FiberOrdinal.MinValue
@@ -231,7 +231,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         outState     <- combiner.insert(inState, Signed(processUpdate, processProof))
 
         updatedFiber = outState.calculated.stateMachines
-          .get(cid)
+          .get(fiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         counterValue: Option[BigInt] = updatedFiber.flatMap { f =>
@@ -261,7 +261,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        cid <- UUIDGen.randomUUID[IO]
+        fiberId <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
 
         initialData = MapValue(
@@ -273,7 +273,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = cid,
+          fiberId = fiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -286,10 +286,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           status = FiberStatus.Active
         )
 
-        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](fiberId, fiber)
 
         processUpdate = Updates.TransitionStateMachine(
-          cid,
+          fiberId,
           "finish",
           MapValue(Map.empty[String, JsonLogicValue]),
           FiberOrdinal.MinValue
@@ -298,7 +298,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         outState     <- combiner.insert(inState, Signed(processUpdate, processProof))
 
         updatedFiber = outState.calculated.stateMachines
-          .get(cid)
+          .get(fiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         activeValue: Option[Boolean] = updatedFiber.flatMap { f =>
@@ -328,7 +328,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        cid <- UUIDGen.randomUUID[IO]
+        fiberId <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
 
         initialData = MapValue(
@@ -340,7 +340,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = cid,
+          fiberId = fiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -353,10 +353,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           status = FiberStatus.Active
         )
 
-        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](fiberId, fiber)
 
         processUpdate = Updates.TransitionStateMachine(
-          cid,
+          fiberId,
           "increment",
           MapValue(Map.empty[String, JsonLogicValue]),
           FiberOrdinal.MinValue
@@ -366,7 +366,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         result <- combiner.insert(inState, Signed(processUpdate, processProof))
 
         updatedFiber = result.calculated.stateMachines
-          .get(cid)
+          .get(fiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
       } yield expect(updatedFiber.isDefined) and
@@ -383,13 +383,13 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        cid <- UUIDGen.randomUUID[IO]
+        fiberId <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
         initialData = MapValue(Map.empty[String, JsonLogicValue])
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = cid,
+          fiberId = fiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -402,14 +402,14 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           status = FiberStatus.Active
         )
 
-        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](fiberId, fiber)
 
-        archiveUpdate = Updates.ArchiveStateMachine(cid, FiberOrdinal.MinValue)
+        archiveUpdate = Updates.ArchiveStateMachine(fiberId, FiberOrdinal.MinValue)
         archiveProof <- fixture.registry.generateProofs(archiveUpdate, Set(Alice))
         outState     <- combiner.insert(inState, Signed(archiveUpdate, archiveProof))
 
         archivedFiber = outState.calculated.stateMachines
-          .get(cid)
+          .get(fiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
       } yield expect(archivedFiber.isDefined) and
@@ -424,13 +424,13 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        cid <- UUIDGen.randomUUID[IO]
+        fiberId <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
         initialData = MapValue(Map.empty[String, JsonLogicValue])
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = cid,
+          fiberId = fiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -443,17 +443,17 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           status = FiberStatus.Active
         )
 
-        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](fiberId, fiber)
 
         // Archive the fiber first
-        archiveUpdate = Updates.ArchiveStateMachine(cid, FiberOrdinal.MinValue)
+        archiveUpdate = Updates.ArchiveStateMachine(fiberId, FiberOrdinal.MinValue)
         archiveProof  <- fixture.registry.generateProofs(archiveUpdate, Set(Alice))
         archivedState <- combiner.insert(inState, Signed(archiveUpdate, archiveProof))
 
         // Attempt to process an event on the archived fiber
-        seqAfterArchive = archivedState.calculated.stateMachines(cid).sequenceNumber
+        seqAfterArchive = archivedState.calculated.stateMachines(fiberId).sequenceNumber
         processUpdate = Updates.TransitionStateMachine(
-          cid,
+          fiberId,
           "start",
           MapValue(Map.empty),
           seqAfterArchive
@@ -464,7 +464,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         eventResult <- combiner.insert(archivedState, Signed(processUpdate, eventProof))
 
         // Get the updated fiber to check its status
-        updatedFiber = eventResult.calculated.stateMachines.get(cid)
+        updatedFiber = eventResult.calculated.stateMachines.get(fiberId)
 
       } yield updatedFiber match {
         case Some(fiber) =>
@@ -477,7 +477,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
               failure(s"Expected failed receipt, got: $other")
           }
         case None =>
-          failure(s"Fiber $cid not found in result state")
+          failure(s"Fiber $fiberId not found in result state")
       }
     }
   }
@@ -489,7 +489,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        cid <- UUIDGen.randomUUID[IO]
+        fiberId <- UUIDGen.randomUUID[IO]
         definition = createCounterStateMachine()
 
         initialData = MapValue(
@@ -501,7 +501,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = cid,
+          fiberId = fiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -514,10 +514,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           status = FiberStatus.Active
         )
 
-        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](fiberId, fiber)
 
         processUpdate = Updates.TransitionStateMachine(
-          cid,
+          fiberId,
           "increment",
           MapValue(Map.empty[String, JsonLogicValue]),
           FiberOrdinal.MinValue
@@ -526,7 +526,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         finalState   <- combiner.insert(inState, Signed(processUpdate, processProof))
 
         finalFiber = finalState.calculated.stateMachines
-          .get(cid)
+          .get(fiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         counterValue: Option[BigInt] = finalFiber.flatMap { f =>
@@ -548,7 +548,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        cid <- UUIDGen.randomUUID[IO]
+        fiberId <- UUIDGen.randomUUID[IO]
 
         definition = StateMachineDefinition(
           states = Map(
@@ -583,7 +583,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = cid,
+          fiberId = fiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -596,10 +596,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           status = FiberStatus.Active
         )
 
-        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](fiberId, fiber)
 
         processUpdate = Updates.TransitionStateMachine(
-          cid,
+          fiberId,
           "lock",
           MapValue(Map("authorized" -> BoolValue(true))),
           FiberOrdinal.MinValue
@@ -608,7 +608,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         outState     <- combiner.insert(inState, Signed(processUpdate, processProof))
 
         updatedFiber = outState.calculated.stateMachines
-          .get(cid)
+          .get(fiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
       } yield expect(updatedFiber.isDefined) and
@@ -623,7 +623,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        cid <- UUIDGen.randomUUID[IO]
+        fiberId <- UUIDGen.randomUUID[IO]
 
         definition = StateMachineDefinition(
           states = Map(
@@ -652,7 +652,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = cid,
+          fiberId = fiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -665,10 +665,10 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           status = FiberStatus.Active
         )
 
-        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](fiberId, fiber)
 
         processUpdate = Updates.TransitionStateMachine(
-          cid,
+          fiberId,
           "lock",
           MapValue(Map("authorized" -> BoolValue(false))),
           FiberOrdinal.MinValue
@@ -677,7 +677,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         result       <- combiner.insert(inState, Signed(processUpdate, processProof))
 
         updatedFiber = result.calculated.stateMachines
-          .get(cid)
+          .get(fiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
       } yield expect(updatedFiber.isDefined) and
@@ -695,7 +695,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
         for {
           combiner <- Combiner.make[IO]().pure[IO]
 
-          cid <- UUIDGen.randomUUID[IO]
+          fiberId <- UUIDGen.randomUUID[IO]
           definition = createCounterStateMachine()
 
           initialData = MapValue(
@@ -707,7 +707,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           initialHash <- (initialData: JsonLogicValue).computeDigest
 
           fiber = Records.StateMachineFiberRecord(
-            cid = cid,
+            fiberId = fiberId,
             creationOrdinal = fixture.ordinal,
             previousUpdateOrdinal = fixture.ordinal,
             latestUpdateOrdinal = fixture.ordinal,
@@ -720,12 +720,12 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
             status = FiberStatus.Active
           )
 
-          inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
+          inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](fiberId, fiber)
 
           finalState <- (1 to increments).toList.foldLeftM(inState) { (state, _) =>
-            val seqNum = state.calculated.stateMachines(cid).sequenceNumber
+            val seqNum = state.calculated.stateMachines(fiberId).sequenceNumber
             val processUpdate = Updates.TransitionStateMachine(
-              cid,
+              fiberId,
               "increment",
               MapValue(Map.empty[String, JsonLogicValue]),
               seqNum
@@ -737,7 +737,7 @@ object BasicStateMachineSuite extends SimpleIOSuite with Checkers {
           }
 
           finalFiber = finalState.calculated.stateMachines
-            .get(cid)
+            .get(fiberId)
             .collect { case r: Records.StateMachineFiberRecord => r }
 
           counterValue: Option[BigInt] = finalFiber.flatMap { f =>

@@ -177,23 +177,84 @@ async function waitForMl0Confirmation(
 ): Promise<void> {
   const url = `${ml0BaseUrl}/data-application/v1/${entityPath}`;
   const client = new HttpClient(url);
+  process.stdout.write(`\n      ⏳ ML0 confirm ${label}`);
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const data = await client.get<unknown>('');
       if (predicate(data)) {
+        process.stdout.write(' ✓\n');
         return;
       }
     } catch {
       // Entity may not exist yet — continue polling
     }
+    process.stdout.write('.');
     if (attempt < maxRetries) {
       await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
     }
   }
 
+  process.stdout.write(' ✗\n');
   throw new Error(
     `ML0 confirmation timed out for ${label} at ${url} after ${maxRetries} attempts`
+  );
+}
+
+/**
+ * Wait until a DL1 node's OnChain state reflects a fiber commit that matches
+ * the expected sequence number (or simply exists, for create steps).
+ *
+ * Compares the DL1's /v1/onchain fiberCommits against what ML0 has already
+ * confirmed, ensuring snapshot propagation (ML0 → GL0 → DL1) has completed
+ * before the runner sends the next step.
+ */
+async function waitForDl1Sync(
+  dl1BaseUrl: string,
+  fiberId: string,
+  expectedSeqNum: number | null,
+  maxRetries: number,
+  retryDelayMs: number,
+  label: string
+): Promise<void> {
+  const url = `${dl1BaseUrl}/data-application/v1/onchain`;
+  const client = new HttpClient(url);
+  const seqLabel = expectedSeqNum === null ? 'exists' : `seq≥${expectedSeqNum}`;
+  process.stdout.write(`      ⏳ DL1 sync ${fiberId.slice(0, 8)}… (${seqLabel})`);
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const onChain = (await client.get<unknown>('')) as {
+        fiberCommits?: Record<string, { sequenceNumber?: number }>;
+      } | null;
+
+      if (onChain?.fiberCommits) {
+        const commit = onChain.fiberCommits[fiberId];
+        if (commit) {
+          if (expectedSeqNum === null) {
+            // Create step — just need the fiber to exist in DL1's OnChain
+            process.stdout.write(' ✓\n');
+            return;
+          }
+          if (commit.sequenceNumber !== undefined && commit.sequenceNumber >= expectedSeqNum) {
+            process.stdout.write(' ✓\n');
+            return;
+          }
+        }
+      }
+    } catch {
+      // DL1 may not be ready yet — continue polling
+    }
+    process.stdout.write('.');
+    if (attempt < maxRetries) {
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+    }
+  }
+
+  process.stdout.write(' ✗\n');
+  throw new Error(
+    `DL1 sync timed out for ${label} at ${url} after ${maxRetries} attempts ` +
+      `(waiting for fiberId=${fiberId} seqNum=${expectedSeqNum ?? 'exists'})`
   );
 }
 
@@ -225,7 +286,7 @@ interface Example {
   name: string;
   description: string;
   type: string;
-  oracleCid?: string;
+  oracleFiberId?: string;
   testFlows: TestFlow[];
   [key: string]: unknown;
 }
@@ -275,7 +336,7 @@ async function runFlow(
 ): Promise<{ passed: boolean; error?: string; failedStep?: number }> {
   const session = {
     cid: crypto.randomUUID(),
-    oracleCid: null as string | null,
+    oracleFiberId: null as string | null,
   };
 
   for (let i = 0; i < flow.steps.length; i++) {
@@ -298,16 +359,19 @@ async function runFlow(
       // Determine which fiber this step targets and fetch its current sequence number
       const isOracleStep =
         (step.action as string).includes('Oracle') || step.action === 'invoke';
-      const activeCid = isOracleStep ? session.oracleCid! : session.cid;
-      const entityPath = isOracleStep
-        ? `oracles/${activeCid}`
-        : `state-machines/${activeCid}`;
-
-      let preSendSeqNum = -1;
       const isCreateStep =
         step.action === 'create' ||
         step.action === 'createStateMachine' ||
         step.action === 'createOracle';
+
+      // For createOracle, oracleFiberId is assigned inside the switch below,
+      // so we defer activeCid/entityPath until after the switch for create steps.
+      let activeCid = isOracleStep ? session.oracleFiberId! : session.cid;
+      let entityPath = isOracleStep
+        ? `oracles/${activeCid}`
+        : `state-machines/${activeCid}`;
+
+      let preSendSeqNum = -1;
       if (!isCreateStep) {
         try {
           const ml0Client = new HttpClient(
@@ -348,7 +412,7 @@ async function runFlow(
         }
 
         case 'createOracle': {
-          session.oracleCid = (example.oracleCid as string) || crypto.randomUUID();
+          session.oracleFiberId = (example.oracleFiberId as string) || crypto.randomUUID();
           const definition = await loadFileOrModule(
             path.join(examplesDir, example.dir, step.definition!),
             loadContext
@@ -360,7 +424,7 @@ async function runFlow(
           generator = libModule.generator;
           validator = libModule.validator;
           message = generator({
-            cid: session.oracleCid,
+            cid: session.oracleFiberId,
             wallets,
             options: stepOptions,
           });
@@ -420,7 +484,7 @@ async function runFlow(
           generator = libModule.generator;
           validator = libModule.validator;
           message = generator({
-            cid: session.oracleCid!,
+            cid: session.oracleFiberId!,
             wallets,
             options: stepOptions,
           });
@@ -431,14 +495,31 @@ async function runFlow(
           throw new Error(`Unknown action: ${step.action}`);
       }
 
+      // Re-compute activeCid/entityPath after the switch — createOracle assigns
+      // session.oracleFiberId inside the switch, so the pre-switch values may be stale.
+      if (isCreateStep) {
+        activeCid = isOracleStep ? session.oracleFiberId! : session.cid;
+        entityPath = isOracleStep
+          ? `oracles/${activeCid}`
+          : `state-machines/${activeCid}`;
+      }
+
       // Snapshot initial state before sending
       const initialStates = await getInitialStates(ml0Env);
 
-      // Send with retries (DL1 may temporarily reject if prior step is still propagating)
+      // Send with retries.
+      // DL1 may temporarily reject mutations after a create step because its
+      // OnChain cache hasn't refreshed yet (snapshot propagation delay).
+      // When that happens the first attempt gets CidNotFound/FiberIdNotFound,
+      // and subsequent retries with the *same* signed payload are rejected as
+      // duplicate ("Invalid signature"). To work around this, we re-generate
+      // and re-sign the message on every retry so each attempt has a unique
+      // content hash for the DL1's dedup cache.
       let sendAttempt = 0;
+      let currentMessage = message;
       while (true) {
         try {
-          await sendSignedUpdate(message, wallets, dl1Urls);
+          await sendSignedUpdate(currentMessage, wallets, dl1Urls);
           break;
         } catch (sendErr) {
           sendAttempt++;
@@ -448,6 +529,31 @@ async function runFlow(
           }
           process.stdout.write(` (retry ${sendAttempt}/${maxRetries})...`);
           await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+
+          // Re-generate the message so the next attempt has a fresh content hash.
+          // For mutations, also re-fetch the current sequence number in case
+          // the fiber was created/updated since the last attempt.
+          if (!isCreateStep) {
+            try {
+              const ml0Client = new HttpClient(
+                `${ml0Urls[0]}/data-application/v1/${entityPath}`
+              );
+              const existing = (await ml0Client.get<unknown>('')) as Record<string, unknown> | null;
+              if (existing && typeof existing === 'object') {
+                const freshSeqNum = (existing as { sequenceNumber?: number }).sequenceNumber ?? -1;
+                if (freshSeqNum >= 0) {
+                  (stepOptions as Record<string, unknown>).targetSequenceNumber = freshSeqNum;
+                }
+              }
+            } catch {
+              // Entity might not exist yet — keep current options
+            }
+          }
+          currentMessage = generator!({
+            cid: activeCid,
+            wallets,
+            options: stepOptions!,
+          });
         }
       }
 
@@ -468,6 +574,36 @@ async function runFlow(
         retryDelayMs,
         `${step.action} on ${activeCid}`
       );
+
+      // Wait for DL1 OnChain state to catch up with ML0.
+      // After ML0 confirms the step, the snapshot still needs to propagate
+      // through GL0 → DL1 before the DL1's validation cache reflects the
+      // new fiber commit. Without this, the next step's DL1 send may fail
+      // with FiberIdNotFound (create) or SequenceNumberMismatch (mutation).
+      {
+        // Fetch the expected sequence number from ML0 (the source of truth)
+        let expectedSeqNum: number | null = null;
+        try {
+          const ml0Client = new HttpClient(
+            `${ml0Urls[0]}/data-application/v1/${entityPath}`
+          );
+          const record = (await ml0Client.get<unknown>('')) as {
+            sequenceNumber?: number;
+          } | null;
+          expectedSeqNum = record?.sequenceNumber ?? null;
+        } catch {
+          // If we can't fetch from ML0, fall back to existence check only
+        }
+
+        await waitForDl1Sync(
+          dl1Urls[0],
+          activeCid,
+          expectedSeqNum,
+          maxRetries,
+          retryDelayMs,
+          `${step.action} DL1 sync for ${activeCid}`
+        );
+      }
 
       // Validate
       const validationOptions = {

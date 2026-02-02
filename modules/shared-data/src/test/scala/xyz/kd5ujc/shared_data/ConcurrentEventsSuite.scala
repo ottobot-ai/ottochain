@@ -71,38 +71,38 @@ object ConcurrentEventsSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        def_ <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
+        fiberId <- IO.randomUUID
+        def_    <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
 
-        createSM = Updates.CreateStateMachine(cid, def_, MapValue(Map("value" -> IntValue(0))))
+        createSM = Updates.CreateStateMachine(fiberId, def_, MapValue(Map("value" -> IntValue(0))))
 
         createProof <- fixture.registry.generateProofs(createSM, Set(Alice))
         state0 <- combiner.insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createSM, createProof))
 
         // Process multiple increment events sequentially
-        event1 = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty), FiberOrdinal.MinValue)
+        event1 = Updates.TransitionStateMachine(fiberId, "increment", MapValue(Map.empty), FiberOrdinal.MinValue)
         proof1 <- fixture.registry.generateProofs(event1, Set(Alice))
         state1 <- combiner.insert(state0, Signed(event1, proof1))
 
-        event2 = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty), FiberOrdinal.unsafeApply(1))
+        event2 = Updates.TransitionStateMachine(fiberId, "increment", MapValue(Map.empty), FiberOrdinal.unsafeApply(1))
         proof2 <- fixture.registry.generateProofs(event2, Set(Alice))
         state2 <- combiner.insert(state1, Signed(event2, proof2))
 
-        event3 = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty), FiberOrdinal.unsafeApply(2))
+        event3 = Updates.TransitionStateMachine(fiberId, "increment", MapValue(Map.empty), FiberOrdinal.unsafeApply(2))
         proof3 <- fixture.registry.generateProofs(event3, Set(Alice))
         state3 <- combiner.insert(state2, Signed(event3, proof3))
 
         // Run same sequence again from initial state to verify determinism
         state1b <- combiner.insert(state0, Signed(event1, proof1))
-        event2b = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty), FiberOrdinal.unsafeApply(1))
+        event2b = Updates.TransitionStateMachine(fiberId, "increment", MapValue(Map.empty), FiberOrdinal.unsafeApply(1))
         proof2b <- fixture.registry.generateProofs(event2b, Set(Alice))
         state2b <- combiner.insert(state1b, Signed(event2b, proof2b))
-        event3b = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty), FiberOrdinal.unsafeApply(2))
+        event3b = Updates.TransitionStateMachine(fiberId, "increment", MapValue(Map.empty), FiberOrdinal.unsafeApply(2))
         proof3b <- fixture.registry.generateProofs(event3b, Set(Alice))
         state3b <- combiner.insert(state2b, Signed(event3b, proof3b))
 
-        machine1 = state3.calculated.stateMachines.get(cid)
-        machine2 = state3b.calculated.stateMachines.get(cid)
+        machine1 = state3.calculated.stateMachines.get(fiberId)
+        machine2 = state3b.calculated.stateMachines.get(fiberId)
       } yield expect(machine1.isDefined) and
       expect(machine2.isDefined) and
       // Both executions should produce identical results
@@ -131,38 +131,38 @@ object ConcurrentEventsSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        def_ <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
+        fiberId <- IO.randomUUID
+        def_    <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
 
-        createSM = Updates.CreateStateMachine(cid, def_, MapValue(Map("value" -> IntValue(0))))
+        createSM = Updates.CreateStateMachine(fiberId, def_, MapValue(Map("value" -> IntValue(0))))
 
         createProof <- fixture.registry.generateProofs(createSM, Set(Alice))
         state0 <- combiner.insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createSM, createProof))
 
         // Order 1: add 10, then add 5 (result: 15)
         eventA1 = Updates
-          .TransitionStateMachine(cid, "add", MapValue(Map("amount" -> IntValue(10))), FiberOrdinal.MinValue)
+          .TransitionStateMachine(fiberId, "add", MapValue(Map("amount" -> IntValue(10))), FiberOrdinal.MinValue)
         proofA1       <- fixture.registry.generateProofs(eventA1, Set(Alice))
         stateOrder1_1 <- combiner.insert(state0, Signed(eventA1, proofA1))
 
         eventB1 = Updates
-          .TransitionStateMachine(cid, "add", MapValue(Map("amount" -> IntValue(5))), FiberOrdinal.unsafeApply(1))
+          .TransitionStateMachine(fiberId, "add", MapValue(Map("amount" -> IntValue(5))), FiberOrdinal.unsafeApply(1))
         proofB1       <- fixture.registry.generateProofs(eventB1, Set(Alice))
         stateOrder1_2 <- combiner.insert(stateOrder1_1, Signed(eventB1, proofB1))
 
         // Order 2: add 5, then add 10 (result: 15, but different sequence)
         eventA2 = Updates
-          .TransitionStateMachine(cid, "add", MapValue(Map("amount" -> IntValue(5))), FiberOrdinal.MinValue)
+          .TransitionStateMachine(fiberId, "add", MapValue(Map("amount" -> IntValue(5))), FiberOrdinal.MinValue)
         proofA2       <- fixture.registry.generateProofs(eventA2, Set(Alice))
         stateOrder2_1 <- combiner.insert(state0, Signed(eventA2, proofA2))
 
         eventB2 = Updates
-          .TransitionStateMachine(cid, "add", MapValue(Map("amount" -> IntValue(10))), FiberOrdinal.unsafeApply(1))
+          .TransitionStateMachine(fiberId, "add", MapValue(Map("amount" -> IntValue(10))), FiberOrdinal.unsafeApply(1))
         proofB2       <- fixture.registry.generateProofs(eventB2, Set(Alice))
         stateOrder2_2 <- combiner.insert(stateOrder2_1, Signed(eventB2, proofB2))
 
-        machine1 = stateOrder1_2.calculated.stateMachines.get(cid)
-        machine2 = stateOrder2_2.calculated.stateMachines.get(cid)
+        machine1 = stateOrder1_2.calculated.stateMachines.get(fiberId)
+        machine2 = stateOrder2_2.calculated.stateMachines.get(fiberId)
       } yield expect(machine1.isDefined) and
       expect(machine2.isDefined) and
       // Both orders result in same final value (15)
@@ -230,11 +230,11 @@ object ConcurrentEventsSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        def_ <- IO.fromEither(parser.parse(historyDefinitionJson).flatMap(_.as[StateMachineDefinition]))
+        fiberId <- IO.randomUUID
+        def_    <- IO.fromEither(parser.parse(historyDefinitionJson).flatMap(_.as[StateMachineDefinition]))
 
         createSM = Updates.CreateStateMachine(
-          cid,
+          fiberId,
           def_,
           MapValue(Map("history" -> ArrayValue(List.empty), "lastValue" -> IntValue(0)))
         )
@@ -244,21 +244,21 @@ object ConcurrentEventsSuite extends SimpleIOSuite {
 
         // Record events: 1, 2, 3
         event1 = Updates
-          .TransitionStateMachine(cid, "record", MapValue(Map("value" -> IntValue(1))), FiberOrdinal.MinValue)
+          .TransitionStateMachine(fiberId, "record", MapValue(Map("value" -> IntValue(1))), FiberOrdinal.MinValue)
         proof1 <- fixture.registry.generateProofs(event1, Set(Alice))
         state1 <- combiner.insert(state0, Signed(event1, proof1))
 
         event2 = Updates
-          .TransitionStateMachine(cid, "record", MapValue(Map("value" -> IntValue(2))), FiberOrdinal.unsafeApply(1))
+          .TransitionStateMachine(fiberId, "record", MapValue(Map("value" -> IntValue(2))), FiberOrdinal.unsafeApply(1))
         proof2 <- fixture.registry.generateProofs(event2, Set(Alice))
         state2 <- combiner.insert(state1, Signed(event2, proof2))
 
         event3 = Updates
-          .TransitionStateMachine(cid, "record", MapValue(Map("value" -> IntValue(3))), FiberOrdinal.unsafeApply(2))
+          .TransitionStateMachine(fiberId, "record", MapValue(Map("value" -> IntValue(3))), FiberOrdinal.unsafeApply(2))
         proof3 <- fixture.registry.generateProofs(event3, Set(Alice))
         state3 <- combiner.insert(state2, Signed(event3, proof3))
 
-        machine = state3.calculated.stateMachines.get(cid)
+        machine = state3.calculated.stateMachines.get(fiberId)
 
         // Extract history array from state
         history = machine.flatMap(_.stateData match {

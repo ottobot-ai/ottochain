@@ -72,12 +72,12 @@ object OracleToOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice, Bob))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        innerCid  <- IO.randomUUID
-        innerProg <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
+        innerfiberId <- IO.randomUUID
+        innerProg    <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
 
         // Create inner oracle with Public access
         createInner = Updates.CreateScriptOracle(
-          fiberId = innerCid,
+          fiberId = innerfiberId,
           scriptProgram = innerProg,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -91,7 +91,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
 
         // Invoke inner oracle multiple times
         invoke1 = Updates.InvokeScriptOracle(
-          fiberId = innerCid,
+          fiberId = innerfiberId,
           method = "add",
           args = MapValue(Map("a" -> IntValue(10), "b" -> IntValue(5))),
           FiberOrdinal.MinValue
@@ -101,16 +101,16 @@ object OracleToOracleSuite extends SimpleIOSuite {
         state2       <- combiner.insert(state1, Signed(invoke1, invoke1Proof))
 
         invoke2 = Updates.InvokeScriptOracle(
-          fiberId = innerCid,
+          fiberId = innerfiberId,
           method = "add",
           args = MapValue(Map("a" -> IntValue(20), "b" -> IntValue(30))),
-          targetSequenceNumber = state2.calculated.scriptOracles(innerCid).sequenceNumber
+          targetSequenceNumber = state2.calculated.scriptOracles(innerfiberId).sequenceNumber
         )
 
         invoke2Proof <- registry.generateProofs(invoke2, Set(Bob))
         state3       <- combiner.insert(state2, Signed(invoke2, invoke2Proof))
 
-        oracle = state3.calculated.scriptOracles.get(innerCid)
+        oracle = state3.calculated.scriptOracles.get(innerfiberId)
       } yield expect.all(
         oracle.isDefined,
         oracle.map(_.sequenceNumber).contains(FiberOrdinal.unsafeApply(2L)),
@@ -126,12 +126,12 @@ object OracleToOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice, Bob, Charlie))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        oracleCid <- IO.randomUUID
-        prog      <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
+        oracleFiberId <- IO.randomUUID
+        prog          <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
 
         // Create oracle with whitelist access - only Alice allowed
         createOracle = Updates.CreateScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Whitelist(Set(registry(Alice).address))
@@ -145,7 +145,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
 
         // Alice can invoke (whitelisted)
         invokeAlice = Updates.InvokeScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           method = "add",
           args = MapValue(Map("a" -> IntValue(1), "b" -> IntValue(2))),
           FiberOrdinal.MinValue
@@ -154,14 +154,14 @@ object OracleToOracleSuite extends SimpleIOSuite {
         aliceProof <- registry.generateProofs(invokeAlice, Set(Alice))
         state2     <- combiner.insert(state1, Signed(invokeAlice, aliceProof))
 
-        oracleAfterAlice = state2.calculated.scriptOracles.get(oracleCid)
+        oracleAfterAlice = state2.calculated.scriptOracles.get(oracleFiberId)
 
         // Bob tries to invoke (not whitelisted) - should fail
         invokeBob = Updates.InvokeScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           method = "add",
           args = MapValue(Map("a" -> IntValue(10), "b" -> IntValue(20))),
-          targetSequenceNumber = state2.calculated.scriptOracles(oracleCid).sequenceNumber
+          targetSequenceNumber = state2.calculated.scriptOracles(oracleFiberId).sequenceNumber
         )
 
         bobProof <- registry.generateProofs(invokeBob, Set(Bob))
@@ -169,7 +169,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
         // This should fail - Bob is not whitelisted
         bobResult <- combiner.insert(state2, Signed(invokeBob, bobProof)).attempt
 
-        oracleAfterBob = bobResult.toOption.flatMap(_.calculated.scriptOracles.get(oracleCid))
+        oracleAfterBob = bobResult.toOption.flatMap(_.calculated.scriptOracles.get(oracleFiberId))
 
       } yield expect.all(
         // Alice's invocation succeeded
@@ -187,9 +187,9 @@ object OracleToOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        oracle1Cid <- IO.randomUUID
-        oracle2Cid <- IO.randomUUID
-        prog       <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
+        oracle1fiberId <- IO.randomUUID
+        oracle2fiberId <- IO.randomUUID
+        prog           <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
 
         // Counter oracle for tracking calls
         counterScript =
@@ -205,7 +205,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
 
         // Create calculator oracle
         createOracle1 = Updates.CreateScriptOracle(
-          fiberId = oracle1Cid,
+          fiberId = oracle1fiberId,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -213,7 +213,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
 
         // Create counter oracle
         createOracle2 = Updates.CreateScriptOracle(
-          fiberId = oracle2Cid,
+          fiberId = oracle2fiberId,
           scriptProgram = counterProg,
           initialState = Some(MapValue(Map("value" -> IntValue(0)))),
           accessControl = AccessControlPolicy.Public
@@ -230,12 +230,12 @@ object OracleToOracleSuite extends SimpleIOSuite {
 
         // Invoke both oracles in sequence
         invoke1 = Updates.InvokeScriptOracle(
-          oracle1Cid,
+          oracle1fiberId,
           "add",
           MapValue(Map("a" -> IntValue(5), "b" -> IntValue(3))),
           FiberOrdinal.MinValue
         )
-        invoke2 = Updates.InvokeScriptOracle(oracle2Cid, "increment", MapValue(Map.empty), FiberOrdinal.MinValue)
+        invoke2 = Updates.InvokeScriptOracle(oracle2fiberId, "increment", MapValue(Map.empty), FiberOrdinal.MinValue)
 
         invokeProof1 <- registry.generateProofs(invoke1, Set(Alice))
         invokeProof2 <- registry.generateProofs(invoke2, Set(Alice))
@@ -244,16 +244,16 @@ object OracleToOracleSuite extends SimpleIOSuite {
         state4 <- combiner.insert(state3, Signed(invoke2, invokeProof2))
 
         invoke3 = Updates.InvokeScriptOracle(
-          oracle2Cid,
+          oracle2fiberId,
           "increment",
           MapValue(Map.empty),
-          state4.calculated.scriptOracles(oracle2Cid).sequenceNumber
+          state4.calculated.scriptOracles(oracle2fiberId).sequenceNumber
         )
         invokeProof3 <- registry.generateProofs(invoke3, Set(Alice))
         state5       <- combiner.insert(state4, Signed(invoke3, invokeProof3))
 
-        calculatorOracle = state5.calculated.scriptOracles.get(oracle1Cid)
-        counterOracle = state5.calculated.scriptOracles.get(oracle2Cid)
+        calculatorOracle = state5.calculated.scriptOracles.get(oracle1fiberId)
+        counterOracle = state5.calculated.scriptOracles.get(oracle2fiberId)
       } yield expect.all(
         calculatorOracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next),
         counterOracle.map(_.sequenceNumber).contains(FiberOrdinal.unsafeApply(2L)),
@@ -269,7 +269,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        oracleCid <- IO.randomUUID
+        oracleFiberId <- IO.randomUUID
 
         // Oracle that returns valid=false with an error message
         validationScript =
@@ -290,7 +290,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
         validationProg <- IO.fromEither(parser.parse(validationScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           scriptProgram = validationProg,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -304,7 +304,7 @@ object OracleToOracleSuite extends SimpleIOSuite {
 
         // Invoke with amount >= 100 - should succeed
         invokeValid = Updates.InvokeScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           method = "validate",
           args = MapValue(Map("amount" -> IntValue(200))),
           FiberOrdinal.MinValue
@@ -313,14 +313,14 @@ object OracleToOracleSuite extends SimpleIOSuite {
         validProof <- registry.generateProofs(invokeValid, Set(Alice))
         state2     <- combiner.insert(state1, Signed(invokeValid, validProof))
 
-        oracleAfterValid = state2.calculated.scriptOracles.get(oracleCid)
+        oracleAfterValid = state2.calculated.scriptOracles.get(oracleFiberId)
 
         // Invoke with amount < 100 - should fail due to valid=false
         invokeInvalid = Updates.InvokeScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           method = "validate",
           args = MapValue(Map("amount" -> IntValue(50))),
-          targetSequenceNumber = state2.calculated.scriptOracles(oracleCid).sequenceNumber
+          targetSequenceNumber = state2.calculated.scriptOracles(oracleFiberId).sequenceNumber
         )
 
         invalidProof  <- registry.generateProofs(invokeInvalid, Set(Alice))

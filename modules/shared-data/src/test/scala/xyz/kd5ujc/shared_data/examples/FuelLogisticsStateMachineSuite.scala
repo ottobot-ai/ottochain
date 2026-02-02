@@ -34,10 +34,10 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         combiner                            <- Combiner.make[IO]().pure[IO]
         ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
-        contractCid   <- UUIDGen.randomUUID[IO]
-        gpsTrackerCid <- UUIDGen.randomUUID[IO]
-        supplierCid   <- UUIDGen.randomUUID[IO]
-        inspectionCid <- UUIDGen.randomUUID[IO]
+        contractfiberId   <- UUIDGen.randomUUID[IO]
+        gpsTrackerfiberId <- UUIDGen.randomUUID[IO]
+        supplierfiberId   <- UUIDGen.randomUUID[IO]
+        inspectionfiberId <- UUIDGen.randomUUID[IO]
 
         // FuelContract: Main contract state machine
         // States: draft -> supplier_review -> supplier_approved -> gps_ready ->
@@ -81,16 +81,16 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
               "eventName": "supplier_approved",
               "guard": {
                 "===": [
-                  { "var": "machines.${supplierCid}.state.status" },
+                  { "var": "machines.${supplierfiberId}.state.status" },
                   "approved"
                 ]
               },
               "effect": [
                 ["status", "supplier_approved"],
                 ["supplierApprovedAt", { "var": "event.timestamp" }],
-                ["approvedSupplier", { "var": "machines.${supplierCid}.state.supplierName" }]
+                ["approvedSupplier", { "var": "machines.${supplierfiberId}.state.supplierName" }]
               ],
-              "dependencies": ["${supplierCid}"]
+              "dependencies": ["${supplierfiberId}"]
             },
             {
               "from": { "value": "supplier_approved" },
@@ -98,7 +98,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
               "eventName": "prepare_shipment",
               "guard": {
                 "===": [
-                  { "var": "machines.${gpsTrackerCid}.state.status" },
+                  { "var": "machines.${gpsTrackerfiberId}.state.status" },
                   "active"
                 ]
               },
@@ -108,7 +108,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
                 ["vehicleId", { "var": "event.vehicleId" }],
                 ["driverId", { "var": "event.driverId" }]
               ],
-              "dependencies": ["${gpsTrackerCid}"]
+              "dependencies": ["${gpsTrackerfiberId}"]
             },
             {
               "from": { "value": "gps_ready" },
@@ -118,13 +118,13 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
                 "and": [
                   {
                     "===": [
-                      { "var": "machines.${gpsTrackerCid}.state.status" },
+                      { "var": "machines.${gpsTrackerfiberId}.state.status" },
                       "tracking"
                     ]
                   },
                   {
                     ">": [
-                      { "var": "machines.${gpsTrackerCid}.state.dataPointCount" },
+                      { "var": "machines.${gpsTrackerfiberId}.state.dataPointCount" },
                       0
                     ]
                   }
@@ -135,7 +135,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
                 ["transitStartedAt", { "var": "event.timestamp" }],
                 ["estimatedArrival", { "var": "event.estimatedArrival" }]
               ],
-              "dependencies": ["${gpsTrackerCid}"]
+              "dependencies": ["${gpsTrackerfiberId}"]
             },
             {
               "from": { "value": "in_transit" },
@@ -145,13 +145,13 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
                 "and": [
                   {
                     "===": [
-                      { "var": "machines.${gpsTrackerCid}.state.status" },
+                      { "var": "machines.${gpsTrackerfiberId}.state.status" },
                       "stopped"
                     ]
                   },
                   {
                     ">=": [
-                      { "var": "machines.${gpsTrackerCid}.state.dataPointCount" },
+                      { "var": "machines.${gpsTrackerfiberId}.state.dataPointCount" },
                       3
                     ]
                   }
@@ -160,10 +160,10 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
               "effect": [
                 ["status", "delivered"],
                 ["deliveredAt", { "var": "event.timestamp" }],
-                ["totalDistance", { "var": "machines.${gpsTrackerCid}.state.totalDistance" }],
-                ["gpsDataPoints", { "var": "machines.${gpsTrackerCid}.state.dataPointCount" }]
+                ["totalDistance", { "var": "machines.${gpsTrackerfiberId}.state.totalDistance" }],
+                ["gpsDataPoints", { "var": "machines.${gpsTrackerfiberId}.state.dataPointCount" }]
               ],
-              "dependencies": ["${gpsTrackerCid}"]
+              "dependencies": ["${gpsTrackerfiberId}"]
             },
             {
               "from": { "value": "delivered" },
@@ -171,7 +171,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
               "eventName": "initiate_inspection",
               "guard": {
                 "===": [
-                  { "var": "machines.${inspectionCid}.state.status" },
+                  { "var": "machines.${inspectionfiberId}.state.status" },
                   "scheduled"
                 ]
               },
@@ -179,7 +179,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
                 ["status", "quality_check"],
                 ["inspectionInitiatedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${inspectionCid}"]
+              "dependencies": ["${inspectionfiberId}"]
             },
             {
               "from": { "value": "quality_check" },
@@ -189,13 +189,13 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
                 "and": [
                   {
                     "===": [
-                      { "var": "machines.${inspectionCid}.state.status" },
+                      { "var": "machines.${inspectionfiberId}.state.status" },
                       "passed"
                     ]
                   },
                   {
                     ">=": [
-                      { "var": "machines.${inspectionCid}.state.qualityScore" },
+                      { "var": "machines.${inspectionfiberId}.state.qualityScore" },
                       85
                     ]
                   }
@@ -204,10 +204,10 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
               "effect": [
                 ["status", "inspected"],
                 ["inspectedAt", { "var": "event.timestamp" }],
-                ["qualityScore", { "var": "machines.${inspectionCid}.state.qualityScore" }],
-                ["qualityReport", { "var": "machines.${inspectionCid}.state.reportId" }]
+                ["qualityScore", { "var": "machines.${inspectionfiberId}.state.qualityScore" }],
+                ["qualityReport", { "var": "machines.${inspectionfiberId}.state.reportId" }]
               ],
-              "dependencies": ["${inspectionCid}"]
+              "dependencies": ["${inspectionfiberId}"]
             },
             {
               "from": { "value": "quality_check" },
@@ -217,13 +217,13 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
                 "or": [
                   {
                     "===": [
-                      { "var": "machines.${inspectionCid}.state.status" },
+                      { "var": "machines.${inspectionfiberId}.state.status" },
                       "failed"
                     ]
                   },
                   {
                     "<": [
-                      { "var": "machines.${inspectionCid}.state.qualityScore" },
+                      { "var": "machines.${inspectionfiberId}.state.qualityScore" },
                       85
                     ]
                   }
@@ -233,9 +233,9 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
                 ["status", "rejected"],
                 ["rejectedAt", { "var": "event.timestamp" }],
                 ["rejectionReason", "quality inspection failed"],
-                ["qualityScore", { "var": "machines.${inspectionCid}.state.qualityScore" }]
+                ["qualityScore", { "var": "machines.${inspectionfiberId}.state.qualityScore" }]
               ],
-              "dependencies": ["${inspectionCid}"]
+              "dependencies": ["${inspectionfiberId}"]
             },
             {
               "from": { "value": "inspected" },
@@ -563,7 +563,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         inspectionHash <- (inspectionData: JsonLogicValue).computeDigest
 
         contractFiber = Records.StateMachineFiberRecord(
-          cid = contractCid,
+          fiberId = contractfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -577,7 +577,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         )
 
         gpsTrackerFiber = Records.StateMachineFiberRecord(
-          cid = gpsTrackerCid,
+          fiberId = gpsTrackerfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -591,7 +591,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         )
 
         supplierFiber = Records.StateMachineFiberRecord(
-          cid = supplierCid,
+          fiberId = supplierfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -605,7 +605,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         )
 
         inspectionFiber = Records.StateMachineFiberRecord(
-          cid = inspectionCid,
+          fiberId = inspectionfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -620,16 +620,16 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
 
         inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecords[IO](
           Map(
-            contractCid   -> contractFiber,
-            gpsTrackerCid -> gpsTrackerFiber,
-            supplierCid   -> supplierFiber,
-            inspectionCid -> inspectionFiber
+            contractfiberId   -> contractFiber,
+            gpsTrackerfiberId -> gpsTrackerFiber,
+            supplierfiberId   -> supplierFiber,
+            inspectionfiberId -> inspectionFiber
           )
         )
 
         // STEP 1: Submit contract for approval
         submitUpdate = Updates.TransitionStateMachine(
-          contractCid,
+          contractfiberId,
           "submit_for_approval",
           MapValue(Map("timestamp" -> IntValue(1000))),
           FiberOrdinal.MinValue
@@ -639,7 +639,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
 
         // STEP 2: Begin supplier review
         beginReviewUpdate = Updates.TransitionStateMachine(
-          supplierCid,
+          supplierfiberId,
           "begin_review",
           MapValue(
             Map(
@@ -653,9 +653,9 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         state2           <- combiner.insert(state1, Signed(beginReviewUpdate, beginReviewProof))
 
         // STEP 3: Approve supplier
-        approveSupplierSeqNum = state2.calculated.stateMachines(supplierCid).sequenceNumber
+        approveSupplierSeqNum = state2.calculated.stateMachines(supplierfiberId).sequenceNumber
         approveSupplierUpdate = Updates.TransitionStateMachine(
-          supplierCid,
+          supplierfiberId,
           "approve",
           MapValue(
             Map(
@@ -671,9 +671,9 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         state3               <- combiner.insert(state2, Signed(approveSupplierUpdate, approveSupplierProof))
 
         // STEP 4: Contract receives supplier approval
-        supplierApprovedSeqNum = state3.calculated.stateMachines(contractCid).sequenceNumber
+        supplierApprovedSeqNum = state3.calculated.stateMachines(contractfiberId).sequenceNumber
         supplierApprovedUpdate = Updates.TransitionStateMachine(
-          contractCid,
+          contractfiberId,
           "supplier_approved",
           MapValue(Map("timestamp" -> IntValue(1300))),
           supplierApprovedSeqNum
@@ -683,7 +683,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
 
         // STEP 5: Activate GPS tracker
         activateGpsUpdate = Updates.TransitionStateMachine(
-          gpsTrackerCid,
+          gpsTrackerfiberId,
           "activate",
           MapValue(
             Map(
@@ -697,9 +697,9 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         state5           <- combiner.insert(state4, Signed(activateGpsUpdate, activateGpsProof))
 
         // STEP 6: Prepare shipment (contract checks GPS is active)
-        prepareShipmentSeqNum = state5.calculated.stateMachines(contractCid).sequenceNumber
+        prepareShipmentSeqNum = state5.calculated.stateMachines(contractfiberId).sequenceNumber
         prepareShipmentUpdate = Updates.TransitionStateMachine(
-          contractCid,
+          contractfiberId,
           "prepare_shipment",
           MapValue(
             Map(
@@ -714,9 +714,9 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         state6               <- combiner.insert(state5, Signed(prepareShipmentUpdate, prepareShipmentProof))
 
         // STEP 7: Start GPS tracking
-        startTrackingSeqNum = state6.calculated.stateMachines(gpsTrackerCid).sequenceNumber
+        startTrackingSeqNum = state6.calculated.stateMachines(gpsTrackerfiberId).sequenceNumber
         startTrackingUpdate = Updates.TransitionStateMachine(
-          gpsTrackerCid,
+          gpsTrackerfiberId,
           "start_tracking",
           MapValue(
             Map(
@@ -731,9 +731,9 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         state7             <- combiner.insert(state6, Signed(startTrackingUpdate, startTrackingProof))
 
         // STEP 8: Begin transit (contract checks GPS is tracking)
-        beginTransitSeqNum = state7.calculated.stateMachines(contractCid).sequenceNumber
+        beginTransitSeqNum = state7.calculated.stateMachines(contractfiberId).sequenceNumber
         beginTransitUpdate = Updates.TransitionStateMachine(
-          contractCid,
+          contractfiberId,
           "begin_transit",
           MapValue(
             Map(
@@ -747,9 +747,9 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         state8            <- combiner.insert(state7, Signed(beginTransitUpdate, beginTransitProof))
 
         // STEP 9-11: Log GPS positions during transit
-        logPosition1SeqNum = state8.calculated.stateMachines(gpsTrackerCid).sequenceNumber
+        logPosition1SeqNum = state8.calculated.stateMachines(gpsTrackerfiberId).sequenceNumber
         logPosition1Update = Updates.TransitionStateMachine(
-          gpsTrackerCid,
+          gpsTrackerfiberId,
           "log_position",
           MapValue(
             Map(
@@ -764,9 +764,9 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         logPosition1Proof <- registry.generateProofs(logPosition1Update, Set(Alice))
         state9            <- combiner.insert(state8, Signed(logPosition1Update, logPosition1Proof))
 
-        logPosition2SeqNum = state9.calculated.stateMachines(gpsTrackerCid).sequenceNumber
+        logPosition2SeqNum = state9.calculated.stateMachines(gpsTrackerfiberId).sequenceNumber
         logPosition2Update = Updates.TransitionStateMachine(
-          gpsTrackerCid,
+          gpsTrackerfiberId,
           "log_position",
           MapValue(
             Map(
@@ -781,9 +781,9 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         logPosition2Proof <- registry.generateProofs(logPosition2Update, Set(Alice))
         state10           <- combiner.insert(state9, Signed(logPosition2Update, logPosition2Proof))
 
-        logPosition3SeqNum = state10.calculated.stateMachines(gpsTrackerCid).sequenceNumber
+        logPosition3SeqNum = state10.calculated.stateMachines(gpsTrackerfiberId).sequenceNumber
         logPosition3Update = Updates.TransitionStateMachine(
-          gpsTrackerCid,
+          gpsTrackerfiberId,
           "log_position",
           MapValue(
             Map(
@@ -799,9 +799,9 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         state11           <- combiner.insert(state10, Signed(logPosition3Update, logPosition3Proof))
 
         // STEP 12: Stop GPS tracking
-        stopTrackingSeqNum = state11.calculated.stateMachines(gpsTrackerCid).sequenceNumber
+        stopTrackingSeqNum = state11.calculated.stateMachines(gpsTrackerfiberId).sequenceNumber
         stopTrackingUpdate = Updates.TransitionStateMachine(
-          gpsTrackerCid,
+          gpsTrackerfiberId,
           "stop_tracking",
           MapValue(Map("timestamp" -> IntValue(2500))),
           stopTrackingSeqNum
@@ -810,9 +810,9 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         state12           <- combiner.insert(state11, Signed(stopTrackingUpdate, stopTrackingProof))
 
         // STEP 13: Confirm delivery (contract checks GPS stopped and has data)
-        confirmDeliverySeqNum = state12.calculated.stateMachines(contractCid).sequenceNumber
+        confirmDeliverySeqNum = state12.calculated.stateMachines(contractfiberId).sequenceNumber
         confirmDeliveryUpdate = Updates.TransitionStateMachine(
-          contractCid,
+          contractfiberId,
           "confirm_delivery",
           MapValue(Map("timestamp" -> IntValue(2600))),
           confirmDeliverySeqNum
@@ -822,7 +822,7 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
 
         // STEP 14: Schedule quality inspection
         scheduleInspectionUpdate = Updates.TransitionStateMachine(
-          inspectionCid,
+          inspectionfiberId,
           "schedule",
           MapValue(
             Map(
@@ -836,9 +836,9 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         state14                 <- combiner.insert(state13, Signed(scheduleInspectionUpdate, scheduleInspectionProof))
 
         // STEP 15: Contract initiates inspection
-        initiateInspectionSeqNum = state14.calculated.stateMachines(contractCid).sequenceNumber
+        initiateInspectionSeqNum = state14.calculated.stateMachines(contractfiberId).sequenceNumber
         initiateInspectionUpdate = Updates.TransitionStateMachine(
-          contractCid,
+          contractfiberId,
           "initiate_inspection",
           MapValue(Map("timestamp" -> IntValue(2800))),
           initiateInspectionSeqNum
@@ -847,9 +847,9 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         state15                 <- combiner.insert(state14, Signed(initiateInspectionUpdate, initiateInspectionProof))
 
         // STEP 16: Begin inspection
-        beginInspectionSeqNum = state15.calculated.stateMachines(inspectionCid).sequenceNumber
+        beginInspectionSeqNum = state15.calculated.stateMachines(inspectionfiberId).sequenceNumber
         beginInspectionUpdate = Updates.TransitionStateMachine(
-          inspectionCid,
+          inspectionfiberId,
           "begin_inspection",
           MapValue(Map("timestamp" -> IntValue(2900))),
           beginInspectionSeqNum
@@ -858,9 +858,9 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         state16              <- combiner.insert(state15, Signed(beginInspectionUpdate, beginInspectionProof))
 
         // STEP 17: Complete inspection (passed)
-        completeInspectionSeqNum = state16.calculated.stateMachines(inspectionCid).sequenceNumber
+        completeInspectionSeqNum = state16.calculated.stateMachines(inspectionfiberId).sequenceNumber
         completeInspectionUpdate = Updates.TransitionStateMachine(
-          inspectionCid,
+          inspectionfiberId,
           "complete",
           MapValue(
             Map(
@@ -876,9 +876,9 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         state17                 <- combiner.insert(state16, Signed(completeInspectionUpdate, completeInspectionProof))
 
         // STEP 18: Contract receives inspection completion
-        inspectionCompleteSeqNum = state17.calculated.stateMachines(contractCid).sequenceNumber
+        inspectionCompleteSeqNum = state17.calculated.stateMachines(contractfiberId).sequenceNumber
         inspectionCompleteUpdate = Updates.TransitionStateMachine(
-          contractCid,
+          contractfiberId,
           "inspection_complete",
           MapValue(Map("timestamp" -> IntValue(3100))),
           inspectionCompleteSeqNum
@@ -887,9 +887,9 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         state18                 <- combiner.insert(state17, Signed(inspectionCompleteUpdate, inspectionCompleteProof))
 
         // STEP 19: Initiate settlement
-        initiateSettlementSeqNum = state18.calculated.stateMachines(contractCid).sequenceNumber
+        initiateSettlementSeqNum = state18.calculated.stateMachines(contractfiberId).sequenceNumber
         initiateSettlementUpdate = Updates.TransitionStateMachine(
-          contractCid,
+          contractfiberId,
           "initiate_settlement",
           MapValue(Map("timestamp" -> IntValue(3200))),
           initiateSettlementSeqNum
@@ -898,9 +898,9 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         state19                 <- combiner.insert(state18, Signed(initiateSettlementUpdate, initiateSettlementProof))
 
         // STEP 20: Finalize settlement
-        finalizeSettlementSeqNum = state19.calculated.stateMachines(contractCid).sequenceNumber
+        finalizeSettlementSeqNum = state19.calculated.stateMachines(contractfiberId).sequenceNumber
         finalizeSettlementUpdate = Updates.TransitionStateMachine(
-          contractCid,
+          contractfiberId,
           "finalize_settlement",
           MapValue(
             Map(
@@ -914,19 +914,19 @@ object FuelLogisticsStateMachineSuite extends SimpleIOSuite {
         finalState              <- combiner.insert(state19, Signed(finalizeSettlementUpdate, finalizeSettlementProof))
 
         finalContract = finalState.calculated.stateMachines
-          .get(contractCid)
+          .get(contractfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         finalGpsTracker = finalState.calculated.stateMachines
-          .get(gpsTrackerCid)
+          .get(gpsTrackerfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         finalSupplier = finalState.calculated.stateMachines
-          .get(supplierCid)
+          .get(supplierfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         finalInspection = finalState.calculated.stateMachines
-          .get(inspectionCid)
+          .get(inspectionfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         contractStatus: Option[String] = finalContract.flatMap { f =>

@@ -16,7 +16,7 @@ import derevo.derive
 object Records {
 
   sealed trait FiberRecord {
-    def cid: UUID
+    def fiberId: UUID
     def status: FiberStatus
     def owners: Set[Address]
     def creationOrdinal: SnapshotOrdinal
@@ -26,7 +26,7 @@ object Records {
 
   @derive(encoder, decoder)
   final case class StateMachineFiberRecord(
-    cid:                   UUID,
+    fiberId:               UUID,
     creationOrdinal:       SnapshotOrdinal,
     previousUpdateOrdinal: SnapshotOrdinal,
     latestUpdateOrdinal:   SnapshotOrdinal,
@@ -44,7 +44,7 @@ object Records {
 
   @derive(encoder, decoder)
   final case class ScriptOracleFiberRecord(
-    cid:                 UUID,
+    fiberId:             UUID,
     creationOrdinal:     SnapshotOrdinal,
     latestUpdateOrdinal: SnapshotOrdinal,
     scriptProgram:       JsonLogicExpression,

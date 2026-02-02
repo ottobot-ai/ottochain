@@ -67,7 +67,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -168,7 +168,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
         hash2 <- (data2: JsonLogicValue).computeDigest
 
         fiber1 = Records.StateMachineFiberRecord(
-          cid = machine1Id,
+          fiberId = machine1Id,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -182,7 +182,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
         )
 
         fiber2 = Records.StateMachineFiberRecord(
-          cid = machine2Id,
+          fiberId = machine2Id,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -265,7 +265,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -337,7 +337,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -411,7 +411,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -517,7 +517,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
         parentHash <- (parentData: JsonLogicValue).computeDigest
 
         parentFiber = Records.StateMachineFiberRecord(
-          cid = parentId,
+          fiberId = parentId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -644,7 +644,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
         hash2 <- (data2: JsonLogicValue).computeDigest
 
         fiber1 = Records.StateMachineFiberRecord(
-          cid = machine1Id,
+          fiberId = machine1Id,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -658,7 +658,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
         )
 
         fiber2 = Records.StateMachineFiberRecord(
-          cid = machine2Id,
+          fiberId = machine2Id,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -771,7 +771,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
         hash2 <- (data2: JsonLogicValue).computeDigest
 
         fiber1 = Records.StateMachineFiberRecord(
-          cid = machine1Id,
+          fiberId = machine1Id,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -785,7 +785,7 @@ object GasMeteringPhaseSuite extends SimpleIOSuite {
         )
 
         fiber2 = Records.StateMachineFiberRecord(
-          cid = machine2Id,
+          fiberId = machine2Id,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,

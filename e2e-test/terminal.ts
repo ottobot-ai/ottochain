@@ -1143,7 +1143,7 @@ Examples:
       // Session state to track CIDs between steps
       const session = {
         cid: (globalOpts.address as string) || crypto.randomUUID(),
-        oracleCid: null as string | null,
+        oracleFiberId: null as string | null,
       };
 
       for (let i = 0; i < flow.steps.length; i++) {
@@ -1199,8 +1199,8 @@ Examples:
           }
 
           case 'createOracle': {
-            session.oracleCid =
-              (example.oracleCid as string) || crypto.randomUUID();
+            session.oracleFiberId =
+              (example.oracleFiberId as string) || crypto.randomUUID();
             const definition = await loadFileOrModule(
               path.join(
                 examplesDir,
@@ -1216,11 +1216,11 @@ Examples:
             generator = libModule.generator;
             validator = libModule.validator;
             message = generator({
-              cid: session.oracleCid,
+              cid: session.oracleFiberId,
               wallets,
               options: stepOptions,
             });
-            console.log(`   Oracle CID: ${session.oracleCid}`);
+            console.log(`   Oracle CID: ${session.oracleFiberId}`);
             break;
           }
 
@@ -1285,7 +1285,7 @@ Examples:
             generator = libModule.generator;
             validator = libModule.validator;
             message = generator({
-              cid: session.oracleCid,
+              cid: session.oracleFiberId,
               wallets,
               options: stepOptions,
             });
@@ -1310,7 +1310,7 @@ Examples:
           step.action === 'invoke';
         await validate(
           validator!,
-          useOracleCid ? session.oracleCid! : session.cid,
+          useOracleCid ? session.oracleFiberId! : session.cid,
           initialStates,
           validationOptions,
           wallets,
@@ -1324,8 +1324,8 @@ Examples:
 
       console.log('\x1b[32m\n✓ Flow completed successfully!\x1b[0m');
       console.log(`  State Machine CID: ${session.cid}`);
-      if (session.oracleCid) {
-        console.log(`  Oracle CID: ${session.oracleCid}`);
+      if (session.oracleFiberId) {
+        console.log(`  Oracle CID: ${session.oracleFiberId}`);
       }
       console.log('');
       process.exit(0);

@@ -59,7 +59,7 @@ object FailureReasonSuite extends SimpleIOSuite {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -141,7 +141,7 @@ object FailureReasonSuite extends SimpleIOSuite {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -228,7 +228,7 @@ object FailureReasonSuite extends SimpleIOSuite {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -339,7 +339,7 @@ object FailureReasonSuite extends SimpleIOSuite {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -409,7 +409,7 @@ object FailureReasonSuite extends SimpleIOSuite {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -490,7 +490,7 @@ object FailureReasonSuite extends SimpleIOSuite {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -554,7 +554,7 @@ object FailureReasonSuite extends SimpleIOSuite {
 
         // Create a state machine fiber
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -617,7 +617,7 @@ object FailureReasonSuite extends SimpleIOSuite {
 
         // Create a script oracle fiber
         oracle = Records.ScriptOracleFiberRecord(
-          cid = oracleId,
+          fiberId = oracleId,
           creationOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           scriptProgram = oracleScript,

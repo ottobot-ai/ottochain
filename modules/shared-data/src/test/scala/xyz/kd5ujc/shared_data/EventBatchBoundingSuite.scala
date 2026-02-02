@@ -61,31 +61,31 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        def_ <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
+        fiberId <- IO.randomUUID
+        def_    <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
 
-        createSM = Updates.CreateStateMachine(cid, def_, MapValue(Map("counter" -> IntValue(0))))
+        createSM = Updates.CreateStateMachine(fiberId, def_, MapValue(Map("counter" -> IntValue(0))))
 
         createProof <- fixture.registry.generateProofs(createSM, Set(Alice))
         state0 <- combiner.insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createSM, createProof))
 
         // Process first event
-        event1 = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty), FiberOrdinal.MinValue)
+        event1 = Updates.TransitionStateMachine(fiberId, "increment", MapValue(Map.empty), FiberOrdinal.MinValue)
         proof1 <- fixture.registry.generateProofs(event1, Set(Alice))
         state1 <- combiner.insert(state0, Signed(event1, proof1))
 
         machine1 = state1.calculated.stateMachines
-          .get(cid)
+          .get(fiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Process second event
-        seq1 = state1.calculated.stateMachines(cid).sequenceNumber
-        event2 = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty), seq1)
+        seq1 = state1.calculated.stateMachines(fiberId).sequenceNumber
+        event2 = Updates.TransitionStateMachine(fiberId, "increment", MapValue(Map.empty), seq1)
         proof2 <- fixture.registry.generateProofs(event2, Set(Alice))
         state2 <- combiner.insert(state1, Signed(event2, proof2))
 
         machine2 = state2.calculated.stateMachines
-          .get(cid)
+          .get(fiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
       } yield expect(machine1.isDefined) and
       expect(machine2.isDefined) and
@@ -100,8 +100,8 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
     TestFixture.resource(Set(Alice)).use { fixture =>
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       for {
-        cid  <- IO.randomUUID
-        def_ <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
+        fiberId <- IO.randomUUID
+        def_    <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
 
         initialData = MapValue(Map("counter" -> IntValue(0)))
         initialHash <- (initialData: JsonLogicValue).computeDigest
@@ -110,7 +110,7 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
 
         // Seed with a fiber that already has a last receipt
         seedReceipt = EventReceipt(
-          fiberId = cid,
+          fiberId = fiberId,
           sequenceNumber = FiberOrdinal.unsafeApply(4L),
           eventName = "increment",
           ordinal = fixture.ordinal,
@@ -122,7 +122,7 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
         )
 
         fiber = Records.StateMachineFiberRecord(
-          cid = cid,
+          fiberId = fiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -136,7 +136,7 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
           lastReceipt = Some(seedReceipt)
         )
 
-        baseState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](cid, fiber)
+        baseState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](fiberId, fiber)
 
         // Use FiberEngine directly
         engine = FiberEngine.make[IO](
@@ -147,16 +147,16 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
 
         // Generate valid proofs via the registry
         dummyUpdate = Updates
-          .TransitionStateMachine(cid, "increment", MapValue(Map.empty), FiberOrdinal.unsafeApply(4L))
+          .TransitionStateMachine(fiberId, "increment", MapValue(Map.empty), FiberOrdinal.unsafeApply(4L))
         proofs <- fixture.registry.generateProofs(dummyUpdate, Set(Alice)).map(_.toList)
 
         input = FiberInput.Transition("increment", MapValue(Map.empty))
 
-        result <- engine.process(cid, input, proofs)
+        result <- engine.process(fiberId, input, proofs)
 
         updatedFiber = result match {
           case TransactionResult.Committed(machines, _, _, _, _, _) =>
-            machines.get(cid)
+            machines.get(fiberId)
           case _ => None
         }
 
@@ -173,25 +173,25 @@ object EventBatchBoundingSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        def_ <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
+        fiberId <- IO.randomUUID
+        def_    <- IO.fromEither(parser.parse(counterDefinitionJson).flatMap(_.as[StateMachineDefinition]))
 
-        createSM = Updates.CreateStateMachine(cid, def_, MapValue(Map("counter" -> IntValue(0))))
+        createSM = Updates.CreateStateMachine(fiberId, def_, MapValue(Map("counter" -> IntValue(0))))
 
         createProof <- fixture.registry.generateProofs(createSM, Set(Alice))
         state0 <- combiner.insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createSM, createProof))
 
         machine0 = state0.calculated.stateMachines
-          .get(cid)
+          .get(fiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Process event
-        event1 = Updates.TransitionStateMachine(cid, "increment", MapValue(Map.empty), FiberOrdinal.MinValue)
+        event1 = Updates.TransitionStateMachine(fiberId, "increment", MapValue(Map.empty), FiberOrdinal.MinValue)
         proof1 <- fixture.registry.generateProofs(event1, Set(Alice))
         state1 <- combiner.insert(state0, Signed(event1, proof1))
 
         machine1 = state1.calculated.stateMachines
-          .get(cid)
+          .get(fiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
       } yield
       // Before any event, lastReceipt should be None

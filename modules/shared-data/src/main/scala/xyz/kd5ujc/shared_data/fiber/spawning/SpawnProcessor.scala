@@ -130,7 +130,7 @@ object SpawnProcessor {
           initialDataHash <- initialData.computeDigest.liftTo[G]
 
           childFiber = Records.StateMachineFiberRecord(
-            cid = spawn.childId,
+            fiberId = spawn.childId,
             creationOrdinal = ordinal,
             previousUpdateOrdinal = ordinal,
             latestUpdateOrdinal = ordinal,
@@ -141,7 +141,7 @@ object SpawnProcessor {
             sequenceNumber = FiberOrdinal.MinValue,
             owners = spawn.resolvedOwners,
             status = FiberStatus.Active,
-            parentFiberId = Some(parent.cid)
+            parentFiberId = Some(parent.fiberId)
           )
         } yield childFiber
     }

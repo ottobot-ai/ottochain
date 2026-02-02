@@ -33,8 +33,8 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         combiner                            <- Combiner.make[IO]().pure[IO]
         ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
-        oracleCid = java.util.UUID.fromString("11111111-1111-1111-1111-111111111111")
-        machineCid <- UUIDGen.randomUUID[IO]
+        oracleFiberId = java.util.UUID.fromString("11111111-1111-1111-1111-111111111111")
+        machineFiberId <- UUIDGen.randomUUID[IO]
 
         aliceAddr = registry.addresses(Alice)
         bobAddr = registry.addresses(Bob)
@@ -55,7 +55,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
 
         // Create oracle
         createOracle = Updates.CreateScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           scriptProgram = oracleScript,
           initialState = oracleInitialState,
           accessControl = AccessControlPolicy.Public
@@ -73,18 +73,18 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         }
         machineDef <- IO.fromEither(decode[StateMachineDefinition](machineDefJson))
 
-        // Create state machine with oracle CID
+        // Create state machine with oracle fiberId
         initialData = MapValue(
           Map(
-            "oracleCid"  -> StrValue(oracleCid.toString),
-            "status"     -> StrValue("waiting"),
-            "roundCount" -> IntValue(0)
+            "oracleFiberId" -> StrValue(oracleFiberId.toString),
+            "status"        -> StrValue("waiting"),
+            "roundCount"    -> IntValue(0)
           )
         )
         initialDataHash <- (initialData: JsonLogicValue).computeDigest
 
         machineFiber = Records.StateMachineFiberRecord(
-          cid = machineCid,
+          fiberId = machineFiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -97,11 +97,11 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        stateAfterMachine <- stateAfterOracle.withRecord[IO](machineCid, machineFiber)
+        stateAfterMachine <- stateAfterOracle.withRecord[IO](machineFiberId, machineFiber)
 
         // Step 1: Start game
         startGameUpdate = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "start_game",
           MapValue(
             Map(
@@ -116,7 +116,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         state1         <- combiner.insert(stateAfterMachine, Signed(startGameUpdate, startGameProof))
 
         machineAfterStart = state1.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         _ = expect.all(
@@ -126,9 +126,9 @@ object TicTacToeGameSuite extends SimpleIOSuite {
 
         // Step 2-6: Play game - X wins with top row (0, 1, 2)
         // Move 1: X plays top left (0)
-        move1SeqNum = state1.calculated.stateMachines(machineCid).sequenceNumber
+        move1SeqNum = state1.calculated.stateMachines(machineFiberId).sequenceNumber
         move1Update = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "make_move",
           MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(0))),
           move1SeqNum
@@ -137,9 +137,9 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         state2     <- combiner.insert(state1, Signed(move1Update, move1Proof))
 
         // Move 2: O plays middle left (3)
-        move2SeqNum = state2.calculated.stateMachines(machineCid).sequenceNumber
+        move2SeqNum = state2.calculated.stateMachines(machineFiberId).sequenceNumber
         move2Update = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "make_move",
           MapValue(Map("player" -> StrValue("O"), "cell" -> IntValue(3))),
           move2SeqNum
@@ -148,9 +148,9 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         state3     <- combiner.insert(state2, Signed(move2Update, move2Proof))
 
         // Move 3: X plays top middle (1)
-        move3SeqNum = state3.calculated.stateMachines(machineCid).sequenceNumber
+        move3SeqNum = state3.calculated.stateMachines(machineFiberId).sequenceNumber
         move3Update = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "make_move",
           MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(1))),
           move3SeqNum
@@ -159,9 +159,9 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         state4     <- combiner.insert(state3, Signed(move3Update, move3Proof))
 
         // Move 4: O plays center (4)
-        move4SeqNum = state4.calculated.stateMachines(machineCid).sequenceNumber
+        move4SeqNum = state4.calculated.stateMachines(machineFiberId).sequenceNumber
         move4Update = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "make_move",
           MapValue(Map("player" -> StrValue("O"), "cell" -> IntValue(4))),
           move4SeqNum
@@ -170,9 +170,9 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         state5     <- combiner.insert(state4, Signed(move4Update, move4Proof))
 
         // Move 5: X plays top right (2) - should trigger win
-        move5SeqNum = state5.calculated.stateMachines(machineCid).sequenceNumber
+        move5SeqNum = state5.calculated.stateMachines(machineFiberId).sequenceNumber
         move5Update = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "make_move",
           MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(2))),
           move5SeqNum
@@ -182,10 +182,10 @@ object TicTacToeGameSuite extends SimpleIOSuite {
 
         // Verify final state
         finalMachine = finalState.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalOracle = finalState.calculated.scriptOracles.get(oracleCid)
+        finalOracle = finalState.calculated.scriptOracles.get(oracleFiberId)
 
         // Check oracle state
         oracleStatus = finalOracle.flatMap { o =>
@@ -243,8 +243,8 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         combiner                            <- Combiner.make[IO]().pure[IO]
         ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
-        oracleCid = java.util.UUID.fromString("11111111-1111-1111-1111-111111111111")
-        machineCid <- UUIDGen.randomUUID[IO]
+        oracleFiberId = java.util.UUID.fromString("11111111-1111-1111-1111-111111111111")
+        machineFiberId <- UUIDGen.randomUUID[IO]
 
         aliceAddr = registry.addresses(Alice)
         bobAddr = registry.addresses(Bob)
@@ -269,7 +269,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         )
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           scriptProgram = oracleScript,
           initialState = oracleInitialState,
           accessControl = AccessControlPolicy.Public
@@ -290,15 +290,15 @@ object TicTacToeGameSuite extends SimpleIOSuite {
 
         initialData = MapValue(
           Map(
-            "oracleCid"  -> StrValue(oracleCid.toString),
-            "status"     -> StrValue("waiting"),
-            "roundCount" -> IntValue(0)
+            "oracleFiberId" -> StrValue(oracleFiberId.toString),
+            "status"        -> StrValue("waiting"),
+            "roundCount"    -> IntValue(0)
           )
         )
         initialDataHash <- (initialData: JsonLogicValue).computeDigest
 
         machineFiber = Records.StateMachineFiberRecord(
-          cid = machineCid,
+          fiberId = machineFiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -311,11 +311,11 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        stateAfterMachine <- stateAfterOracle.withRecord[IO](machineCid, machineFiber)
+        stateAfterMachine <- stateAfterOracle.withRecord[IO](machineFiberId, machineFiber)
 
         // Start game
         startGameUpdate = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "start_game",
           MapValue(
             Map(
@@ -343,9 +343,9 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         )
 
         finalState <- drawMoves.foldLeftM(state1) { case (currentState, (player, cell, signer)) =>
-          val seqNum = currentState.calculated.stateMachines(machineCid).sequenceNumber
+          val seqNum = currentState.calculated.stateMachines(machineFiberId).sequenceNumber
           val moveUpdate = Updates.TransitionStateMachine(
-            machineCid,
+            machineFiberId,
             "make_move",
             MapValue(Map("player" -> StrValue(player), "cell" -> IntValue(cell))),
             seqNum
@@ -357,10 +357,10 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         }
 
         finalMachine = finalState.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        finalOracle = finalState.calculated.scriptOracles.get(oracleCid)
+        finalOracle = finalState.calculated.scriptOracles.get(oracleFiberId)
 
         finalStatus = finalMachine.flatMap { f =>
           f.stateData match {
@@ -394,8 +394,8 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         combiner                            <- Combiner.make[IO]().pure[IO]
         ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
-        oracleCid = java.util.UUID.fromString("11111111-1111-1111-1111-111111111111")
-        machineCid <- UUIDGen.randomUUID[IO]
+        oracleFiberId = java.util.UUID.fromString("11111111-1111-1111-1111-111111111111")
+        machineFiberId <- UUIDGen.randomUUID[IO]
 
         aliceAddr = registry.addresses(Alice)
         bobAddr = registry.addresses(Bob)
@@ -416,7 +416,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         )
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           scriptProgram = oracleScript,
           initialState = oracleInitialState,
           accessControl = AccessControlPolicy.Public
@@ -436,15 +436,15 @@ object TicTacToeGameSuite extends SimpleIOSuite {
 
         initialData = MapValue(
           Map(
-            "oracleCid"  -> StrValue(oracleCid.toString),
-            "status"     -> StrValue("waiting"),
-            "roundCount" -> IntValue(0)
+            "oracleFiberId" -> StrValue(oracleFiberId.toString),
+            "status"        -> StrValue("waiting"),
+            "roundCount"    -> IntValue(0)
           )
         )
         initialDataHash <- (initialData: JsonLogicValue).computeDigest
 
         machineFiber = Records.StateMachineFiberRecord(
-          cid = machineCid,
+          fiberId = machineFiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -457,11 +457,11 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        stateAfterMachine <- stateAfterOracle.withRecord[IO](machineCid, machineFiber)
+        stateAfterMachine <- stateAfterOracle.withRecord[IO](machineFiberId, machineFiber)
 
         // Start game
         startGameUpdate = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "start_game",
           MapValue(
             Map(
@@ -476,9 +476,9 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         state1         <- combiner.insert(stateAfterMachine, Signed(startGameUpdate, startGameProof))
 
         // Move 1: X plays cell 0
-        move1SeqNum = state1.calculated.stateMachines(machineCid).sequenceNumber
+        move1SeqNum = state1.calculated.stateMachines(machineFiberId).sequenceNumber
         move1Update = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "make_move",
           MapValue(Map("player" -> StrValue("X"), "cell" -> IntValue(0))),
           move1SeqNum
@@ -487,9 +487,9 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         state2     <- combiner.insert(state1, Signed(move1Update, move1Proof))
 
         // Invalid move: O tries to play same cell again (should be recorded as failed)
-        invalidMoveSeqNum = state2.calculated.stateMachines(machineCid).sequenceNumber
+        invalidMoveSeqNum = state2.calculated.stateMachines(machineFiberId).sequenceNumber
         invalidMoveUpdate = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "make_move",
           MapValue(Map("player" -> StrValue("O"), "cell" -> IntValue(0))),
           invalidMoveSeqNum
@@ -498,10 +498,10 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         state3           <- combiner.insert(state2, Signed(invalidMoveUpdate, invalidMoveProof))
 
         machineAfterInvalid = state3.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        oracleAfterInvalid = state3.calculated.scriptOracles.get(oracleCid)
+        oracleAfterInvalid = state3.calculated.scriptOracles.get(oracleFiberId)
 
       } yield expect.all(
         machineAfterInvalid.isDefined,
@@ -526,8 +526,8 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         combiner                            <- Combiner.make[IO]().pure[IO]
         ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
-        oracleCid = java.util.UUID.fromString("11111111-1111-1111-1111-111111111111")
-        machineCid <- UUIDGen.randomUUID[IO]
+        oracleFiberId = java.util.UUID.fromString("11111111-1111-1111-1111-111111111111")
+        machineFiberId <- UUIDGen.randomUUID[IO]
 
         aliceAddr = registry.addresses(Alice)
         bobAddr = registry.addresses(Bob)
@@ -548,7 +548,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         )
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           scriptProgram = oracleScript,
           initialState = oracleInitialState,
           accessControl = AccessControlPolicy.Public
@@ -568,15 +568,15 @@ object TicTacToeGameSuite extends SimpleIOSuite {
 
         initialData = MapValue(
           Map(
-            "oracleCid"  -> StrValue(oracleCid.toString),
-            "status"     -> StrValue("waiting"),
-            "roundCount" -> IntValue(0)
+            "oracleFiberId" -> StrValue(oracleFiberId.toString),
+            "status"        -> StrValue("waiting"),
+            "roundCount"    -> IntValue(0)
           )
         )
         initialDataHash <- (initialData: JsonLogicValue).computeDigest
 
         machineFiber = Records.StateMachineFiberRecord(
-          cid = machineCid,
+          fiberId = machineFiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -589,11 +589,11 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        stateAfterMachine <- stateAfterOracle.withRecord[IO](machineCid, machineFiber)
+        stateAfterMachine <- stateAfterOracle.withRecord[IO](machineFiberId, machineFiber)
 
         // Start and play first game to completion
         startGameUpdate = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "start_game",
           MapValue(
             Map(
@@ -611,9 +611,9 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         quickWin = List(("X", 0, Alice), ("O", 3, Bob), ("X", 1, Alice), ("O", 4, Bob), ("X", 2, Alice))
 
         stateAfterWin <- quickWin.foldLeftM(state1) { case (currentState, (player, cell, signer)) =>
-          val seqNum = currentState.calculated.stateMachines(machineCid).sequenceNumber
+          val seqNum = currentState.calculated.stateMachines(machineFiberId).sequenceNumber
           val moveUpdate = Updates.TransitionStateMachine(
-            machineCid,
+            machineFiberId,
             "make_move",
             MapValue(Map("player" -> StrValue(player), "cell" -> IntValue(cell))),
             seqNum
@@ -625,7 +625,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         }
 
         machineAfterWin = stateAfterWin.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         _ = expect.all(
@@ -634,9 +634,9 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         )
 
         // Reset for round 2
-        resetSeqNum = stateAfterWin.calculated.stateMachines(machineCid).sequenceNumber
+        resetSeqNum = stateAfterWin.calculated.stateMachines(machineFiberId).sequenceNumber
         resetUpdate = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "reset_board",
           MapValue(Map.empty[String, JsonLogicValue]),
           resetSeqNum
@@ -645,7 +645,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
         stateAfterReset <- combiner.insert(stateAfterWin, Signed(resetUpdate, resetProof))
 
         machineAfterReset = stateAfterReset.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         roundCount = machineAfterReset.flatMap { f =>
@@ -655,7 +655,7 @@ object TicTacToeGameSuite extends SimpleIOSuite {
           }
         }
 
-        oracleAfterReset = stateAfterReset.calculated.scriptOracles.get(oracleCid)
+        oracleAfterReset = stateAfterReset.calculated.scriptOracles.get(oracleFiberId)
 
         oracleStatusAfterReset = oracleAfterReset.flatMap { o =>
           o.stateData match {

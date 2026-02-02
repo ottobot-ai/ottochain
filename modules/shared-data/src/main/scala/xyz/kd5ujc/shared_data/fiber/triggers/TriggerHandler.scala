@@ -72,7 +72,7 @@ class StateMachineTriggerHandler[F[_]: Async: SecurityProvider, G[_]: Monad](
       case other =>
         (TriggerHandlerResult.Failed(
           FailureReason
-            .FiberInputMismatch(other.cid, FiberKind.ScriptOracle, InputKind.Transition)
+            .FiberInputMismatch(other.fiberId, FiberKind.ScriptOracle, InputKind.Transition)
         ): TriggerHandlerResult).pure[G]
     }
 
@@ -143,7 +143,7 @@ class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
         handleOracle(trigger, oracle, state)
       case other =>
         (TriggerHandlerResult.Failed(
-          FailureReason.FiberInputMismatch(other.cid, FiberKind.StateMachine, InputKind.MethodCall)
+          FailureReason.FiberInputMismatch(other.fiberId, FiberKind.StateMachine, InputKind.MethodCall)
         ): TriggerHandlerResult).pure[G]
     }
 
@@ -160,12 +160,12 @@ class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
           state.getFiber(fiberId).flatMap(_.owners.headOption)
         },
         TriggerHandlerResult.Failed(
-          FailureReason.CallerResolutionFailed(oracle.cid, trigger.sourceFiberId)
+          FailureReason.CallerResolutionFailed(oracle.fiberId, trigger.sourceFiberId)
         ): TriggerHandlerResult
       )
 
       _ <- EitherT[G, TriggerHandlerResult, Unit](
-        OracleProcessor.validateAccess(oracle.accessControl, callerAddress, oracle.cid, state).liftTo[G].map {
+        OracleProcessor.validateAccess(oracle.accessControl, callerAddress, oracle.fiberId, state).liftTo[G].map {
           case Right(_)     => Right(())
           case Left(reason) => Left(TriggerHandlerResult.Failed(reason))
         }
@@ -217,7 +217,7 @@ class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
           case BoolValue(false) =>
             Left(
               TriggerHandlerResult.Failed(
-                FailureReason.OracleInvocationFailed(oracle.cid, trigger.input.key, Some("returned false"))
+                FailureReason.OracleInvocationFailed(oracle.fiberId, trigger.input.key, Some("returned false"))
               )
             )
           case MapValue(m) if m.get("valid").contains(BoolValue(false)) =>
@@ -225,7 +225,7 @@ class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
             Left(
               TriggerHandlerResult.Failed(
                 FailureReason
-                  .OracleInvocationFailed(oracle.cid, trigger.input.key, Some(s"validation failed: $errorMsg"))
+                  .OracleInvocationFailed(oracle.fiberId, trigger.input.key, Some(s"validation failed: $errorMsg"))
               )
             )
           case _ => Right(())
@@ -242,7 +242,7 @@ class OracleTriggerHandler[F[_]: Async, G[_]: Monad]()(implicit
       )
 
       invocation = OracleInvocation(
-        fiberId = oracle.cid,
+        fiberId = oracle.fiberId,
         method = trigger.input.key,
         args = trigger.input.content,
         result = returnValue,

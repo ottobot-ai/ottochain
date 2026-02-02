@@ -27,7 +27,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        machineCid <- UUIDGen.randomUUID[IO]
+        machineFiberId <- UUIDGen.randomUUID[IO]
 
         // Multiple transitions for "process" event with different guards
         machineJson = """
@@ -81,7 +81,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map.empty[String, JsonLogicValue])
 
-        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineFiberId, machineDef, initialData)
         machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -90,7 +90,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
 
         // Test 1: High priority (>= 80) - should match first guard
         highPriorityEvent = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "process",
           MapValue(Map("priority" -> IntValue(90))),
           FiberOrdinal.MinValue
@@ -99,7 +99,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         stateAfterHigh <- combiner.insert(stateAfterCreate, Signed(highPriorityEvent, highProof))
 
         highMachine = stateAfterHigh.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         highLevel = highMachine.flatMap { f =>
@@ -122,7 +122,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        machineCid <- UUIDGen.randomUUID[IO]
+        machineFiberId <- UUIDGen.randomUUID[IO]
 
         // Guards that overlap - should use first matching one
         machineJson = """
@@ -179,7 +179,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map.empty[String, JsonLogicValue])
 
-        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineFiberId, machineDef, initialData)
         machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -188,7 +188,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
 
         // Test with value 15 - matches both first and second guards, should use first
         checkEvent = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "check",
           MapValue(Map("value" -> IntValue(15))),
           FiberOrdinal.MinValue
@@ -197,7 +197,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         finalState <- combiner.insert(stateAfterCreate, Signed(checkEvent, checkProof))
 
         machine = finalState.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         result = machine.flatMap { f =>
@@ -228,7 +228,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        machineCid <- UUIDGen.randomUUID[IO]
+        machineFiberId <- UUIDGen.randomUUID[IO]
 
         // All guards have specific conditions - none will match if value is too low
         machineJson = """
@@ -284,7 +284,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("tier" -> IntValue(0)))
 
-        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineFiberId, machineDef, initialData)
         machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -293,7 +293,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
 
         // Send upgrade with insufficient amount - no guard should match
         upgradeEvent = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "upgrade",
           MapValue(Map("amount" -> IntValue(50))),
           FiberOrdinal.MinValue
@@ -302,7 +302,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         finalState   <- combiner.insert(stateAfterCreate, Signed(upgradeEvent, upgradeProof))
 
         machine = finalState.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         tier = machine.flatMap { f =>
@@ -327,7 +327,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        machineCid <- UUIDGen.randomUUID[IO]
+        machineFiberId <- UUIDGen.randomUUID[IO]
 
         // Guards with AND/OR conditions
         machineJson = """
@@ -390,7 +390,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map.empty[String, JsonLogicValue])
 
-        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineFiberId, machineDef, initialData)
         machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -399,7 +399,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
 
         // Test 1: Qualifies for premium (all conditions met)
         premiumEvent = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "qualify",
           MapValue(
             Map(
@@ -414,7 +414,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         finalState   <- combiner.insert(stateAfterCreate, Signed(premiumEvent, premiumProof))
 
         machine = finalState.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         level = machine.flatMap { f =>
@@ -437,7 +437,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        machineCid <- UUIDGen.randomUUID[IO]
+        machineFiberId <- UUIDGen.randomUUID[IO]
 
         // Guards that check both state and event
         machineJson = """
@@ -490,7 +490,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
           )
         )
 
-        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineFiberId, machineDef, initialData)
         machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -499,7 +499,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
 
         // Test: Admin unlock (first guard should match)
         unlockEvent = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "unlock",
           MapValue(
             Map(
@@ -513,7 +513,7 @@ object MultipleGuardsSuite extends SimpleIOSuite {
         finalState  <- combiner.insert(stateAfterCreate, Signed(unlockEvent, unlockProof))
 
         machine = finalState.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         unlockedBy = machine.flatMap { f =>

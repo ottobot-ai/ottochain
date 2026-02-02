@@ -48,7 +48,7 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
     initialDataHash <- update.initialData.computeDigest
 
     record = Records.StateMachineFiberRecord(
-      cid = update.fiberId,
+      fiberId = update.fiberId,
       creationOrdinal = currentOrdinal,
       previousUpdateOrdinal = currentOrdinal,
       latestUpdateOrdinal = currentOrdinal,

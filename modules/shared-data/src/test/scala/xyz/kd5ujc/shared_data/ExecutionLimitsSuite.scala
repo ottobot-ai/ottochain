@@ -27,8 +27,8 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        machine1Cid <- UUIDGen.randomUUID[IO]
-        machine2Cid <- UUIDGen.randomUUID[IO]
+        machine1fiberId <- UUIDGen.randomUUID[IO]
+        machine2fiberId <- UUIDGen.randomUUID[IO]
 
         // Machine 1: triggers machine 2 on "ping"
         machine1Json = s"""
@@ -47,7 +47,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
               "effect": {
                 "_triggers": [
                   {
-                    "targetMachineId": "$machine2Cid",
+                    "targetMachineId": "$machine2fiberId",
                     "eventName": "pong",
                     "payload": { "var": "state" }
                   }
@@ -77,7 +77,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
               "effect": {
                 "_triggers": [
                   {
-                    "targetMachineId": "$machine1Cid",
+                    "targetMachineId": "$machine1fiberId",
                     "eventName": "ping",
                     "payload": { "var": "state" }
                   }
@@ -94,7 +94,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
               "effect": {
                 "_triggers": [
                   {
-                    "targetMachineId": "$machine1Cid",
+                    "targetMachineId": "$machine1fiberId",
                     "eventName": "ping",
                     "payload": { "var": "state" }
                   }
@@ -112,20 +112,20 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
 
         initialData = MapValue(Map("count" -> IntValue(0)))
 
-        createMachine1 = Updates.CreateStateMachine(machine1Cid, machine1Def, initialData)
+        createMachine1 = Updates.CreateStateMachine(machine1fiberId, machine1Def, initialData)
         machine1Proof <- fixture.registry.generateProofs(createMachine1, Set(Alice))
         stateAfterMachine1 <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
           Signed(createMachine1, machine1Proof)
         )
 
-        createMachine2 = Updates.CreateStateMachine(machine2Cid, machine2Def, initialData)
+        createMachine2 = Updates.CreateStateMachine(machine2fiberId, machine2Def, initialData)
         machine2Proof      <- fixture.registry.generateProofs(createMachine2, Set(Alice))
         stateAfterMachine2 <- combiner.insert(stateAfterMachine1, Signed(createMachine2, machine2Proof))
 
         // Send initial ping - should hit depth limit due to ping-pong loop
         pingEvent = Updates.TransitionStateMachine(
-          machine1Cid,
+          machine1fiberId,
           "ping",
           MapValue(Map.empty),
           FiberOrdinal.MinValue
@@ -134,11 +134,11 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
         finalState <- combiner.insert(stateAfterMachine2, Signed(pingEvent, pingProof))
 
         machine1 = finalState.calculated.stateMachines
-          .get(machine1Cid)
+          .get(machine1fiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         machine2 = finalState.calculated.stateMachines
-          .get(machine2Cid)
+          .get(machine2fiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Atomic rollback: transaction should have aborted, no state changes
@@ -173,7 +173,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        machineCid <- UUIDGen.randomUUID[IO]
+        machineFiberId <- UUIDGen.randomUUID[IO]
 
         // Machine with many self-triggering transitions to exceed gas limit
         // Each transition costs ~35 gas (10 guard + 20 effect + 5 trigger)
@@ -215,35 +215,35 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
           },
           "initialState": { "value": "s0" },
           "transitions": [
-            { "from": { "value": "s0" }, "to": { "value": "s1" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 1 }, "dependencies": [] },
-            { "from": { "value": "s1" }, "to": { "value": "s2" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 2 }, "dependencies": [] },
-            { "from": { "value": "s2" }, "to": { "value": "s3" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 3 }, "dependencies": [] },
-            { "from": { "value": "s3" }, "to": { "value": "s4" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 4 }, "dependencies": [] },
-            { "from": { "value": "s4" }, "to": { "value": "s5" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 5 }, "dependencies": [] },
-            { "from": { "value": "s5" }, "to": { "value": "s6" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 6 }, "dependencies": [] },
-            { "from": { "value": "s6" }, "to": { "value": "s7" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 7 }, "dependencies": [] },
-            { "from": { "value": "s7" }, "to": { "value": "s8" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 8 }, "dependencies": [] },
-            { "from": { "value": "s8" }, "to": { "value": "s9" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 9 }, "dependencies": [] },
-            { "from": { "value": "s9" }, "to": { "value": "s10" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 10 }, "dependencies": [] },
-            { "from": { "value": "s10" }, "to": { "value": "s11" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 11 }, "dependencies": [] },
-            { "from": { "value": "s11" }, "to": { "value": "s12" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 12 }, "dependencies": [] },
-            { "from": { "value": "s12" }, "to": { "value": "s13" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 13 }, "dependencies": [] },
-            { "from": { "value": "s13" }, "to": { "value": "s14" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 14 }, "dependencies": [] },
-            { "from": { "value": "s14" }, "to": { "value": "s15" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 15 }, "dependencies": [] },
-            { "from": { "value": "s15" }, "to": { "value": "s16" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 16 }, "dependencies": [] },
-            { "from": { "value": "s16" }, "to": { "value": "s17" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 17 }, "dependencies": [] },
-            { "from": { "value": "s17" }, "to": { "value": "s18" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 18 }, "dependencies": [] },
-            { "from": { "value": "s18" }, "to": { "value": "s19" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 19 }, "dependencies": [] },
-            { "from": { "value": "s19" }, "to": { "value": "s20" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 20 }, "dependencies": [] },
-            { "from": { "value": "s20" }, "to": { "value": "s21" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 21 }, "dependencies": [] },
-            { "from": { "value": "s21" }, "to": { "value": "s22" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 22 }, "dependencies": [] },
-            { "from": { "value": "s22" }, "to": { "value": "s23" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 23 }, "dependencies": [] },
-            { "from": { "value": "s23" }, "to": { "value": "s24" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 24 }, "dependencies": [] },
-            { "from": { "value": "s24" }, "to": { "value": "s25" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 25 }, "dependencies": [] },
-            { "from": { "value": "s25" }, "to": { "value": "s26" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 26 }, "dependencies": [] },
-            { "from": { "value": "s26" }, "to": { "value": "s27" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 27 }, "dependencies": [] },
-            { "from": { "value": "s27" }, "to": { "value": "s28" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 28 }, "dependencies": [] },
-            { "from": { "value": "s28" }, "to": { "value": "s29" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineCid", "eventName": "advance", "payload": {} }], "step": 29 }, "dependencies": [] },
+            { "from": { "value": "s0" }, "to": { "value": "s1" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 1 }, "dependencies": [] },
+            { "from": { "value": "s1" }, "to": { "value": "s2" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 2 }, "dependencies": [] },
+            { "from": { "value": "s2" }, "to": { "value": "s3" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 3 }, "dependencies": [] },
+            { "from": { "value": "s3" }, "to": { "value": "s4" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 4 }, "dependencies": [] },
+            { "from": { "value": "s4" }, "to": { "value": "s5" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 5 }, "dependencies": [] },
+            { "from": { "value": "s5" }, "to": { "value": "s6" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 6 }, "dependencies": [] },
+            { "from": { "value": "s6" }, "to": { "value": "s7" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 7 }, "dependencies": [] },
+            { "from": { "value": "s7" }, "to": { "value": "s8" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 8 }, "dependencies": [] },
+            { "from": { "value": "s8" }, "to": { "value": "s9" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 9 }, "dependencies": [] },
+            { "from": { "value": "s9" }, "to": { "value": "s10" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 10 }, "dependencies": [] },
+            { "from": { "value": "s10" }, "to": { "value": "s11" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 11 }, "dependencies": [] },
+            { "from": { "value": "s11" }, "to": { "value": "s12" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 12 }, "dependencies": [] },
+            { "from": { "value": "s12" }, "to": { "value": "s13" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 13 }, "dependencies": [] },
+            { "from": { "value": "s13" }, "to": { "value": "s14" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 14 }, "dependencies": [] },
+            { "from": { "value": "s14" }, "to": { "value": "s15" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 15 }, "dependencies": [] },
+            { "from": { "value": "s15" }, "to": { "value": "s16" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 16 }, "dependencies": [] },
+            { "from": { "value": "s16" }, "to": { "value": "s17" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 17 }, "dependencies": [] },
+            { "from": { "value": "s17" }, "to": { "value": "s18" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 18 }, "dependencies": [] },
+            { "from": { "value": "s18" }, "to": { "value": "s19" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 19 }, "dependencies": [] },
+            { "from": { "value": "s19" }, "to": { "value": "s20" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 20 }, "dependencies": [] },
+            { "from": { "value": "s20" }, "to": { "value": "s21" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 21 }, "dependencies": [] },
+            { "from": { "value": "s21" }, "to": { "value": "s22" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 22 }, "dependencies": [] },
+            { "from": { "value": "s22" }, "to": { "value": "s23" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 23 }, "dependencies": [] },
+            { "from": { "value": "s23" }, "to": { "value": "s24" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 24 }, "dependencies": [] },
+            { "from": { "value": "s24" }, "to": { "value": "s25" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 25 }, "dependencies": [] },
+            { "from": { "value": "s25" }, "to": { "value": "s26" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 26 }, "dependencies": [] },
+            { "from": { "value": "s26" }, "to": { "value": "s27" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 27 }, "dependencies": [] },
+            { "from": { "value": "s27" }, "to": { "value": "s28" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 28 }, "dependencies": [] },
+            { "from": { "value": "s28" }, "to": { "value": "s29" }, "eventName": "advance", "guard": true, "effect": { "_triggers": [{ "targetMachineId": "$machineFiberId", "eventName": "advance", "payload": {} }], "step": 29 }, "dependencies": [] },
             { "from": { "value": "s29" }, "to": { "value": "s30" }, "eventName": "advance", "guard": true, "effect": { "step": 30 }, "dependencies": [] }
           ]
         }
@@ -252,7 +252,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
         machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("step" -> IntValue(0)))
 
-        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineFiberId, machineDef, initialData)
         machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -261,7 +261,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
 
         // Send advance event - should trigger chain but stop when gas exhausted
         advanceEvent = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "advance",
           MapValue(Map.empty),
           FiberOrdinal.MinValue
@@ -270,7 +270,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
         finalState   <- combiner.insert(stateAfterCreate, Signed(advanceEvent, advanceProof))
 
         machine = finalState.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         step = machine.flatMap { f =>
@@ -296,7 +296,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        machineCid <- UUIDGen.randomUUID[IO]
+        machineFiberId <- UUIDGen.randomUUID[IO]
 
         // Machine that triggers itself with the same event (should be detected as cycle)
         machineJson = s"""
@@ -315,7 +315,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
               "effect": {
                 "_triggers": [
                   {
-                    "targetMachineId": "$machineCid",
+                    "targetMachineId": "$machineFiberId",
                     "eventName": "start",
                     "payload": {}
                   }
@@ -332,7 +332,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
               "effect": {
                 "_triggers": [
                   {
-                    "targetMachineId": "$machineCid",
+                    "targetMachineId": "$machineFiberId",
                     "eventName": "start",
                     "payload": {}
                   }
@@ -348,7 +348,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
         machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("count" -> IntValue(0)))
 
-        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineFiberId, machineDef, initialData)
         machineProof <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -357,7 +357,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
 
         // Send start event - should detect cycle when trigger tries to send "start" again
         startEvent = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "start",
           MapValue(Map.empty),
           FiberOrdinal.MinValue
@@ -366,7 +366,7 @@ object ExecutionLimitsSuite extends SimpleIOSuite {
         finalState <- combiner.insert(stateAfterCreate, Signed(startEvent, startProof))
 
         machine = finalState.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         count = machine.flatMap { f =>

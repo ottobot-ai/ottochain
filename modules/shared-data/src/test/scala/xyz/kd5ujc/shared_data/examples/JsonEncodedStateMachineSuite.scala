@@ -87,7 +87,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         )
 
         // Create time lock fiber with unlock time set to timestamp 1000
-        lockCid <- UUIDGen.randomUUID[IO]
+        lockfiberId <- UUIDGen.randomUUID[IO]
         lockData = MapValue(
           Map(
             "unlockTime"  -> IntValue(1000),
@@ -98,7 +98,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         lockHash <- (lockData: JsonLogicValue).computeDigest
 
         lockFiber = Records.StateMachineFiberRecord(
-          cid = lockCid,
+          fiberId = lockfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -111,11 +111,11 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](lockCid, lockFiber)
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](lockfiberId, lockFiber)
 
         // Try to unlock BEFORE time (should fail)
         earlyUpdate = Updates.TransitionStateMachine(
-          lockCid,
+          lockfiberId,
           "unlock",
           MapValue(Map("currentTime" -> IntValue(900))),
           FiberOrdinal.MinValue
@@ -128,7 +128,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         // Try to unlock AFTER time (should succeed)
         validUpdate = Updates.TransitionStateMachine(
-          lockCid,
+          lockfiberId,
           "unlock",
           MapValue(Map("currentTime" -> IntValue(1500))),
           FiberOrdinal.MinValue
@@ -137,7 +137,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         finalState <- combiner.insert(inState, Signed(validUpdate, validProof))
 
         unlockedFiber = finalState.calculated.stateMachines
-          .get(lockCid)
+          .get(lockfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         isUnlocked: Option[Boolean] = unlockedFiber.flatMap { f =>
@@ -259,7 +259,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         // Alice creates HTLC with secret hash
         // Secret: "opensesame", Hash: "secret123hash"
-        htlcCid <- UUIDGen.randomUUID[IO]
+        htlcfiberId <- UUIDGen.randomUUID[IO]
         aliceAddr = registry.addresses(Alice)
         bobAddr = registry.addresses(Bob)
 
@@ -275,7 +275,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         htlcHash <- (htlcData: JsonLogicValue).computeDigest
 
         htlcFiber = Records.StateMachineFiberRecord(
-          cid = htlcCid,
+          fiberId = htlcfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -288,11 +288,11 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](htlcCid, htlcFiber)
+        inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](htlcfiberId, htlcFiber)
 
         // Test 1: Bob tries to claim with WRONG secret (should fail)
         wrongClaimUpdate = Updates.TransitionStateMachine(
-          htlcCid,
+          htlcfiberId,
           "claim",
           MapValue(
             Map(
@@ -311,7 +311,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         // Test 2: Bob claims with CORRECT secret BEFORE timeout (should succeed)
         correctClaimUpdate = Updates.TransitionStateMachine(
-          htlcCid,
+          htlcfiberId,
           "claim",
           MapValue(
             Map(
@@ -327,7 +327,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         claimedState      <- combiner.insert(inState, Signed(correctClaimUpdate, correctClaimProof))
 
         claimedFiber = claimedState.calculated.stateMachines
-          .get(htlcCid)
+          .get(htlcfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         wasClaimed: Option[Boolean] = claimedFiber.flatMap { f =>
@@ -359,7 +359,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         )
 
         // Test 3: Alice tries to refund AFTER timeout on a NEW HTLC (should succeed)
-        htlcCid2 <- UUIDGen.randomUUID[IO]
+        htlcfiberId2 <- UUIDGen.randomUUID[IO]
         htlcData2 = MapValue(
           Map(
             "sender"    -> StrValue(aliceAddr.toString),
@@ -372,7 +372,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         htlcHash2 <- (htlcData2: JsonLogicValue).computeDigest
 
         htlcFiber2 = Records.StateMachineFiberRecord(
-          cid = htlcCid2,
+          fiberId = htlcfiberId2,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -385,11 +385,11 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        inState2 <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](htlcCid2, htlcFiber2)
+        inState2 <- DataState(OnChain.genesis, CalculatedState.genesis).withRecord[IO](htlcfiberId2, htlcFiber2)
 
         // Alice tries to refund BEFORE timeout (should fail)
         earlyRefundUpdate = Updates.TransitionStateMachine(
-          htlcCid2,
+          htlcfiberId2,
           "refund",
           MapValue(
             Map(
@@ -406,7 +406,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         // Alice refunds AFTER timeout (should succeed)
         refundUpdate = Updates.TransitionStateMachine(
-          htlcCid2,
+          htlcfiberId2,
           "refund",
           MapValue(
             Map(
@@ -420,7 +420,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         refundedState <- combiner.insert(inState2, Signed(refundUpdate, refundProof))
 
         refundedFiber = refundedState.calculated.stateMachines
-          .get(htlcCid2)
+          .get(htlcfiberId2)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         wasRefunded: Option[Boolean] = refundedFiber.flatMap { f =>
@@ -464,11 +464,11 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         combiner                            <- Combiner.make[IO]().pure[IO]
         ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
-        orderCid      <- UUIDGen.randomUUID[IO]
-        escrowCid     <- UUIDGen.randomUUID[IO]
-        shippingCid   <- UUIDGen.randomUUID[IO]
-        inspectionCid <- UUIDGen.randomUUID[IO]
-        insuranceCid  <- UUIDGen.randomUUID[IO]
+        orderfiberId      <- UUIDGen.randomUUID[IO]
+        escrowfiberId     <- UUIDGen.randomUUID[IO]
+        shippingfiberId   <- UUIDGen.randomUUID[IO]
+        inspectionfiberId <- UUIDGen.randomUUID[IO]
+        insurancefiberId  <- UUIDGen.randomUUID[IO]
 
         orderJson =
           s"""{
@@ -490,7 +490,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
               "eventName": "confirm_funding",
               "guard": {
                 "===": [
-                  { "var": "machines.${escrowCid}.state.status" },
+                  { "var": "machines.${escrowfiberId}.state.status" },
                   "locked"
                 ]
               },
@@ -498,7 +498,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                 ["status", "funded"],
                 ["fundedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${escrowCid}"]
+              "dependencies": ["${escrowfiberId}"]
             },
             {
               "from": { "value": "funded" },
@@ -517,7 +517,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
               "eventName": "accept_shipment",
               "guard": {
                 "===": [
-                  { "var": "machines.${shippingCid}.state.status" },
+                  { "var": "machines.${shippingfiberId}.state.status" },
                   "picked_up"
                 ]
               },
@@ -525,7 +525,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                 ["status", "in_transit"],
                 ["transitStartedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${shippingCid}"]
+              "dependencies": ["${shippingfiberId}"]
             },
             {
               "from": { "value": "in_transit" },
@@ -533,7 +533,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
               "eventName": "confirm_delivery",
               "guard": {
                 "===": [
-                  { "var": "machines.${shippingCid}.state.status" },
+                  { "var": "machines.${shippingfiberId}.state.status" },
                   "delivered"
                 ]
               },
@@ -541,7 +541,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                 ["status", "delivered"],
                 ["deliveredAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${shippingCid}"]
+              "dependencies": ["${shippingfiberId}"]
             },
             {
               "from": { "value": "delivered" },
@@ -549,7 +549,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
               "eventName": "start_inspection",
               "guard": {
                 "===": [
-                  { "var": "machines.${inspectionCid}.state.status" },
+                  { "var": "machines.${inspectionfiberId}.state.status" },
                   "scheduled"
                 ]
               },
@@ -557,7 +557,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                 ["status", "inspecting"],
                 ["inspectionStartedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${inspectionCid}"]
+              "dependencies": ["${inspectionfiberId}"]
             },
             {
               "from": { "value": "inspecting" },
@@ -567,13 +567,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                 "and": [
                   {
                     "===": [
-                      { "var": "machines.${inspectionCid}.state.result" },
+                      { "var": "machines.${inspectionfiberId}.state.result" },
                       "passed"
                     ]
                   },
                   {
                     "===": [
-                      { "var": "machines.${escrowCid}.state.status" },
+                      { "var": "machines.${escrowfiberId}.state.status" },
                       "released"
                     ]
                   }
@@ -583,7 +583,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                 ["status", "completed"],
                 ["completedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${inspectionCid}", "${escrowCid}"]
+              "dependencies": ["${inspectionfiberId}", "${escrowfiberId}"]
             },
             {
               "from": { "value": "inspecting" },
@@ -591,7 +591,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
               "eventName": "dispute",
               "guard": {
                 "===": [
-                  { "var": "machines.${inspectionCid}.state.result" },
+                  { "var": "machines.${inspectionfiberId}.state.result" },
                   "failed"
                 ]
               },
@@ -599,7 +599,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                 ["status", "disputed"],
                 ["disputedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${inspectionCid}"]
+              "dependencies": ["${inspectionfiberId}"]
             }
           ]
         }"""
@@ -640,7 +640,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
               "eventName": "hold",
               "guard": {
                 "===": [
-                  { "var": "machines.${shippingCid}.state.status" },
+                  { "var": "machines.${shippingfiberId}.state.status" },
                   "picked_up"
                 ]
               },
@@ -648,7 +648,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                 ["status", "held"],
                 ["holdUntil", { "+": [{ "var": "event.timestamp" }, 86400] }]
               ],
-              "dependencies": ["${shippingCid}"]
+              "dependencies": ["${shippingfiberId}"]
             },
             {
               "from": { "value": "held" },
@@ -658,19 +658,19 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                 "and": [
                   {
                     "===": [
-                      { "var": "machines.${orderCid}.state.status" },
+                      { "var": "machines.${orderfiberId}.state.status" },
                       "inspecting"
                     ]
                   },
                   {
                     "===": [
-                      { "var": "machines.${inspectionCid}.state.result" },
+                      { "var": "machines.${inspectionfiberId}.state.result" },
                       "passed"
                     ]
                   },
                   {
                     "===": [
-                      { "var": "machines.${shippingCid}.state.condition" },
+                      { "var": "machines.${shippingfiberId}.state.condition" },
                       "good"
                     ]
                   },
@@ -682,7 +682,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                   },
                   {
                     "===": [
-                      { "var": "machines.${insuranceCid}.state.hasClaim" },
+                      { "var": "machines.${insurancefiberId}.state.hasClaim" },
                       false
                     ]
                   }
@@ -692,7 +692,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                 ["status", "releasing"],
                 ["releaseInitiatedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${orderCid}", "${inspectionCid}", "${shippingCid}", "${insuranceCid}"]
+              "dependencies": ["${orderfiberId}", "${inspectionfiberId}", "${shippingfiberId}", "${insurancefiberId}"]
             },
             {
               "from": { "value": "releasing" },
@@ -713,13 +713,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                 "or": [
                   {
                     "===": [
-                      { "var": "machines.${inspectionCid}.state.result" },
+                      { "var": "machines.${inspectionfiberId}.state.result" },
                       "failed"
                     ]
                   },
                   {
                     "===": [
-                      { "var": "machines.${shippingCid}.state.status" },
+                      { "var": "machines.${shippingfiberId}.state.status" },
                       "lost"
                     ]
                   }
@@ -729,7 +729,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                 ["status", "refunding"],
                 ["refundInitiatedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${inspectionCid}", "${shippingCid}"]
+              "dependencies": ["${inspectionfiberId}", "${shippingfiberId}"]
             },
             {
               "from": { "value": "refunding" },
@@ -800,7 +800,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
               "eventName": "clear_customs",
               "guard": {
                 "===": [
-                  { "var": "machines.${insuranceCid}.state.status" },
+                  { "var": "machines.${insurancefiberId}.state.status" },
                   "active"
                 ]
               },
@@ -808,7 +808,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                 ["status", "out_for_delivery"],
                 ["clearedCustomsAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${insuranceCid}"]
+              "dependencies": ["${insurancefiberId}"]
             },
             {
               "from": { "value": "out_for_delivery" },
@@ -970,19 +970,19 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                 "or": [
                   {
                     "===": [
-                      { "var": "machines.${shippingCid}.state.status" },
+                      { "var": "machines.${shippingfiberId}.state.status" },
                       "lost"
                     ]
                   },
                   {
                     "===": [
-                      { "var": "machines.${shippingCid}.state.status" },
+                      { "var": "machines.${shippingfiberId}.state.status" },
                       "damaged"
                     ]
                   },
                   {
                     "===": [
-                      { "var": "machines.${inspectionCid}.state.result" },
+                      { "var": "machines.${inspectionfiberId}.state.result" },
                       "failed"
                     ]
                   }
@@ -993,7 +993,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                 ["hasClaim", true],
                 ["claimFiledAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${shippingCid}", "${inspectionCid}"]
+              "dependencies": ["${shippingfiberId}", "${inspectionfiberId}"]
             },
             {
               "from": { "value": "claim_filed" },
@@ -1009,20 +1009,20 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
             {
               "from": { "value": "investigating" },
               "to": { "value": "approved" },
-              "eventName": "decide",
+              "eventName": "defiberIde",
               "guard": {
                 "or": [
                   {
                     "and": [
                       {
                         "===": [
-                          { "var": "machines.${shippingCid}.state.tampered" },
+                          { "var": "machines.${shippingfiberId}.state.tampered" },
                           true
                         ]
                       },
                       {
                         "<": [
-                          { "-": [{ "var": "event.timestamp" }, { "var": "machines.${shippingCid}.state.lastGPS" }] },
+                          { "-": [{ "var": "event.timestamp" }, { "var": "machines.${shippingfiberId}.state.lastGPS" }] },
                           86400
                         ]
                       }
@@ -1032,13 +1032,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                     "and": [
                       {
                         "===": [
-                          { "var": "machines.${inspectionCid}.state.result" },
+                          { "var": "machines.${inspectionfiberId}.state.result" },
                           "failed"
                         ]
                       },
                       {
                         ">=": [
-                          { "var": "machines.${inspectionCid}.state.damageScore" },
+                          { "var": "machines.${inspectionfiberId}.state.damageScore" },
                           7
                         ]
                       }
@@ -1050,12 +1050,12 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                 ["status", "approved"],
                 ["approvedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${shippingCid}", "${inspectionCid}"]
+              "dependencies": ["${shippingfiberId}", "${inspectionfiberId}"]
             },
             {
               "from": { "value": "investigating" },
               "to": { "value": "denied" },
-              "eventName": "decide",
+              "eventName": "defiberIde",
               "guard": {
                 "!": [
                   {
@@ -1064,13 +1064,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                         "and": [
                           {
                             "===": [
-                              { "var": "machines.${shippingCid}.state.tampered" },
+                              { "var": "machines.${shippingfiberId}.state.tampered" },
                               true
                             ]
                           },
                           {
                             "<": [
-                              { "-": [{ "var": "event.timestamp" }, { "var": "machines.${shippingCid}.state.lastGPS" }] },
+                              { "-": [{ "var": "event.timestamp" }, { "var": "machines.${shippingfiberId}.state.lastGPS" }] },
                               86400
                             ]
                           }
@@ -1080,13 +1080,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                         "and": [
                           {
                             "===": [
-                              { "var": "machines.${inspectionCid}.state.result" },
+                              { "var": "machines.${inspectionfiberId}.state.result" },
                               "failed"
                             ]
                           },
                           {
                             ">=": [
-                              { "var": "machines.${inspectionCid}.state.damageScore" },
+                              { "var": "machines.${inspectionfiberId}.state.damageScore" },
                               7
                             ]
                           }
@@ -1100,7 +1100,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                 ["status", "denied"],
                 ["deniedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${shippingCid}", "${inspectionCid}"]
+              "dependencies": ["${shippingfiberId}", "${inspectionfiberId}"]
             },
             {
               "from": { "value": "approved" },
@@ -1194,7 +1194,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         insuranceHash <- (insuranceData: JsonLogicValue).computeDigest
 
         orderFiber = Records.StateMachineFiberRecord(
-          cid = orderCid,
+          fiberId = orderfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1208,7 +1208,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         )
 
         escrowFiber = Records.StateMachineFiberRecord(
-          cid = escrowCid,
+          fiberId = escrowfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1222,7 +1222,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         )
 
         shippingFiber = Records.StateMachineFiberRecord(
-          cid = shippingCid,
+          fiberId = shippingfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1236,7 +1236,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         )
 
         inspectionFiber = Records.StateMachineFiberRecord(
-          cid = inspectionCid,
+          fiberId = inspectionfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1250,7 +1250,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         )
 
         insuranceFiber = Records.StateMachineFiberRecord(
-          cid = insuranceCid,
+          fiberId = insurancefiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1265,16 +1265,16 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecords[IO](
           Map(
-            orderCid      -> orderFiber,
-            escrowCid     -> escrowFiber,
-            shippingCid   -> shippingFiber,
-            inspectionCid -> inspectionFiber,
-            insuranceCid  -> insuranceFiber
+            orderfiberId      -> orderFiber,
+            escrowfiberId     -> escrowFiber,
+            shippingfiberId   -> shippingFiber,
+            inspectionfiberId -> inspectionFiber,
+            insurancefiberId  -> insuranceFiber
           )
         )
 
         lockFundsUpdate = Updates.TransitionStateMachine(
-          escrowCid,
+          escrowfiberId,
           "lock_funds",
           MapValue(
             Map(
@@ -1288,7 +1288,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         state1         <- combiner.insert(inState, Signed(lockFundsUpdate, lockFundsProof))
 
         confirmFundingUpdate = Updates.TransitionStateMachine(
-          orderCid,
+          orderfiberId,
           "confirm_funding",
           MapValue(Map("timestamp" -> IntValue(1100))),
           FiberOrdinal.MinValue
@@ -1296,9 +1296,9 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         confirmFundingProof <- registry.generateProofs(confirmFundingUpdate, Set(Alice))
         state2              <- combiner.insert(state1, Signed(confirmFundingUpdate, confirmFundingProof))
 
-        shipSeqNum = state2.calculated.stateMachines(orderCid).sequenceNumber
+        shipSeqNum = state2.calculated.stateMachines(orderfiberId).sequenceNumber
         shipUpdate = Updates.TransitionStateMachine(
-          orderCid,
+          orderfiberId,
           "ship",
           MapValue(Map("timestamp" -> IntValue(1200))),
           shipSeqNum
@@ -1307,7 +1307,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         state3    <- combiner.insert(state2, Signed(shipUpdate, shipProof))
 
         pickupUpdate = Updates.TransitionStateMachine(
-          shippingCid,
+          shippingfiberId,
           "pickup",
           MapValue(Map("timestamp" -> IntValue(1300))),
           FiberOrdinal.MinValue
@@ -1315,9 +1315,9 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         pickupProof <- registry.generateProofs(pickupUpdate, Set(Alice))
         state4      <- combiner.insert(state3, Signed(pickupUpdate, pickupProof))
 
-        holdSeqNum = state4.calculated.stateMachines(escrowCid).sequenceNumber
+        holdSeqNum = state4.calculated.stateMachines(escrowfiberId).sequenceNumber
         holdUpdate = Updates.TransitionStateMachine(
-          escrowCid,
+          escrowfiberId,
           "hold",
           MapValue(Map("timestamp" -> IntValue(1400))),
           holdSeqNum
@@ -1325,9 +1325,9 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         holdProof <- registry.generateProofs(holdUpdate, Set(Alice))
         state5    <- combiner.insert(state4, Signed(holdUpdate, holdProof))
 
-        acceptShipmentSeqNum = state5.calculated.stateMachines(orderCid).sequenceNumber
+        acceptShipmentSeqNum = state5.calculated.stateMachines(orderfiberId).sequenceNumber
         acceptShipmentUpdate = Updates.TransitionStateMachine(
-          orderCid,
+          orderfiberId,
           "accept_shipment",
           MapValue(Map("timestamp" -> IntValue(1500))),
           acceptShipmentSeqNum
@@ -1335,9 +1335,9 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         acceptShipmentProof <- registry.generateProofs(acceptShipmentUpdate, Set(Alice))
         state6              <- combiner.insert(state5, Signed(acceptShipmentUpdate, acceptShipmentProof))
 
-        checkpointSeqNum = state6.calculated.stateMachines(shippingCid).sequenceNumber
+        checkpointSeqNum = state6.calculated.stateMachines(shippingfiberId).sequenceNumber
         checkpointUpdate = Updates.TransitionStateMachine(
-          shippingCid,
+          shippingfiberId,
           "checkpoint",
           MapValue(Map("timestamp" -> IntValue(1600))),
           checkpointSeqNum
@@ -1345,9 +1345,9 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         checkpointProof <- registry.generateProofs(checkpointUpdate, Set(Alice))
         state7          <- combiner.insert(state6, Signed(checkpointUpdate, checkpointProof))
 
-        enterCustomsSeqNum = state7.calculated.stateMachines(shippingCid).sequenceNumber
+        enterCustomsSeqNum = state7.calculated.stateMachines(shippingfiberId).sequenceNumber
         enterCustomsUpdate = Updates.TransitionStateMachine(
-          shippingCid,
+          shippingfiberId,
           "enter_customs",
           MapValue(Map("timestamp" -> IntValue(2000))),
           enterCustomsSeqNum
@@ -1355,9 +1355,9 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         enterCustomsProof <- registry.generateProofs(enterCustomsUpdate, Set(Alice))
         state8            <- combiner.insert(state7, Signed(enterCustomsUpdate, enterCustomsProof))
 
-        clearCustomsSeqNum = state8.calculated.stateMachines(shippingCid).sequenceNumber
+        clearCustomsSeqNum = state8.calculated.stateMachines(shippingfiberId).sequenceNumber
         clearCustomsUpdate = Updates.TransitionStateMachine(
-          shippingCid,
+          shippingfiberId,
           "clear_customs",
           MapValue(Map("timestamp" -> IntValue(3000))),
           clearCustomsSeqNum
@@ -1365,9 +1365,9 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         clearCustomsProof <- registry.generateProofs(clearCustomsUpdate, Set(Alice))
         state9            <- combiner.insert(state8, Signed(clearCustomsUpdate, clearCustomsProof))
 
-        deliverSeqNum = state9.calculated.stateMachines(shippingCid).sequenceNumber
+        deliverSeqNum = state9.calculated.stateMachines(shippingfiberId).sequenceNumber
         deliverUpdate = Updates.TransitionStateMachine(
-          shippingCid,
+          shippingfiberId,
           "deliver",
           MapValue(Map("timestamp" -> IntValue(4000))),
           deliverSeqNum
@@ -1375,9 +1375,9 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         deliverProof <- registry.generateProofs(deliverUpdate, Set(Alice))
         state10      <- combiner.insert(state9, Signed(deliverUpdate, deliverProof))
 
-        confirmDeliverySeqNum = state10.calculated.stateMachines(orderCid).sequenceNumber
+        confirmDeliverySeqNum = state10.calculated.stateMachines(orderfiberId).sequenceNumber
         confirmDeliveryUpdate = Updates.TransitionStateMachine(
-          orderCid,
+          orderfiberId,
           "confirm_delivery",
           MapValue(Map("timestamp" -> IntValue(4100))),
           confirmDeliverySeqNum
@@ -1386,7 +1386,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         state11              <- combiner.insert(state10, Signed(confirmDeliveryUpdate, confirmDeliveryProof))
 
         scheduleUpdate = Updates.TransitionStateMachine(
-          inspectionCid,
+          inspectionfiberId,
           "schedule",
           MapValue(Map("timestamp" -> IntValue(4200))),
           FiberOrdinal.MinValue
@@ -1394,9 +1394,9 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         scheduleProof <- registry.generateProofs(scheduleUpdate, Set(Charlie))
         state12       <- combiner.insert(state11, Signed(scheduleUpdate, scheduleProof))
 
-        startInspectionSeqNum = state12.calculated.stateMachines(orderCid).sequenceNumber
+        startInspectionSeqNum = state12.calculated.stateMachines(orderfiberId).sequenceNumber
         startInspectionUpdate = Updates.TransitionStateMachine(
-          orderCid,
+          orderfiberId,
           "start_inspection",
           MapValue(Map("timestamp" -> IntValue(4300))),
           startInspectionSeqNum
@@ -1404,9 +1404,9 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         startInspectionProof <- registry.generateProofs(startInspectionUpdate, Set(Alice))
         state13              <- combiner.insert(state12, Signed(startInspectionUpdate, startInspectionProof))
 
-        beginInspectionSeqNum = state13.calculated.stateMachines(inspectionCid).sequenceNumber
+        beginInspectionSeqNum = state13.calculated.stateMachines(inspectionfiberId).sequenceNumber
         beginInspectionUpdate = Updates.TransitionStateMachine(
-          inspectionCid,
+          inspectionfiberId,
           "begin_inspection",
           MapValue(Map("timestamp" -> IntValue(4400))),
           beginInspectionSeqNum
@@ -1414,9 +1414,9 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         beginInspectionProof <- registry.generateProofs(beginInspectionUpdate, Set(Charlie))
         state14              <- combiner.insert(state13, Signed(beginInspectionUpdate, beginInspectionProof))
 
-        completeInspectionSeqNum = state14.calculated.stateMachines(inspectionCid).sequenceNumber
+        completeInspectionSeqNum = state14.calculated.stateMachines(inspectionfiberId).sequenceNumber
         completeInspectionUpdate = Updates.TransitionStateMachine(
-          inspectionCid,
+          inspectionfiberId,
           "complete_inspection",
           MapValue(
             Map(
@@ -1430,9 +1430,9 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         completeInspectionProof <- registry.generateProofs(completeInspectionUpdate, Set(Charlie))
         state15                 <- combiner.insert(state14, Signed(completeInspectionUpdate, completeInspectionProof))
 
-        releaseSeqNum = state15.calculated.stateMachines(escrowCid).sequenceNumber
+        releaseSeqNum = state15.calculated.stateMachines(escrowfiberId).sequenceNumber
         releaseUpdate = Updates.TransitionStateMachine(
-          escrowCid,
+          escrowfiberId,
           "release",
           MapValue(Map("timestamp" -> IntValue(90000))),
           releaseSeqNum
@@ -1440,9 +1440,9 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         releaseProof <- registry.generateProofs(releaseUpdate, Set(Alice))
         state16      <- combiner.insert(state15, Signed(releaseUpdate, releaseProof))
 
-        finalizeReleaseSeqNum = state16.calculated.stateMachines(escrowCid).sequenceNumber
+        finalizeReleaseSeqNum = state16.calculated.stateMachines(escrowfiberId).sequenceNumber
         finalizeReleaseUpdate = Updates.TransitionStateMachine(
-          escrowCid,
+          escrowfiberId,
           "finalize_release",
           MapValue(Map("timestamp" -> IntValue(90100))),
           finalizeReleaseSeqNum
@@ -1450,9 +1450,9 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         finalizeReleaseProof <- registry.generateProofs(finalizeReleaseUpdate, Set(Alice))
         state17              <- combiner.insert(state16, Signed(finalizeReleaseUpdate, finalizeReleaseProof))
 
-        completeOrderSeqNum = state17.calculated.stateMachines(orderCid).sequenceNumber
+        completeOrderSeqNum = state17.calculated.stateMachines(orderfiberId).sequenceNumber
         completeOrderUpdate = Updates.TransitionStateMachine(
-          orderCid,
+          orderfiberId,
           "complete_order",
           MapValue(Map("timestamp" -> IntValue(90200))),
           completeOrderSeqNum
@@ -1461,23 +1461,23 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         finalState         <- combiner.insert(state17, Signed(completeOrderUpdate, completeOrderProof))
 
         finalOrder = finalState.calculated.stateMachines
-          .get(orderCid)
+          .get(orderfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         finalEscrow = finalState.calculated.stateMachines
-          .get(escrowCid)
+          .get(escrowfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         finalShipping = finalState.calculated.stateMachines
-          .get(shippingCid)
+          .get(shippingfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         finalInspection = finalState.calculated.stateMachines
-          .get(inspectionCid)
+          .get(inspectionfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         finalInsurance = finalState.calculated.stateMachines
-          .get(insuranceCid)
+          .get(insurancefiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         orderStatus: Option[String] = finalOrder.flatMap { f =>
@@ -1529,8 +1529,8 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         combiner                            <- Combiner.make[IO]().pure[IO]
         ordinal                             <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
-        // Get proposal CID early so we can reference it in action stream
-        proposalCid <- UUIDGen.randomUUID[IO]
+        // Get proposal fiberId early so we can reference it in action stream
+        proposalfiberId <- UUIDGen.randomUUID[IO]
 
         // Define Proposal state machine (the main management/governance stream)
         proposalJson =
@@ -1642,7 +1642,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
               "eventName": "submit",
               "guard": {
                 "===": [
-                  { "var": "machines.${proposalCid}.state.status" },
+                  { "var": "machines.${proposalfiberId}.state.status" },
                   "open"
                 ]
               },
@@ -1652,7 +1652,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                 ["submitter", { "var": "event.submitter" }],
                 ["actionData", { "var": "event.actionData" }]
               ],
-              "dependencies": ["${proposalCid}"]
+              "dependencies": ["${proposalfiberId}"]
             },
             {
               "from": { "value": "pending" },
@@ -1660,7 +1660,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
               "eventName": "submit",
               "guard": {
                 "!==": [
-                  { "var": "machines.${proposalCid}.state.status" },
+                  { "var": "machines.${proposalfiberId}.state.status" },
                   "open"
                 ]
               },
@@ -1668,7 +1668,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
                 ["rejected", true],
                 ["reason", "proposal not open"]
               ],
-              "dependencies": ["${proposalCid}"]
+              "dependencies": ["${proposalfiberId}"]
             }
           ]
         }"""
@@ -1735,7 +1735,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         proposalHash <- (proposalData: JsonLogicValue).computeDigest
 
         proposalFiber = Records.StateMachineFiberRecord(
-          cid = proposalCid,
+          fiberId = proposalfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1749,7 +1749,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         )
 
         // Create voter fibers for Alice, Bob, and Charlie
-        aliceCid <- UUIDGen.randomUUID[IO]
+        alicefiberId <- UUIDGen.randomUUID[IO]
         aliceVoterData = MapValue(
           Map(
             "voter"       -> StrValue(registry.addresses(Alice).toString),
@@ -1759,7 +1759,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         aliceVoterHash <- (aliceVoterData: JsonLogicValue).computeDigest
 
         aliceVoterFiber = Records.StateMachineFiberRecord(
-          cid = aliceCid,
+          fiberId = alicefiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1772,7 +1772,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        bobCid <- UUIDGen.randomUUID[IO]
+        bobfiberId <- UUIDGen.randomUUID[IO]
         bobVoterData = MapValue(
           Map(
             "voter"       -> StrValue(registry.addresses(Bob).toString),
@@ -1782,7 +1782,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         bobVoterHash <- (bobVoterData: JsonLogicValue).computeDigest
 
         bobVoterFiber = Records.StateMachineFiberRecord(
-          cid = bobCid,
+          fiberId = bobfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1795,7 +1795,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        charlieCid <- UUIDGen.randomUUID[IO]
+        charliefiberId <- UUIDGen.randomUUID[IO]
         charlieVoterData = MapValue(
           Map(
             "voter"       -> StrValue(registry.addresses(Charlie).toString),
@@ -1805,7 +1805,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         charlieVoterHash <- (charlieVoterData: JsonLogicValue).computeDigest
 
         charlieVoterFiber = Records.StateMachineFiberRecord(
-          cid = charlieCid,
+          fiberId = charliefiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1819,17 +1819,17 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         )
 
         // Create first action fiber (for early submission test - will be rejected)
-        earlyActionCid <- UUIDGen.randomUUID[IO]
+        earlyActionfiberId <- UUIDGen.randomUUID[IO]
         earlyActionData = MapValue(
           Map(
-            "proposalId" -> StrValue(proposalCid.toString),
+            "proposalId" -> StrValue(proposalfiberId.toString),
             "submitter"  -> StrValue(registry.addresses(Charlie).toString)
           )
         )
         earlyActionHash <- (earlyActionData: JsonLogicValue).computeDigest
 
         earlyActionFiber = Records.StateMachineFiberRecord(
-          cid = earlyActionCid,
+          fiberId = earlyActionfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1843,17 +1843,17 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         )
 
         // Create second action fiber (for valid submission test)
-        validActionCid <- UUIDGen.randomUUID[IO]
+        validActionfiberId <- UUIDGen.randomUUID[IO]
         validActionData = MapValue(
           Map(
-            "proposalId" -> StrValue(proposalCid.toString),
+            "proposalId" -> StrValue(proposalfiberId.toString),
             "submitter"  -> StrValue(registry.addresses(Charlie).toString)
           )
         )
         validActionHash <- (validActionData: JsonLogicValue).computeDigest
 
         validActionFiberInit = Records.StateMachineFiberRecord(
-          cid = validActionCid,
+          fiberId = validActionfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1869,18 +1869,18 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         // Initial state with all machines (proposal, voters, and both action fibers)
         inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecords[IO](
           Map(
-            proposalCid    -> proposalFiber,
-            aliceCid       -> aliceVoterFiber,
-            bobCid         -> bobVoterFiber,
-            charlieCid     -> charlieVoterFiber,
-            earlyActionCid -> earlyActionFiber,
-            validActionCid -> validActionFiberInit
+            proposalfiberId    -> proposalFiber,
+            alicefiberId       -> aliceVoterFiber,
+            bobfiberId         -> bobVoterFiber,
+            charliefiberId     -> charlieVoterFiber,
+            earlyActionfiberId -> earlyActionFiber,
+            validActionfiberId -> validActionFiberInit
           )
         )
 
         // Step 0: Try to submit action BEFORE proposal is open (should transition to rejected)
         earlySubmitUpdate = Updates.TransitionStateMachine(
-          earlyActionCid,
+          earlyActionfiberId,
           "submit",
           MapValue(
             Map(
@@ -1895,7 +1895,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         stateAfterEarlySubmit <- combiner.insert(inState, Signed(earlySubmitUpdate, earlySubmitProof))
 
         earlyActionFiberResult = stateAfterEarlySubmit.calculated.stateMachines
-          .get(earlyActionCid)
+          .get(earlyActionfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         earlyRejected: Option[Boolean] = earlyActionFiberResult.flatMap { f =>
@@ -1921,7 +1921,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
 
         // Step 1: Open the proposal (proposed -> open)
         collectUpdate1 = Updates.TransitionStateMachine(
-          proposalCid,
+          proposalfiberId,
           "collect",
           MapValue(Map("timestamp" -> IntValue(1000))),
           FiberOrdinal.MinValue
@@ -1930,12 +1930,12 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         state1        <- combiner.insert(inState, Signed(collectUpdate1, collectProof1))
 
         proposalAfterOpen = state1.calculated.stateMachines
-          .get(proposalCid)
+          .get(proposalfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Step 1.5: Submit action AFTER proposal is open (should succeed)
         validSubmitUpdate = Updates.TransitionStateMachine(
-          validActionCid,
+          validActionfiberId,
           "submit",
           MapValue(
             Map(
@@ -1950,18 +1950,18 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         state1_5         <- combiner.insert(state1, Signed(validSubmitUpdate, validSubmitProof))
 
         validActionFiberResult = state1_5.calculated.stateMachines
-          .get(validActionCid)
+          .get(validActionfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Step 2: Alice votes YES
         aliceVoteUpdate = Updates.TransitionStateMachine(
-          aliceCid,
+          alicefiberId,
           "vote",
           MapValue(
             Map(
               "vote"       -> StrValue("yes"),
               "timestamp"  -> IntValue(1100),
-              "proposalId" -> StrValue(proposalCid.toString)
+              "proposalId" -> StrValue(proposalfiberId.toString)
             )
           ),
           FiberOrdinal.MinValue
@@ -1970,18 +1970,18 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         state2         <- combiner.insert(state1_5, Signed(aliceVoteUpdate, aliceVoteProof))
 
         aliceAfterVote = state2.calculated.stateMachines
-          .get(aliceCid)
+          .get(alicefiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Step 3: Bob votes YES
         bobVoteUpdate = Updates.TransitionStateMachine(
-          bobCid,
+          bobfiberId,
           "vote",
           MapValue(
             Map(
               "vote"       -> StrValue("yes"),
               "timestamp"  -> IntValue(1200),
-              "proposalId" -> StrValue(proposalCid.toString)
+              "proposalId" -> StrValue(proposalfiberId.toString)
             )
           ),
           FiberOrdinal.MinValue
@@ -1990,13 +1990,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         state3       <- combiner.insert(state2, Signed(bobVoteUpdate, bobVoteProof))
 
         bobAfterVote = state3.calculated.stateMachines
-          .get(bobCid)
+          .get(bobfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Step 4: Manually update proposal with vote counts (simulating aggregation)
         // In a real system, this would happen via cross-machine dependencies
         proposalWithVotes = state3.calculated.stateMachines
-          .get(proposalCid)
+          .get(proposalfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
           .map { p =>
             val updatedData = MapValue(
@@ -2016,14 +2016,14 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         state4 <- proposalWithVotes.fold(state3.pure[IO]) { p =>
           for {
             h      <- p.stateData.computeDigest
-            result <- state3.withRecord[IO](proposalCid, p.copy(stateDataHash = h))
+            result <- state3.withRecord[IO](proposalfiberId, p.copy(stateDataHash = h))
           } yield result
         }
 
         // Step 5: Close voting (open -> closing)
-        closeSeqNum = state4.calculated.stateMachines(proposalCid).sequenceNumber
+        closeSeqNum = state4.calculated.stateMachines(proposalfiberId).sequenceNumber
         closeUpdate = Updates.TransitionStateMachine(
-          proposalCid,
+          proposalfiberId,
           "close",
           MapValue(Map("timestamp" -> IntValue(2100))),
           closeSeqNum
@@ -2032,13 +2032,13 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         state5     <- combiner.insert(state4, Signed(closeUpdate, closeProof))
 
         proposalAfterClose = state5.calculated.stateMachines
-          .get(proposalCid)
+          .get(proposalfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Step 6: Finalize (closing -> finalized)
-        finalCollectSeqNum = state5.calculated.stateMachines(proposalCid).sequenceNumber
+        finalCollectSeqNum = state5.calculated.stateMachines(proposalfiberId).sequenceNumber
         finalCollectUpdate = Updates.TransitionStateMachine(
-          proposalCid,
+          proposalfiberId,
           "collect",
           MapValue(Map("timestamp" -> IntValue(2200))),
           finalCollectSeqNum
@@ -2047,7 +2047,7 @@ object JsonEncodedStateMachineSuite extends SimpleIOSuite {
         finalState        <- combiner.insert(state5, Signed(finalCollectUpdate, finalCollectProof))
 
         finalProposal = finalState.calculated.stateMachines
-          .get(proposalCid)
+          .get(proposalfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         proposalResult: Option[String] = finalProposal.flatMap { f =>

@@ -24,7 +24,7 @@ object ReservedKeys {
   val PAYLOAD = "payload"
 
   // Oracle Call Keys - Used in extractOracleCall for oracle invocation
-  val CID = "cid"
+  val FIBER_ID = "fiberId"
   val METHOD = "method"
   val ARGS = "args"
 

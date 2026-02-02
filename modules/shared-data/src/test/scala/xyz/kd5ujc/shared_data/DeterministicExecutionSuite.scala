@@ -60,7 +60,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -148,7 +148,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -297,7 +297,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -409,7 +409,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         hash2 <- (data2: JsonLogicValue).computeDigest
 
         fiber1 = Records.StateMachineFiberRecord(
-          cid = fiber1Id,
+          fiberId = fiber1Id,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -423,7 +423,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         fiber2 = Records.StateMachineFiberRecord(
-          cid = fiber2Id,
+          fiberId = fiber2Id,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -500,7 +500,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         hash2 <- (data2: JsonLogicValue).computeDigest
 
         fiber1 = Records.StateMachineFiberRecord(
-          cid = fiber1Id,
+          fiberId = fiber1Id,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -514,7 +514,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         fiber2 = Records.StateMachineFiberRecord(
-          cid = fiber2Id,
+          fiberId = fiber2Id,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -597,7 +597,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -694,7 +694,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -784,7 +784,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1052,7 +1052,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         hashC <- (dataC: JsonLogicValue).computeDigest
 
         fiberA = Records.StateMachineFiberRecord(
-          cid = machineA,
+          fiberId = machineA,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1066,7 +1066,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         fiberB = Records.StateMachineFiberRecord(
-          cid = machineB,
+          fiberId = machineB,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1080,7 +1080,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         fiberC = Records.StateMachineFiberRecord(
-          cid = machineC,
+          fiberId = machineC,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1256,7 +1256,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         hashB <- (dataB: JsonLogicValue).computeDigest
 
         fiberA = Records.StateMachineFiberRecord(
-          cid = machineA,
+          fiberId = machineA,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1270,7 +1270,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         fiberB = Records.StateMachineFiberRecord(
-          cid = machineB,
+          fiberId = machineB,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1479,7 +1479,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         childHash <- (childData: JsonLogicValue).computeDigest
 
         parentFiber = Records.StateMachineFiberRecord(
-          cid = parentId,
+          fiberId = parentId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1493,7 +1493,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         )
 
         childFiber = Records.StateMachineFiberRecord(
-          cid = childId,
+          fiberId = childId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1566,7 +1566,7 @@ object DeterministicExecutionSuite extends SimpleIOSuite with Checkers {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,

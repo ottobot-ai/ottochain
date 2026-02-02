@@ -50,11 +50,11 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
+        fiberId <- IO.randomUUID
+        prog    <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -67,7 +67,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           method = "add",
           args = MapValue(Map("a" -> IntValue(10), "b" -> IntValue(5))),
           targetSequenceNumber = FiberOrdinal.MinValue
@@ -76,7 +76,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
-        oracle = state2.calculated.scriptOracles.get(cid)
+        oracle = state2.calculated.scriptOracles.get(fiberId)
         result = oracle.flatMap(_.lastInvocation.map(_.result))
       } yield expect.all(
         oracle.isDefined,
@@ -93,11 +93,11 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
+        fiberId <- IO.randomUUID
+        prog    <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -110,7 +110,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           method = "subtract",
           args = MapValue(Map("a" -> IntValue(20), "b" -> IntValue(8))),
           targetSequenceNumber = FiberOrdinal.MinValue
@@ -119,7 +119,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
-        oracle = state2.calculated.scriptOracles.get(cid)
+        oracle = state2.calculated.scriptOracles.get(fiberId)
         result = oracle.flatMap(_.lastInvocation.map(_.result))
       } yield expect.all(
         oracle.isDefined,
@@ -135,11 +135,11 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
+        fiberId <- IO.randomUUID
+        prog    <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -152,7 +152,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           method = "multiply",
           args = MapValue(Map("a" -> IntValue(7), "b" -> IntValue(6))),
           targetSequenceNumber = FiberOrdinal.MinValue
@@ -161,7 +161,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
-        oracle = state2.calculated.scriptOracles.get(cid)
+        oracle = state2.calculated.scriptOracles.get(fiberId)
         result = oracle.flatMap(_.lastInvocation.map(_.result))
       } yield expect.all(
         oracle.isDefined,
@@ -177,11 +177,11 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
+        fiberId <- IO.randomUUID
+        prog    <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -194,7 +194,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           method = "divide",
           args = MapValue(Map("a" -> IntValue(100), "b" -> IntValue(4))),
           targetSequenceNumber = FiberOrdinal.MinValue
@@ -203,7 +203,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
-        oracle = state2.calculated.scriptOracles.get(cid)
+        oracle = state2.calculated.scriptOracles.get(fiberId)
         result = oracle.flatMap(_.lastInvocation.map(_.result))
       } yield expect.all(
         oracle.isDefined,
@@ -219,11 +219,11 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
+        fiberId <- IO.randomUUID
+        prog    <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -236,7 +236,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           method = "unknownMethod",
           args = MapValue(Map("a" -> IntValue(1), "b" -> IntValue(2))),
           targetSequenceNumber = FiberOrdinal.MinValue
@@ -245,7 +245,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
-        oracle = state2.calculated.scriptOracles.get(cid)
+        oracle = state2.calculated.scriptOracles.get(fiberId)
         result = oracle.flatMap(_.lastInvocation.map(_.result))
       } yield expect.all(
         oracle.isDefined,
@@ -261,11 +261,11 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
+        fiberId <- IO.randomUUID
+        prog    <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -279,7 +279,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
 
         // First invocation: add
         invoke1 = Updates.InvokeScriptOracle(
-          cid,
+          fiberId,
           "add",
           MapValue(Map("a" -> IntValue(1), "b" -> IntValue(2))),
           FiberOrdinal.MinValue
@@ -289,25 +289,25 @@ object CalculatorOracleSuite extends SimpleIOSuite {
 
         // Second invocation: multiply
         invoke2 = Updates.InvokeScriptOracle(
-          cid,
+          fiberId,
           "multiply",
           MapValue(Map("a" -> IntValue(3), "b" -> IntValue(4))),
-          state1.calculated.scriptOracles(cid).sequenceNumber
+          state1.calculated.scriptOracles(fiberId).sequenceNumber
         )
         proof2 <- registry.generateProofs(invoke2, Set(Alice))
         state2 <- combiner.insert(state1, Signed(invoke2, proof2))
 
         // Third invocation: subtract
         invoke3 = Updates.InvokeScriptOracle(
-          cid,
+          fiberId,
           "subtract",
           MapValue(Map("a" -> IntValue(10), "b" -> IntValue(5))),
-          state2.calculated.scriptOracles(cid).sequenceNumber
+          state2.calculated.scriptOracles(fiberId).sequenceNumber
         )
         proof3 <- registry.generateProofs(invoke3, Set(Alice))
         state3 <- combiner.insert(state2, Signed(invoke3, proof3))
 
-        oracle = state3.calculated.scriptOracles.get(cid)
+        oracle = state3.calculated.scriptOracles.get(fiberId)
       } yield expect.all(
         oracle.map(_.sequenceNumber).contains(FiberOrdinal.unsafeApply(3L)),
         oracle.flatMap(_.lastInvocation).isDefined
@@ -322,11 +322,11 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice, Bob))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        prog <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
+        fiberId <- IO.randomUUID
+        prog    <- IO.fromEither(parser.parse(calculatorScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           scriptProgram = prog,
           initialState = None,
           accessControl = AccessControlPolicy.Public
@@ -340,7 +340,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           method = "add",
           args = MapValue(Map("a" -> IntValue(5), "b" -> IntValue(3))),
           targetSequenceNumber = FiberOrdinal.MinValue
@@ -350,7 +350,7 @@ object CalculatorOracleSuite extends SimpleIOSuite {
         invokeProof <- registry.generateProofs(invokeOracle, Set(Bob))
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
-        oracle = state2.calculated.scriptOracles.get(cid)
+        oracle = state2.calculated.scriptOracles.get(fiberId)
         result = oracle.flatMap(_.lastInvocation.map(_.result))
       } yield expect.all(
         oracle.isDefined,

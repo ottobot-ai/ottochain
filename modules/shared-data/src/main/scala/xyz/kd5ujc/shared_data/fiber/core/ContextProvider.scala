@@ -110,7 +110,7 @@ object ContextProvider {
             ReservedKeys.STATE            -> fiber.stateData,
             ReservedKeys.EVENT            -> payload,
             ReservedKeys.EVENT_NAME       -> StrValue(eventName),
-            ReservedKeys.MACHINE_ID       -> StrValue(fiber.cid.toString),
+            ReservedKeys.MACHINE_ID       -> StrValue(fiber.fiberId.toString),
             ReservedKeys.CURRENT_STATE_ID -> StrValue(fiber.currentState.value),
             ReservedKeys.SEQUENCE_NUMBER  -> IntValue(fiber.sequenceNumber.value.value),
             ReservedKeys.PROOFS           -> ArrayValue(proofsData),
@@ -150,7 +150,7 @@ object ContextProvider {
             ReservedKeys.STATE            -> fiber.stateData,
             ReservedKeys.EVENT            -> input.content,
             ReservedKeys.EVENT_NAME       -> StrValue(input.key),
-            ReservedKeys.MACHINE_ID       -> StrValue(fiber.cid.toString),
+            ReservedKeys.MACHINE_ID       -> StrValue(fiber.fiberId.toString),
             ReservedKeys.CURRENT_STATE_ID -> StrValue(fiber.currentState.value),
             ReservedKeys.SEQUENCE_NUMBER  -> IntValue(fiber.sequenceNumber.value.value),
             ReservedKeys.PARENT           -> parentData,
@@ -231,7 +231,7 @@ object ContextProvider {
           ReservedKeys.SEQUENCE_NUMBER  -> IntValue(fiber.sequenceNumber.value.value)
         )
         val fullMap =
-          if (includeId) baseMap + (ReservedKeys.MACHINE_ID -> StrValue(fiber.cid.toString))
+          if (includeId) baseMap + (ReservedKeys.MACHINE_ID -> StrValue(fiber.fiberId.toString))
           else baseMap
         MapValue(fullMap)
       }

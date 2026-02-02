@@ -33,8 +33,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        parentCid <- UUIDGen.randomUUID[IO]
-        childCid  <- UUIDGen.randomUUID[IO]
+        parentfiberId <- UUIDGen.randomUUID[IO]
+        childfiberId  <- UUIDGen.randomUUID[IO]
 
         parentJson = s"""
         {
@@ -52,7 +52,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
               "effect": {
                 "_spawn": [
                   {
-                    "childId": "$childCid",
+                    "childId": "$childfiberId",
                     "definition": {
                       "states": {
                         "active": { "id": { "value": "active" }, "isFinal": false }
@@ -77,7 +77,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
         parentData = MapValue(Map("childCount" -> IntValue(0)))
 
-        createParent = Updates.CreateStateMachine(parentCid, parentDef, parentData)
+        createParent = Updates.CreateStateMachine(parentfiberId, parentDef, parentData)
         parentProof <- fixture.registry.generateProofs(createParent, Set(Alice))
         stateAfterParent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -85,16 +85,16 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         )
 
         spawnEvent = Updates
-          .TransitionStateMachine(parentCid, "spawn_child", MapValue(Map.empty), FiberOrdinal.MinValue)
+          .TransitionStateMachine(parentfiberId, "spawn_child", MapValue(Map.empty), FiberOrdinal.MinValue)
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
         parent = finalState.calculated.stateMachines
-          .get(parentCid)
+          .get(parentfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         child = finalState.calculated.stateMachines
-          .get(childCid)
+          .get(childfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         childParentId = child.flatMap { c =>
@@ -113,12 +113,12 @@ object SpawnMachinesSuite extends SimpleIOSuite {
 
       } yield expect(parent.isDefined) and
       expect(parent.map(_.currentState).contains(StateId("spawned"))) and
-      expect(parent.exists(_.childFiberIds.contains(childCid))) and
+      expect(parent.exists(_.childFiberIds.contains(childfiberId))) and
       expect(child.isDefined) and
       expect(child.map(_.currentState).contains(StateId("active"))) and
-      expect(child.map(_.parentFiberId).contains(Some(parentCid))) and
+      expect(child.map(_.parentFiberId).contains(Some(parentfiberId))) and
       expect(child.map(_.status).contains(FiberStatus.Active)) and
-      expect(childParentId.contains(parentCid.toString)) and
+      expect(childParentId.contains(parentfiberId.toString)) and
       expect(childCreatedAt.contains(BigInt(1)))
     }
   }
@@ -130,10 +130,10 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        parentCid <- UUIDGen.randomUUID[IO]
-        child1Cid <- UUIDGen.randomUUID[IO]
-        child2Cid <- UUIDGen.randomUUID[IO]
-        child3Cid <- UUIDGen.randomUUID[IO]
+        parentfiberId <- UUIDGen.randomUUID[IO]
+        child1fiberId <- UUIDGen.randomUUID[IO]
+        child2fiberId <- UUIDGen.randomUUID[IO]
+        child3fiberId <- UUIDGen.randomUUID[IO]
 
         parentJson = s"""
         {
@@ -151,7 +151,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
               "effect": {
                 "_spawn": [
                   {
-                    "childId": "$child1Cid",
+                    "childId": "$child1fiberId",
                     "definition": {
                       "states": {
                         "active": { "id": { "value": "active" }, "isFinal": false }
@@ -162,7 +162,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                     "initialData": { "index": 0 }
                   },
                   {
-                    "childId": "$child2Cid",
+                    "childId": "$child2fiberId",
                     "definition": {
                       "states": {
                         "active": { "id": { "value": "active" }, "isFinal": false }
@@ -173,7 +173,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                     "initialData": { "index": 1 }
                   },
                   {
-                    "childId": "$child3Cid",
+                    "childId": "$child3fiberId",
                     "definition": {
                       "states": {
                         "active": { "id": { "value": "active" }, "isFinal": false }
@@ -195,7 +195,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
         parentData = MapValue(Map("childCount" -> IntValue(0)))
 
-        createParent = Updates.CreateStateMachine(parentCid, parentDef, parentData)
+        createParent = Updates.CreateStateMachine(parentfiberId, parentDef, parentData)
         parentProof <- fixture.registry.generateProofs(createParent, Set(Alice))
         stateAfterParent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -203,24 +203,24 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         )
 
         spawnEvent = Updates
-          .TransitionStateMachine(parentCid, "spawn_multiple", MapValue(Map.empty), FiberOrdinal.MinValue)
+          .TransitionStateMachine(parentfiberId, "spawn_multiple", MapValue(Map.empty), FiberOrdinal.MinValue)
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
         parent = finalState.calculated.stateMachines
-          .get(parentCid)
+          .get(parentfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         child1 = finalState.calculated.stateMachines
-          .get(child1Cid)
+          .get(child1fiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         child2 = finalState.calculated.stateMachines
-          .get(child2Cid)
+          .get(child2fiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         child3 = finalState.calculated.stateMachines
-          .get(child3Cid)
+          .get(child3fiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         child1Index = child1.flatMap { c =>
@@ -247,9 +247,9 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       } yield expect(parent.isDefined) and
       expect(parent.map(_.currentState).contains(StateId("spawned"))) and
       expect(parent.map(_.childFiberIds.size).contains(3)) and
-      expect(parent.exists(_.childFiberIds.contains(child1Cid))) and
-      expect(parent.exists(_.childFiberIds.contains(child2Cid))) and
-      expect(parent.exists(_.childFiberIds.contains(child3Cid))) and
+      expect(parent.exists(_.childFiberIds.contains(child1fiberId))) and
+      expect(parent.exists(_.childFiberIds.contains(child2fiberId))) and
+      expect(parent.exists(_.childFiberIds.contains(child3fiberId))) and
       expect(child1.isDefined) and
       expect(child2.isDefined) and
       expect(child3.isDefined) and
@@ -266,8 +266,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        parentCid <- UUIDGen.randomUUID[IO]
-        childCid  <- UUIDGen.randomUUID[IO]
+        parentfiberId <- UUIDGen.randomUUID[IO]
+        childfiberId  <- UUIDGen.randomUUID[IO]
 
         parentJson = s"""
         {
@@ -285,7 +285,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
               "effect": {
                 "_spawn": [
                   {
-                    "childId": "$childCid",
+                    "childId": "$childfiberId",
                     "definition": {
                       "states": {
                         "idle": { "id": { "value": "idle" }, "isFinal": false },
@@ -311,7 +311,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                 ],
                 "_triggers": [
                   {
-                    "targetMachineId": "$childCid",
+                    "targetMachineId": "$childfiberId",
                     "eventName": "activate",
                     "payload": {
                       "message": "Hello from parent"
@@ -329,7 +329,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
         parentData = MapValue(Map("childCount" -> IntValue(0)))
 
-        createParent = Updates.CreateStateMachine(parentCid, parentDef, parentData)
+        createParent = Updates.CreateStateMachine(parentfiberId, parentDef, parentData)
         parentProof <- fixture.registry.generateProofs(createParent, Set(Alice))
         stateAfterParent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -337,16 +337,16 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         )
 
         spawnEvent = Updates
-          .TransitionStateMachine(parentCid, "spawn_and_trigger", MapValue(Map.empty), FiberOrdinal.MinValue)
+          .TransitionStateMachine(parentfiberId, "spawn_and_trigger", MapValue(Map.empty), FiberOrdinal.MinValue)
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
         parent = finalState.calculated.stateMachines
-          .get(parentCid)
+          .get(parentfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         child = finalState.calculated.stateMachines
-          .get(childCid)
+          .get(childfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         childStatus = child.flatMap { c =>
@@ -379,8 +379,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        parentCid <- UUIDGen.randomUUID[IO]
-        childCid  <- UUIDGen.randomUUID[IO]
+        parentfiberId <- UUIDGen.randomUUID[IO]
+        childfiberId  <- UUIDGen.randomUUID[IO]
 
         parentJson = s"""
         {
@@ -398,7 +398,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
               "effect": {
                 "_spawn": [
                   {
-                    "childId": "$childCid",
+                    "childId": "$childfiberId",
                     "definition": {
                       "states": {
                         "active": { "id": { "value": "active" }, "isFinal": false }
@@ -420,7 +420,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
         parentData = MapValue(Map("status" -> StrValue("init")))
 
-        createParent = Updates.CreateStateMachine(parentCid, parentDef, parentData)
+        createParent = Updates.CreateStateMachine(parentfiberId, parentDef, parentData)
         parentProof <- fixture.registry.generateProofs(createParent, Set(Alice, Bob))
         stateAfterParent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -428,16 +428,16 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         )
 
         spawnEvent = Updates
-          .TransitionStateMachine(parentCid, "spawn_child", MapValue(Map.empty), FiberOrdinal.MinValue)
+          .TransitionStateMachine(parentfiberId, "spawn_child", MapValue(Map.empty), FiberOrdinal.MinValue)
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
         parent = finalState.calculated.stateMachines
-          .get(parentCid)
+          .get(parentfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         child = finalState.calculated.stateMachines
-          .get(childCid)
+          .get(childfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         aliceAddress = fixture.registry.addresses(Alice)
@@ -458,8 +458,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        parentCid <- UUIDGen.randomUUID[IO]
-        childCid  <- UUIDGen.randomUUID[IO]
+        parentfiberId <- UUIDGen.randomUUID[IO]
+        childfiberId  <- UUIDGen.randomUUID[IO]
 
         parentJson = s"""
         {
@@ -477,7 +477,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
               "effect": {
                 "_spawn": [
                   {
-                    "childId": "$childCid",
+                    "childId": "$childfiberId",
                     "definition": {
                       "states": {
                         "idle": { "id": { "value": "idle" }, "isFinal": false },
@@ -527,7 +527,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
         parentData = MapValue(Map("childStatus" -> StrValue("none")))
 
-        createParent = Updates.CreateStateMachine(parentCid, parentDef, parentData)
+        createParent = Updates.CreateStateMachine(parentfiberId, parentDef, parentData)
         parentProof <- fixture.registry.generateProofs(createParent, Set(Alice))
         stateAfterParent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -535,30 +535,30 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         )
 
         spawnEvent = Updates
-          .TransitionStateMachine(parentCid, "create_child", MapValue(Map.empty), FiberOrdinal.MinValue)
+          .TransitionStateMachine(parentfiberId, "create_child", MapValue(Map.empty), FiberOrdinal.MinValue)
         spawnProof      <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         stateAfterSpawn <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
         childAfterSpawn = stateAfterSpawn.calculated.stateMachines
-          .get(childCid)
+          .get(childfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        childSeq0 = stateAfterSpawn.calculated.stateMachines(childCid).sequenceNumber
-        startWorkEvent = Updates.TransitionStateMachine(childCid, "start_work", MapValue(Map.empty), childSeq0)
+        childSeq0 = stateAfterSpawn.calculated.stateMachines(childfiberId).sequenceNumber
+        startWorkEvent = Updates.TransitionStateMachine(childfiberId, "start_work", MapValue(Map.empty), childSeq0)
         startProof      <- fixture.registry.generateProofs(startWorkEvent, Set(Alice))
         stateAfterStart <- combiner.insert(stateAfterSpawn, Signed(startWorkEvent, startProof))
 
         childAfterStart = stateAfterStart.calculated.stateMachines
-          .get(childCid)
+          .get(childfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        childSeq1 = stateAfterStart.calculated.stateMachines(childCid).sequenceNumber
-        finishWorkEvent = Updates.TransitionStateMachine(childCid, "finish_work", MapValue(Map.empty), childSeq1)
+        childSeq1 = stateAfterStart.calculated.stateMachines(childfiberId).sequenceNumber
+        finishWorkEvent = Updates.TransitionStateMachine(childfiberId, "finish_work", MapValue(Map.empty), childSeq1)
         finishProof      <- fixture.registry.generateProofs(finishWorkEvent, Set(Alice))
         stateAfterFinish <- combiner.insert(stateAfterStart, Signed(finishWorkEvent, finishProof))
 
         childAfterFinish = stateAfterFinish.calculated.stateMachines
-          .get(childCid)
+          .get(childfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         progressAfterFinish = childAfterFinish.flatMap { c =>
@@ -568,19 +568,19 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           }
         }
 
-        childSeq2 = stateAfterFinish.calculated.stateMachines(childCid).sequenceNumber
-        archiveChild = Updates.ArchiveStateMachine(childCid, childSeq2)
+        childSeq2 = stateAfterFinish.calculated.stateMachines(childfiberId).sequenceNumber
+        archiveChild = Updates.ArchiveStateMachine(childfiberId, childSeq2)
         archiveProof      <- fixture.registry.generateProofs(archiveChild, Set(Alice))
         stateAfterArchive <- combiner.insert(stateAfterFinish, Signed(archiveChild, archiveProof))
 
         childAfterArchive = stateAfterArchive.calculated.stateMachines
-          .get(childCid)
+          .get(childfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
       } yield expect(childAfterSpawn.isDefined) and
       expect(childAfterSpawn.map(_.currentState).contains(StateId("idle"))) and
       expect(childAfterSpawn.map(_.status).contains(FiberStatus.Active)) and
-      expect(childAfterSpawn.map(_.parentFiberId).contains(Some(parentCid))) and
+      expect(childAfterSpawn.map(_.parentFiberId).contains(Some(parentfiberId))) and
       expect(childAfterStart.isDefined) and
       expect(childAfterStart.map(_.currentState).contains(StateId("working"))) and
       expect(childAfterStart.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next)) and
@@ -601,8 +601,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        parentCid <- UUIDGen.randomUUID[IO]
-        childCid  <- UUIDGen.randomUUID[IO]
+        parentfiberId <- UUIDGen.randomUUID[IO]
+        childfiberId  <- UUIDGen.randomUUID[IO]
 
         parentJson = s"""
         {
@@ -620,7 +620,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
               "effect": {
                 "_spawn": [
                   {
-                    "childId": "$childCid",
+                    "childId": "$childfiberId",
                     "definition": {
                       "states": {
                         "idle": { "id": { "value": "idle" }, "isFinal": false },
@@ -649,7 +649,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                 ],
                 "_triggers": [
                   {
-                    "targetMachineId": "$childCid",
+                    "targetMachineId": "$childfiberId",
                     "eventName": "activate",
                     "payload": {
                       "msg": "Hello",
@@ -668,7 +668,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
         parentData = MapValue(Map("level" -> IntValue(1)))
 
-        createParent = Updates.CreateStateMachine(parentCid, parentDef, parentData)
+        createParent = Updates.CreateStateMachine(parentfiberId, parentDef, parentData)
         parentProof <- fixture.registry.generateProofs(createParent, Set(Alice))
         stateAfterParent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -676,12 +676,12 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         )
 
         spawnEvent = Updates
-          .TransitionStateMachine(parentCid, "spawn_and_trigger", MapValue(Map.empty), FiberOrdinal.MinValue)
+          .TransitionStateMachine(parentfiberId, "spawn_and_trigger", MapValue(Map.empty), FiberOrdinal.MinValue)
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
         child = finalState.calculated.stateMachines
-          .get(childCid)
+          .get(childfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         childEventMessage = child.flatMap { c =>
@@ -717,7 +717,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       expect(childEventMessage.contains("Hello")) and
       expect(childEventAmount.contains(BigInt(42))) and
       expect(childParentState.contains(BigInt(1))) and
-      expect(childMyId.contains(childCid.toString))
+      expect(childMyId.contains(childfiberId.toString))
     }
   }
 
@@ -728,9 +728,9 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        grandparentCid <- UUIDGen.randomUUID[IO]
-        parentCid      <- UUIDGen.randomUUID[IO]
-        childCid       <- UUIDGen.randomUUID[IO]
+        grandparentfiberId <- UUIDGen.randomUUID[IO]
+        parentfiberId      <- UUIDGen.randomUUID[IO]
+        childfiberId       <- UUIDGen.randomUUID[IO]
 
         grandparentJson = s"""
         {
@@ -748,7 +748,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
               "effect": {
                 "_spawn": [
                   {
-                    "childId": "$parentCid",
+                    "childId": "$parentfiberId",
                     "definition": {
                       "states": {
                         "idle": { "id": { "value": "idle" }, "isFinal": false },
@@ -764,7 +764,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                           "effect": {
                             "_spawn": [
                               {
-                                "childId": "$childCid",
+                                "childId": "$childfiberId",
                                 "definition": {
                                   "states": {
                                     "active": { "id": { "value": "active" }, "isFinal": false }
@@ -791,7 +791,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                             ],
                             "_triggers": [
                               {
-                                "targetMachineId": "$childCid",
+                                "targetMachineId": "$childfiberId",
                                 "eventName": "activate",
                                 "payload": {
                                   "activatedBy": { "var": "machineId" }
@@ -831,7 +831,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         grandparentDef <- IO.fromEither(decode[StateMachineDefinition](grandparentJson))
         grandparentData = MapValue(Map("level" -> IntValue(0)))
 
-        createGrandparent = Updates.CreateStateMachine(grandparentCid, grandparentDef, grandparentData)
+        createGrandparent = Updates.CreateStateMachine(grandparentfiberId, grandparentDef, grandparentData)
         grandparentProof <- fixture.registry.generateProofs(createGrandparent, Set(Alice))
         stateAfterGrandparent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -839,26 +839,26 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         )
 
         spawnParentEvent = Updates
-          .TransitionStateMachine(grandparentCid, "spawn_parent", MapValue(Map.empty), FiberOrdinal.MinValue)
+          .TransitionStateMachine(grandparentfiberId, "spawn_parent", MapValue(Map.empty), FiberOrdinal.MinValue)
         spawnParentProof <- fixture.registry.generateProofs(spawnParentEvent, Set(Alice))
         stateAfterParent <- combiner.insert(stateAfterGrandparent, Signed(spawnParentEvent, spawnParentProof))
 
-        parentSeq = stateAfterParent.calculated.stateMachines(parentCid).sequenceNumber
+        parentSeq = stateAfterParent.calculated.stateMachines(parentfiberId).sequenceNumber
         spawnGrandchildEvent = Updates
-          .TransitionStateMachine(parentCid, "spawn_grandchild", MapValue(Map.empty), parentSeq)
+          .TransitionStateMachine(parentfiberId, "spawn_grandchild", MapValue(Map.empty), parentSeq)
         spawnGrandchildProof <- fixture.registry.generateProofs(spawnGrandchildEvent, Set(Alice))
         finalState           <- combiner.insert(stateAfterParent, Signed(spawnGrandchildEvent, spawnGrandchildProof))
 
         grandparent = finalState.calculated.stateMachines
-          .get(grandparentCid)
+          .get(grandparentfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         parent = finalState.calculated.stateMachines
-          .get(parentCid)
+          .get(parentfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         grandchild = finalState.calculated.stateMachines
-          .get(childCid)
+          .get(childfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         grandchildGrandparentId = grandchild.flatMap { c =>
@@ -876,15 +876,15 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         }
 
       } yield expect(grandparent.isDefined) and
-      expect(grandparent.exists(_.childFiberIds.contains(parentCid))) and
+      expect(grandparent.exists(_.childFiberIds.contains(parentfiberId))) and
       expect(parent.isDefined) and
-      expect(parent.map(_.parentFiberId).contains(Some(grandparentCid))) and
-      expect(parent.exists(_.childFiberIds.contains(childCid))) and
+      expect(parent.map(_.parentFiberId).contains(Some(grandparentfiberId))) and
+      expect(parent.exists(_.childFiberIds.contains(childfiberId))) and
       expect(grandchild.isDefined) and
       expect(grandchild.map(_.currentState).contains(StateId("active"))) and
-      expect(grandchild.map(_.parentFiberId).contains(Some(parentCid))) and
-      expect(grandchildGrandparentId.contains(grandparentCid.toString)) and
-      expect(grandchildActivatedBy.contains(parentCid.toString))
+      expect(grandchild.map(_.parentFiberId).contains(Some(parentfiberId))) and
+      expect(grandchildGrandparentId.contains(grandparentfiberId.toString)) and
+      expect(grandchildActivatedBy.contains(parentfiberId.toString))
     }
   }
 
@@ -895,10 +895,10 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        parentCid <- UUIDGen.randomUUID[IO]
-        child1Cid <- UUIDGen.randomUUID[IO]
-        child2Cid <- UUIDGen.randomUUID[IO]
-        child3Cid <- UUIDGen.randomUUID[IO]
+        parentfiberId <- UUIDGen.randomUUID[IO]
+        child1fiberId <- UUIDGen.randomUUID[IO]
+        child2fiberId <- UUIDGen.randomUUID[IO]
+        child3fiberId <- UUIDGen.randomUUID[IO]
 
         parentJson = s"""
         {
@@ -916,7 +916,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
               "effect": {
                 "_spawn": [
                   {
-                    "childId": "$child1Cid",
+                    "childId": "$child1fiberId",
                     "definition": {
                       "states": {
                         "active": { "id": { "value": "active" }, "isFinal": false }
@@ -927,7 +927,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                     "initialData": { "index": 0 }
                   },
                   {
-                    "childId": "$child2Cid",
+                    "childId": "$child2fiberId",
                     "definition": {
                       "states": {
                         "idle": { "id": { "value": "idle" }, "isFinal": false },
@@ -950,7 +950,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                     "initialData": { "status": "idle" }
                   },
                   {
-                    "childId": "$child3Cid",
+                    "childId": "$child3fiberId",
                     "definition": {
                       "states": {
                         "active": { "id": { "value": "active" }, "isFinal": false }
@@ -963,7 +963,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                 ],
                 "_triggers": [
                   {
-                    "targetMachineId": "$child2Cid",
+                    "targetMachineId": "$child2fiberId",
                     "eventName": "activate",
                     "payload": {
                       "shouldFail": true
@@ -981,7 +981,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         parentDef <- IO.fromEither(decode[StateMachineDefinition](parentJson))
         parentData = MapValue(Map("spawnCount" -> IntValue(0)))
 
-        createParent = Updates.CreateStateMachine(parentCid, parentDef, parentData)
+        createParent = Updates.CreateStateMachine(parentfiberId, parentDef, parentData)
         parentProof <- fixture.registry.generateProofs(createParent, Set(Alice))
         stateAfterParent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -989,17 +989,22 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         )
 
         spawnEvent = Updates
-          .TransitionStateMachine(parentCid, "spawn_with_failing_trigger", MapValue(Map.empty), FiberOrdinal.MinValue)
+          .TransitionStateMachine(
+            parentfiberId,
+            "spawn_with_failing_trigger",
+            MapValue(Map.empty),
+            FiberOrdinal.MinValue
+          )
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
         parent = finalState.calculated.stateMachines
-          .get(parentCid)
+          .get(parentfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        child1 = finalState.calculated.stateMachines.get(child1Cid)
-        child2 = finalState.calculated.stateMachines.get(child2Cid)
-        child3 = finalState.calculated.stateMachines.get(child3Cid)
+        child1 = finalState.calculated.stateMachines.get(child1fiberId)
+        child2 = finalState.calculated.stateMachines.get(child2fiberId)
+        child3 = finalState.calculated.stateMachines.get(child3fiberId)
 
       } yield expect(parent.isDefined) and
       expect(parent.map(_.currentState).contains(StateId("init"))) and
@@ -1019,15 +1024,15 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       for {
         implicit0(jle: JsonLogicEvaluator[IO]) <- JsonLogicEvaluator.tailRecursive[IO].pure[IO]
 
-        parentCid <- UUIDGen.randomUUID[IO]
+        parentfiberId <- UUIDGen.randomUUID[IO]
         // 25 children * 50 gas overhead = 1250 gas for spawns alone
         children <- (1 to 25).toList.traverse(_ => UUIDGen.randomUUID[IO])
 
         childSpawns = children
-          .map { cid =>
+          .map { fiberId =>
             s"""
           {
-            "childId": "$cid",
+            "childId": "$fiberId",
             "definition": {
               "states": {
                 "active": { "id": { "value": "active" }, "isFinal": false }
@@ -1069,7 +1074,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         parentHash <- (parentData: JsonLogicValue).computeDigest
 
         parentFiber = Records.StateMachineFiberRecord(
-          cid = parentCid,
+          fiberId = parentfiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -1082,7 +1087,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(SortedMap(parentCid -> parentFiber), SortedMap.empty)
+        calculatedState = CalculatedState(SortedMap(parentfiberId -> parentFiber), SortedMap.empty)
 
         // Use a gas limit that will be exceeded by spawn overhead
         // 25 spawns * 50 gas = 1250 spawn gas, plus guard + effect evaluation
@@ -1090,7 +1095,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         input = FiberInput.Transition("spawn_many", MapValue(Map.empty))
 
         orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
-        result <- orchestrator.process(parentCid, input, List.empty)
+        result <- orchestrator.process(parentfiberId, input, List.empty)
 
       } yield result match {
         case TransactionResult.Aborted(reason, _, _) =>
@@ -1111,8 +1116,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       for {
         implicit0(jle: JsonLogicEvaluator[IO]) <- JsonLogicEvaluator.tailRecursive[IO].pure[IO]
 
-        parentCid <- UUIDGen.randomUUID[IO]
-        childCid  <- UUIDGen.randomUUID[IO] // Same ID used twice
+        parentfiberId <- UUIDGen.randomUUID[IO]
+        childfiberId  <- UUIDGen.randomUUID[IO] // Same ID used twice
 
         // Try to spawn two children with the same ID
         parentJson = s"""
@@ -1131,7 +1136,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
               "effect": {
                 "_spawn": [
                   {
-                    "childId": "$childCid",
+                    "childId": "$childfiberId",
                     "definition": {
                       "states": {
                         "active": { "id": { "value": "active" }, "isFinal": false }
@@ -1142,7 +1147,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                     "initialData": { "index": 1 }
                   },
                   {
-                    "childId": "$childCid",
+                    "childId": "$childfiberId",
                     "definition": {
                       "states": {
                         "active": { "id": { "value": "active" }, "isFinal": false }
@@ -1166,7 +1171,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         parentHash <- (parentData: JsonLogicValue).computeDigest
 
         parentFiber = Records.StateMachineFiberRecord(
-          cid = parentCid,
+          fiberId = parentfiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -1179,7 +1184,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(SortedMap(parentCid -> parentFiber), SortedMap.empty)
+        calculatedState = CalculatedState(SortedMap(parentfiberId -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
           "spawn_duplicate",
           MapValue(Map.empty)
@@ -1188,7 +1193,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         limits = ExecutionLimits(maxDepth = 10, maxGas = 100_000L)
         orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
 
-        result <- orchestrator.process(parentCid, input, List.empty)
+        result <- orchestrator.process(parentfiberId, input, List.empty)
 
       } yield result match {
         case TransactionResult.Aborted(reason, _, _) =>
@@ -1199,7 +1204,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           )
         case TransactionResult.Committed(machines, _, _, _, _, _) =>
           // If duplicates are deduplicated (second overwrites first), verify exactly 1 child
-          val childCount = machines.values.count(_.parentFiberId.contains(parentCid))
+          val childCount = machines.values.count(_.parentFiberId.contains(parentfiberId))
           expect(childCount == 1, s"Expected exactly 1 child after dedup, got $childCount")
       }
     }
@@ -1212,10 +1217,10 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       for {
         implicit0(jle: JsonLogicEvaluator[IO]) <- JsonLogicEvaluator.tailRecursive[IO].pure[IO]
 
-        parentCid   <- UUIDGen.randomUUID[IO]
-        existingCid <- UUIDGen.randomUUID[IO] // Already exists in CalculatedState
+        parentfiberId   <- UUIDGen.randomUUID[IO]
+        existingfiberId <- UUIDGen.randomUUID[IO] // Already exists in CalculatedState
 
-        // Parent tries to spawn a child with the same ID as existingCid
+        // Parent tries to spawn a child with the same ID as existingfiberId
         parentJson = s"""
         {
           "states": {
@@ -1232,7 +1237,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
               "effect": {
                 "_spawn": [
                   {
-                    "childId": "$existingCid",
+                    "childId": "$existingfiberId",
                     "definition": {
                       "states": {
                         "active": { "id": { "value": "active" }, "isFinal": false }
@@ -1256,7 +1261,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         parentHash <- (parentData: JsonLogicValue).computeDigest
 
         parentFiber = Records.StateMachineFiberRecord(
-          cid = parentCid,
+          fiberId = parentfiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -1269,7 +1274,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        // Existing fiber that occupies existingCid
+        // Existing fiber that occupies existingfiberId
         existingDef <- IO.fromEither(decode[StateMachineDefinition]("""
         {
           "states": { "idle": { "id": { "value": "idle" }, "isFinal": false } },
@@ -1281,7 +1286,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         existingHash <- (existingData: JsonLogicValue).computeDigest
 
         existingFiber = Records.StateMachineFiberRecord(
-          cid = existingCid,
+          fiberId = existingfiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -1296,7 +1301,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
 
         // Both fibers exist in CalculatedState
         calculatedState = CalculatedState(
-          SortedMap(parentCid -> parentFiber, existingCid -> existingFiber),
+          SortedMap(parentfiberId -> parentFiber, existingfiberId -> existingFiber),
           SortedMap.empty
         )
 
@@ -1308,7 +1313,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         limits = ExecutionLimits(maxDepth = 10, maxGas = 100_000L)
         orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
 
-        result <- orchestrator.process(parentCid, input, List.empty)
+        result <- orchestrator.process(parentfiberId, input, List.empty)
 
       } yield result match {
         case TransactionResult.Aborted(reason, _, _) =>
@@ -1330,8 +1335,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       for {
         implicit0(jle: JsonLogicEvaluator[IO]) <- JsonLogicEvaluator.tailRecursive[IO].pure[IO]
 
-        parentCid <- UUIDGen.randomUUID[IO]
-        childCid  <- UUIDGen.randomUUID[IO]
+        parentfiberId <- UUIDGen.randomUUID[IO]
+        childfiberId  <- UUIDGen.randomUUID[IO]
 
         // Use a modest string - the limit will be set very low to trigger rejection
         testData = "x" * 200 // 200 bytes
@@ -1352,7 +1357,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
               "effect": {
                 "_spawn": [
                   {
-                    "childId": "$childCid",
+                    "childId": "$childfiberId",
                     "definition": {
                       "states": {
                         "active": { "id": { "value": "active" }, "isFinal": false }
@@ -1376,7 +1381,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         parentHash <- (parentData: JsonLogicValue).computeDigest
 
         parentFiber = Records.StateMachineFiberRecord(
-          cid = parentCid,
+          fiberId = parentfiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -1389,7 +1394,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(SortedMap(parentCid -> parentFiber), SortedMap.empty)
+        calculatedState = CalculatedState(SortedMap(parentfiberId -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
           "spawn_large",
           MapValue(Map.empty)
@@ -1399,7 +1404,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         limits = ExecutionLimits(maxDepth = 10, maxGas = 100_000L, maxStateSizeBytes = 50)
         orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
 
-        result <- orchestrator.process(parentCid, input, List.empty)
+        result <- orchestrator.process(parentfiberId, input, List.empty)
 
       } yield result match {
         case TransactionResult.Aborted(reason, _, _) =>
@@ -1421,8 +1426,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         implicit0(jle: JsonLogicEvaluator[IO]) <- JsonLogicEvaluator.tailRecursive[IO].pure[IO]
         combiner                               <- Combiner.make[IO]().pure[IO]
 
-        parentCid <- UUIDGen.randomUUID[IO]
-        childCid  <- UUIDGen.randomUUID[IO]
+        parentfiberId <- UUIDGen.randomUUID[IO]
+        childfiberId  <- UUIDGen.randomUUID[IO]
 
         parentJson = s"""
         {
@@ -1440,7 +1445,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
               "effect": {
                 "_spawn": [
                   {
-                    "childId": "$childCid",
+                    "childId": "$childfiberId",
                     "definition": {
                       "states": {
                         "active": { "id": { "value": "active" }, "isFinal": false }
@@ -1463,7 +1468,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
 
         // Create parent with 3 owners
         createParent = Updates.CreateStateMachine(
-          parentCid,
+          parentfiberId,
           parentDef,
           MapValue(Map("status" -> StrValue("init")))
         )
@@ -1475,12 +1480,12 @@ object SpawnMachinesSuite extends SimpleIOSuite {
 
         // Spawn child (only Alice signs the spawn event)
         spawnEvent = Updates
-          .TransitionStateMachine(parentCid, "spawn_child", MapValue(Map.empty), FiberOrdinal.MinValue)
+          .TransitionStateMachine(parentfiberId, "spawn_child", MapValue(Map.empty), FiberOrdinal.MinValue)
         spawnProof <- fixture.registry.generateProofs(spawnEvent, Set(Alice))
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
         child = finalState.calculated.stateMachines
-          .get(childCid)
+          .get(childfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         aliceAddress = fixture.registry.addresses(Alice)
@@ -1504,8 +1509,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         implicit0(jle: JsonLogicEvaluator[IO]) <- JsonLogicEvaluator.tailRecursive[IO].pure[IO]
         combiner                               <- Combiner.make[IO]().pure[IO]
 
-        parentCid <- UUIDGen.randomUUID[IO]
-        childCid  <- UUIDGen.randomUUID[IO]
+        parentfiberId <- UUIDGen.randomUUID[IO]
+        childfiberId  <- UUIDGen.randomUUID[IO]
 
         charlieAddress = fixture.registry.addresses(Charlie)
 
@@ -1528,7 +1533,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
               "effect": {
                 "_spawn": [
                   {
-                    "childId": "$childCid",
+                    "childId": "$childfiberId",
                     "definition": {
                       "states": {
                         "active": { "id": { "value": "active" }, "isFinal": false }
@@ -1552,7 +1557,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         parentData = MapValue(Map("status" -> StrValue("init")))
 
         // Create parent with Alice and Bob as owners
-        createParent = Updates.CreateStateMachine(parentCid, parentDef, parentData)
+        createParent = Updates.CreateStateMachine(parentfiberId, parentDef, parentData)
         parentProof <- fixture.registry.generateProofs(createParent, Set(Alice, Bob))
         stateAfterParent <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -1561,7 +1566,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
 
         // Spawn child - pass Charlie's address in event payload for ownersExpr to use
         spawnEvent = Updates.TransitionStateMachine(
-          parentCid,
+          parentfiberId,
           "spawn_child",
           MapValue(
             Map(
@@ -1574,7 +1579,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         finalState <- combiner.insert(stateAfterParent, Signed(spawnEvent, spawnProof))
 
         child = finalState.calculated.stateMachines
-          .get(childCid)
+          .get(childfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         aliceAddress = fixture.registry.addresses(Alice)
@@ -1597,7 +1602,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       for {
         implicit0(jle: JsonLogicEvaluator[IO]) <- JsonLogicEvaluator.tailRecursive[IO].pure[IO]
 
-        parentCid <- UUIDGen.randomUUID[IO]
+        parentfiberId <- UUIDGen.randomUUID[IO]
 
         // Parent that spawns with an invalid UUID
         parentDefinition = StateMachineDefinition(
@@ -1653,7 +1658,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         parentHash <- (parentData: JsonLogicValue).computeDigest
 
         parentFiber = Records.StateMachineFiberRecord(
-          cid = parentCid,
+          fiberId = parentfiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -1666,7 +1671,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(SortedMap(parentCid -> parentFiber), SortedMap.empty)
+        calculatedState = CalculatedState(SortedMap(parentfiberId -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
           "spawn",
           MapValue(Map.empty)
@@ -1675,7 +1680,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
         orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
 
-        result <- orchestrator.process(parentCid, input, List.empty).attempt
+        result <- orchestrator.process(parentfiberId, input, List.empty).attempt
 
       } yield result match {
         case Left(err) =>
@@ -1703,7 +1708,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       for {
         implicit0(jle: JsonLogicEvaluator[IO]) <- JsonLogicEvaluator.tailRecursive[IO].pure[IO]
 
-        parentCid <- UUIDGen.randomUUID[IO]
+        parentfiberId <- UUIDGen.randomUUID[IO]
 
         // Parent that spawns with childId as an integer instead of string
         parentDefinition = StateMachineDefinition(
@@ -1759,7 +1764,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         parentHash <- (parentData: JsonLogicValue).computeDigest
 
         parentFiber = Records.StateMachineFiberRecord(
-          cid = parentCid,
+          fiberId = parentfiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -1772,7 +1777,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(SortedMap(parentCid -> parentFiber), SortedMap.empty)
+        calculatedState = CalculatedState(SortedMap(parentfiberId -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
           "spawn",
           MapValue(Map.empty)
@@ -1781,7 +1786,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
         orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
 
-        result <- orchestrator.process(parentCid, input, List.empty).attempt
+        result <- orchestrator.process(parentfiberId, input, List.empty).attempt
 
       } yield result match {
         case Left(err) =>
@@ -1805,8 +1810,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       for {
         implicit0(jle: JsonLogicEvaluator[IO]) <- JsonLogicEvaluator.tailRecursive[IO].pure[IO]
 
-        parentCid <- UUIDGen.randomUUID[IO]
-        childCid  <- UUIDGen.randomUUID[IO]
+        parentfiberId <- UUIDGen.randomUUID[IO]
+        childfiberId  <- UUIDGen.randomUUID[IO]
 
         // Parent that spawns with owners as a string instead of array
         parentDefinition = StateMachineDefinition(
@@ -1829,7 +1834,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                       List(
                         MapValue(
                           Map(
-                            "childId" -> StrValue(childCid.toString),
+                            "childId" -> StrValue(childfiberId.toString),
                             "definition" -> MapValue(
                               Map(
                                 "states" -> MapValue(
@@ -1863,7 +1868,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         parentHash <- (parentData: JsonLogicValue).computeDigest
 
         parentFiber = Records.StateMachineFiberRecord(
-          cid = parentCid,
+          fiberId = parentfiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -1876,7 +1881,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(SortedMap(parentCid -> parentFiber), SortedMap.empty)
+        calculatedState = CalculatedState(SortedMap(parentfiberId -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
           "spawn",
           MapValue(Map.empty)
@@ -1885,7 +1890,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
         orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
 
-        result <- orchestrator.process(parentCid, input, List.empty).attempt
+        result <- orchestrator.process(parentfiberId, input, List.empty).attempt
 
       } yield result match {
         case Left(err) =>
@@ -1909,8 +1914,8 @@ object SpawnMachinesSuite extends SimpleIOSuite {
       for {
         implicit0(jle: JsonLogicEvaluator[IO]) <- JsonLogicEvaluator.tailRecursive[IO].pure[IO]
 
-        parentCid <- UUIDGen.randomUUID[IO]
-        childCid  <- UUIDGen.randomUUID[IO]
+        parentfiberId <- UUIDGen.randomUUID[IO]
+        childfiberId  <- UUIDGen.randomUUID[IO]
 
         // Parent that spawns with an invalid owner address
         parentDefinition = StateMachineDefinition(
@@ -1933,7 +1938,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
                       List(
                         MapValue(
                           Map(
-                            "childId" -> StrValue(childCid.toString),
+                            "childId" -> StrValue(childfiberId.toString),
                             "definition" -> MapValue(
                               Map(
                                 "states" -> MapValue(
@@ -1967,7 +1972,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         parentHash <- (parentData: JsonLogicValue).computeDigest
 
         parentFiber = Records.StateMachineFiberRecord(
-          cid = parentCid,
+          fiberId = parentfiberId,
           creationOrdinal = fixture.ordinal,
           previousUpdateOrdinal = fixture.ordinal,
           latestUpdateOrdinal = fixture.ordinal,
@@ -1980,7 +1985,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        calculatedState = CalculatedState(SortedMap(parentCid -> parentFiber), SortedMap.empty)
+        calculatedState = CalculatedState(SortedMap(parentfiberId -> parentFiber), SortedMap.empty)
         input = FiberInput.Transition(
           "spawn",
           MapValue(Map.empty)
@@ -1989,7 +1994,7 @@ object SpawnMachinesSuite extends SimpleIOSuite {
         limits = ExecutionLimits(maxDepth = 10, maxGas = 10_000L)
         orchestrator = FiberEngine.make[IO](calculatedState, fixture.ordinal, limits)
 
-        result <- orchestrator.process(parentCid, input, List.empty).attempt
+        result <- orchestrator.process(parentfiberId, input, List.empty).attempt
 
       } yield result match {
         case Left(err) =>

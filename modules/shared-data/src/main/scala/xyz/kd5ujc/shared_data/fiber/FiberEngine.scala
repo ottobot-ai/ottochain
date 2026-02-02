@@ -134,7 +134,7 @@ object FiberEngine {
 
           case other =>
             TransactionResult.Aborted(
-              FailureReason.FiberInputMismatch(other.cid, FiberKind.ScriptOracle, InputKind.Transition),
+              FailureReason.FiberInputMismatch(other.fiberId, FiberKind.ScriptOracle, InputKind.Transition),
               gasUsed
             ): TransactionResult
         }
@@ -219,7 +219,7 @@ object FiberEngine {
         triggers:      List[FiberTrigger]
       ): FiberT[F, TransactionResult] = {
         val parentWithChildren = updatedFiber.copy(
-          childFiberIds = updatedFiber.childFiberIds ++ spawnedFibers.map(_.cid)
+          childFiberIds = updatedFiber.childFiberIds ++ spawnedFibers.map(_.fiberId)
         )
 
         val stateWithSpawns = spawnedFibers.foldLeft(
@@ -231,9 +231,9 @@ object FiberEngine {
         triggers.isEmpty
           .pure[FiberT[F, *]]
           .ifM(
-            ifTrue = commitWithoutTriggers(originalFiber.cid, parentWithChildren, spawnedFibers),
+            ifTrue = commitWithoutTriggers(originalFiber.fiberId, parentWithChildren, spawnedFibers),
             ifFalse = dispatchTriggers(
-              originalFiber.cid,
+              originalFiber.fiberId,
               spawnedFibers,
               triggers,
               stateWithSpawns
@@ -251,7 +251,7 @@ object FiberEngine {
           depth      <- ExecutionOps.getDepth[FiberT[F, *]]
           logEntries <- ExecutionOps.getLogs[FiberT[F, *]]
         } yield {
-          val allMachines = Map(primaryFiberId -> updatedFiber) ++ spawnedFibers.map(f => f.cid -> f).toMap
+          val allMachines = Map(primaryFiberId -> updatedFiber) ++ spawnedFibers.map(f => f.fiberId -> f).toMap
           TransactionResult.Committed(
             updatedStateMachines = allMachines,
             updatedOracles = Map.empty,
@@ -273,7 +273,7 @@ object FiberEngine {
           .flatMap {
             case TransactionResult.Committed(machines, oracles, _, totalGas, maxDepth, opCount) =>
               ExecutionOps.getLogs[FiberT[F, *]].map { logs =>
-                val allMachines = spawnedFibers.map(f => f.cid -> f).toMap ++ machines
+                val allMachines = spawnedFibers.map(f => f.fiberId -> f).toMap ++ machines
                 TransactionResult.Committed(
                   updatedStateMachines = allMachines,
                   updatedOracles = oracles,
@@ -307,14 +307,14 @@ object FiberEngine {
               Async[F]
                 .raiseError[(String, JsonLogicValue, Address)](
                   new RuntimeException(
-                    s"Oracle ${oracle.cid} received Transition input (event: ${et}). Oracles only support MethodCall input."
+                    s"Oracle ${oracle.fiberId} received Transition input (event: ${et}). Oracles only support MethodCall input."
                   )
                 )
                 .liftFiber
           }
 
           invocation = OracleInvocation(
-            fiberId = oracle.cid,
+            fiberId = oracle.fiberId,
             method = method,
             args = args,
             result = returnValue.getOrElse(NullValue),
@@ -335,7 +335,7 @@ object FiberEngine {
           )
         } yield TransactionResult.Committed(
           updatedStateMachines = Map.empty,
-          updatedOracles = Map(oracle.cid -> updatedOracle),
+          updatedOracles = Map(oracle.fiberId -> updatedOracle),
           logEntries = logEntries.toList,
           totalGasUsed = gasUsed,
           maxDepth = depth

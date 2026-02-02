@@ -165,7 +165,7 @@ object TriggerDispatcher {
         state:   CalculatedState
       ): G[Either[FailureReason, TriggerResult]] =
         for {
-          _             <- ExecutionOps.markProcessed[G](fiber.cid, trigger.input.key)
+          _             <- ExecutionOps.markProcessed[G](fiber.fiberId, trigger.input.key)
           handlerResult <- handler.handle(trigger, fiber, state)
           result <- handlerResult match {
             case TriggerHandlerResult.Success(updatedState, cascadeTriggers) =>

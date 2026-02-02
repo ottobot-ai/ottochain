@@ -55,7 +55,7 @@ object FiberLogEntry {
       sourceFiberId: Option[UUID] = None,
       emittedEvents: List[EmittedEvent] = List.empty
     ): EventReceipt = EventReceipt(
-      fiberId = sm.cid,
+      fiberId = sm.fiberId,
       sequenceNumber = sm.sequenceNumber.next,
       eventName = eventName,
       ordinal = ordinal,
@@ -75,7 +75,7 @@ object FiberLogEntry {
       gasUsed:   Long,
       reason:    FailureReason
     ): EventReceipt = EventReceipt(
-      fiberId = sm.cid,
+      fiberId = sm.fiberId,
       sequenceNumber = sm.sequenceNumber,
       eventName = eventName,
       ordinal = ordinal,

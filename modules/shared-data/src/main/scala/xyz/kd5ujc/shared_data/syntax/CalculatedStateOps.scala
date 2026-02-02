@@ -32,9 +32,9 @@ trait CalculatedStateOps {
     /** Update a fiber (dispatches to correct map) */
     def updateFiber(fiber: Records.FiberRecord): CalculatedState = fiber match {
       case sm: Records.StateMachineFiberRecord =>
-        state.copy(stateMachines = state.stateMachines.updated(sm.cid, sm))
+        state.copy(stateMachines = state.stateMachines.updated(sm.fiberId, sm))
       case oracle: Records.ScriptOracleFiberRecord =>
-        state.copy(scriptOracles = state.scriptOracles.updated(oracle.cid, oracle))
+        state.copy(scriptOracles = state.scriptOracles.updated(oracle.fiberId, oracle))
     }
   }
 }

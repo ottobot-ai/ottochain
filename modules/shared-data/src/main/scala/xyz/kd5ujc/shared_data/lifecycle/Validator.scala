@@ -16,6 +16,9 @@ import xyz.kd5ujc.schema.Updates._
 import xyz.kd5ujc.schema.{CalculatedState, OnChain}
 import xyz.kd5ujc.shared_data.lifecycle.validate.{FiberValidator, OracleValidator}
 
+import org.typelevel.log4cats.SelfAwareStructuredLogger
+import org.typelevel.log4cats.slf4j.Slf4jLogger
+
 /**
  * Entry point for creating a ValidationService.
  *
@@ -51,6 +54,9 @@ object Validator {
     CheckpointService.make[F, OnChain](OnChain.genesis).map { checkpointService =>
       new ValidationService[F, OttochainMessage, OnChain, CalculatedState] {
 
+        private val logger: SelfAwareStructuredLogger[F] =
+          Slf4jLogger.getLoggerFromClass(Validator.getClass)
+
         /**
          * L1 Validation - Structural checks at Data-L1 ingestion.
          *
@@ -64,13 +70,34 @@ object Validator {
             val fiberL1 = new FiberValidator.L1Validator[F](checkpoint.state)
             val oracleL1 = new OracleValidator.L1Validator[F](checkpoint.state)
 
-            update match {
-              case u: CreateStateMachine     => fiberL1.createFiber(u)
-              case u: TransitionStateMachine => fiberL1.processEvent(u)
-              case u: ArchiveStateMachine    => fiberL1.archiveFiber(u)
-              case u: CreateScriptOracle     => oracleL1.createOracle(u)
-              case u: InvokeScriptOracle     => oracleL1.invokeOracle(u)
+            val updateName = update.getClass.getSimpleName
+            val fiberId = update match {
+              case u: CreateStateMachine     => u.fiberId.toString
+              case u: TransitionStateMachine => u.fiberId.toString
+              case u: ArchiveStateMachine    => u.fiberId.toString
+              case u: CreateScriptOracle     => u.fiberId.toString
+              case u: InvokeScriptOracle     => u.fiberId.toString
             }
+            val cids = checkpoint.state.fiberCommits.keys.map(_.toString.take(8)).mkString(", ")
+
+            for {
+              _ <- logger.info(
+                s"[DL1-validate] $updateName fiberId=${fiberId.take(8)}... " +
+                s"cacheOrdinal=${checkpoint.ordinal} " +
+                s"cachedCids=[$cids]"
+              )
+              result <- update match {
+                case u: CreateStateMachine     => fiberL1.createFiber(u)
+                case u: TransitionStateMachine => fiberL1.processEvent(u)
+                case u: ArchiveStateMachine    => fiberL1.archiveFiber(u)
+                case u: CreateScriptOracle     => oracleL1.createOracle(u)
+                case u: InvokeScriptOracle     => oracleL1.invokeOracle(u)
+              }
+              _ <- logger.info(
+                s"[DL1-validate] $updateName fiberId=${fiberId.take(8)}... " +
+                s"result=${result.fold(errs => s"INVALID: ${errs.toList.map(_.message).mkString("; ")}", _ => "VALID")}"
+              )
+            } yield result
           }
 
         /**
@@ -111,9 +138,26 @@ object Validator {
             .evalModify[DataApplicationValidationError] { checkpoint =>
               context.getLatestCurrencySnapshot.flatMap {
                 case Right(snapshot) if snapshot.ordinal > checkpoint.ordinal =>
-                  context.getOnChainState[OnChain].map(_.map(Checkpoint(snapshot.ordinal, _)))
-                case Right(_)  => checkpoint.asRight[DataApplicationValidationError].pure[F]
-                case Left(err) => err.asLeft[Checkpoint[OnChain]].pure[F]
+                  logger.info(
+                    s"[DL1-cache] REFRESHING: snapshotOrdinal=${snapshot.ordinal} > cacheOrdinal=${checkpoint.ordinal}"
+                  ) *>
+                  context.getOnChainState[OnChain].flatMap {
+                    case Right(newState) =>
+                      val cids = newState.fiberCommits.keys.map(_.toString.take(8)).mkString(", ")
+                      logger
+                        .info(
+                          s"[DL1-cache] REFRESHED: ordinal=${snapshot.ordinal} fiberCommits=${newState.fiberCommits.size} cids=[$cids]"
+                        )
+                        .as(Checkpoint(snapshot.ordinal, newState).asRight[DataApplicationValidationError])
+                    case Left(err) =>
+                      logger.warn(s"[DL1-cache] REFRESH FAILED: $err").as(err.asLeft[Checkpoint[OnChain]])
+                  }
+                case Right(snapshot) =>
+                  logger.debug(
+                    s"[DL1-cache] NO REFRESH: snapshotOrdinal=${snapshot.ordinal} == cacheOrdinal=${checkpoint.ordinal}"
+                  ) *> checkpoint.asRight[DataApplicationValidationError].pure[F]
+                case Left(err) =>
+                  logger.warn(s"[DL1-cache] SNAPSHOT ERROR: $err").as(err.asLeft[Checkpoint[OnChain]])
               }
             }
             .flatMap(_.fold(_.invalidNec[Unit].pure[F], f))

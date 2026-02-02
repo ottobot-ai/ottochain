@@ -170,7 +170,7 @@ export type FiberLogEntry = EventReceipt | OracleInvocation;
  * @see modules/models/src/main/scala/xyz/kd5ujc/schema/Records.scala
  */
 export interface StateMachineFiberRecord {
-  cid: string;
+  fiberId: string;
   creationOrdinal: SnapshotOrdinal;
   previousUpdateOrdinal: SnapshotOrdinal;
   latestUpdateOrdinal: SnapshotOrdinal;
@@ -192,7 +192,7 @@ export interface StateMachineFiberRecord {
  * @see modules/models/src/main/scala/xyz/kd5ujc/schema/Records.scala
  */
 export interface ScriptOracleFiberRecord {
-  cid: string;
+  fiberId: string;
   creationOrdinal: SnapshotOrdinal;
   latestUpdateOrdinal: SnapshotOrdinal;
   scriptProgram: JsonLogicExpression;
@@ -222,6 +222,7 @@ export type FiberRecord = StateMachineFiberRecord | ScriptOracleFiberRecord;
 export interface FiberCommit {
   recordHash: HashValue;
   stateDataHash?: HashValue;
+  sequenceNumber: FiberOrdinal;
 }
 
 /**

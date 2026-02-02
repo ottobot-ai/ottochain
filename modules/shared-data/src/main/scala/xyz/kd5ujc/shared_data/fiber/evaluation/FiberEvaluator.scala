@@ -70,12 +70,12 @@ object FiberEvaluator {
 
         case (sm: Records.StateMachineFiberRecord, _: FiberInput.MethodCall) =>
           FailureReason
-            .FiberInputMismatch(sm.cid, FiberKind.StateMachine, InputKind.MethodCall)
+            .FiberInputMismatch(sm.fiberId, FiberKind.StateMachine, InputKind.MethodCall)
             .pureOutcome[G]
 
         case (oracle: Records.ScriptOracleFiberRecord, _: FiberInput.Transition) =>
           FailureReason
-            .FiberInputMismatch(oracle.cid, FiberKind.ScriptOracle, InputKind.Transition)
+            .FiberInputMismatch(oracle.fiberId, FiberKind.ScriptOracle, InputKind.Transition)
             .pureOutcome[G]
       }
 
@@ -184,7 +184,7 @@ object FiberEvaluator {
             evaluateEffectExpression(transition, contextData).flatMap {
               case Left(reason) => reason.pureOutcome[G]
               case Right(effectResult) =>
-                processEffectResult(fiber.cid, currentMap, transition, effectResult, contextData)
+                processEffectResult(fiber.fiberId, currentMap, transition, effectResult, contextData)
             }
 
           case _ =>
@@ -306,7 +306,7 @@ object FiberEvaluator {
       ): G[FiberResult] =
         for {
           result <- OracleProcessor
-            .validateAccess[F](oracle.accessControl, caller, oracle.cid, calculatedState)
+            .validateAccess[F](oracle.accessControl, caller, oracle.fiberId, calculatedState)
             .liftTo[G]
             .flatMap {
               case Left(reason) => reason.pureOutcome[G]

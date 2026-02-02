@@ -209,22 +209,22 @@ object ValidatorSuite extends SimpleIOSuite {
       ConstExpression(MapValue(Map("result" -> IntValue(42))))
   }
 
-  // ============== CID Not Used Tests (L1) ==============
+  // ============== fiberId Not Used Tests (L1) ==============
 
-  test("cidNotUsed: new fiber ID accepted") {
+  test("fiberIdNotUsed: new fiber ID accepted") {
     TestFixture.resource().use { fixture =>
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
-        update = Updates.CreateStateMachine(cid, Fixtures.minimalDefinition(), MapValue(Map.empty))
+        fiberId   <- UUIDGen.randomUUID[IO]
+        update = Updates.CreateStateMachine(fiberId, Fixtures.minimalDefinition(), MapValue(Map.empty))
         result <- validator.validateUpdate(update)
       } yield expect(result.isValid)
     }
   }
 
-  test("cidNotUsed: duplicate fiber ID rejected") {
+  test("fiberIdNotUsed: duplicate fiber ID rejected") {
     TestFixture.resource().use { fixture =>
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
@@ -232,9 +232,9 @@ object ValidatorSuite extends SimpleIOSuite {
       for {
         combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
+        fiberId   <- UUIDGen.randomUUID[IO]
 
-        createUpdate = Updates.CreateStateMachine(cid, Fixtures.minimalDefinition(), MapValue(Map.empty))
+        createUpdate = Updates.CreateStateMachine(fiberId, Fixtures.minimalDefinition(), MapValue(Map.empty))
         proof <- fixture.registry.generateProofs(createUpdate, Set(Alice))
 
         inState = DataState(OnChain.genesis, CalculatedState.genesis)
@@ -255,8 +255,8 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
-        update = Updates.CreateStateMachine(cid, Fixtures.emptyDefinition(), MapValue(Map.empty))
+        fiberId   <- UUIDGen.randomUUID[IO]
+        update = Updates.CreateStateMachine(fiberId, Fixtures.emptyDefinition(), MapValue(Map.empty))
         result <- validator.validateUpdate(update)
       } yield expect(result.isInvalid) and
       expect(result.swap.exists(_.exists(_.message.toLowerCase.contains("no states"))))
@@ -269,8 +269,8 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
-        update = Updates.CreateStateMachine(cid, Fixtures.invalidInitialStateDefinition(), MapValue(Map.empty))
+        fiberId   <- UUIDGen.randomUUID[IO]
+        update = Updates.CreateStateMachine(fiberId, Fixtures.invalidInitialStateDefinition(), MapValue(Map.empty))
         result <- validator.validateUpdate(update)
       } yield expect(result.isInvalid) and
       expect(result.swap.exists(_.exists(_.message.toLowerCase.contains("initial state"))))
@@ -283,8 +283,8 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
-        update = Updates.CreateStateMachine(cid, Fixtures.invalidTransitionFromDefinition(), MapValue(Map.empty))
+        fiberId   <- UUIDGen.randomUUID[IO]
+        update = Updates.CreateStateMachine(fiberId, Fixtures.invalidTransitionFromDefinition(), MapValue(Map.empty))
         result <- validator.validateUpdate(update)
       } yield expect(result.isInvalid) and
       expect(result.swap.exists(_.exists(_.message.toLowerCase.contains("invalid from state"))))
@@ -297,8 +297,8 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
-        update = Updates.CreateStateMachine(cid, Fixtures.invalidTransitionToDefinition(), MapValue(Map.empty))
+        fiberId   <- UUIDGen.randomUUID[IO]
+        update = Updates.CreateStateMachine(fiberId, Fixtures.invalidTransitionToDefinition(), MapValue(Map.empty))
         result <- validator.validateUpdate(update)
       } yield expect(result.isInvalid) and
       expect(result.swap.exists(_.exists(_.message.toLowerCase.contains("invalid to state"))))
@@ -311,8 +311,8 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
-        update = Updates.CreateStateMachine(cid, Fixtures.duplicateTransitionsDefinition(), MapValue(Map.empty))
+        fiberId   <- UUIDGen.randomUUID[IO]
+        update = Updates.CreateStateMachine(fiberId, Fixtures.duplicateTransitionsDefinition(), MapValue(Map.empty))
         result <- validator.validateUpdate(update)
       } yield expect(result.isInvalid) and
       expect(result.swap.exists(_.exists(_.message.toLowerCase.contains("duplicate"))))
@@ -325,8 +325,8 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
-        update = Updates.CreateStateMachine(cid, Fixtures.ambiguousTransitionsDefinition(), MapValue(Map.empty))
+        fiberId   <- UUIDGen.randomUUID[IO]
+        update = Updates.CreateStateMachine(fiberId, Fixtures.ambiguousTransitionsDefinition(), MapValue(Map.empty))
         result <- validator.validateUpdate(update)
       } yield expect(result.isInvalid) and
       expect(result.swap.exists(_.exists(_.message.toLowerCase.contains("ambiguous"))))
@@ -341,9 +341,9 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
+        fiberId   <- UUIDGen.randomUUID[IO]
         update = Updates
-          .CreateStateMachine(cid, Fixtures.minimalDefinition(), MapValue(Map("key" -> StrValue("value"))))
+          .CreateStateMachine(fiberId, Fixtures.minimalDefinition(), MapValue(Map("key" -> StrValue("value"))))
         result <- validator.validateUpdate(update)
       } yield expect(result.isValid)
     }
@@ -355,17 +355,17 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
-        update = Updates.CreateStateMachine(cid, Fixtures.minimalDefinition(), ArrayValue(List(IntValue(1))))
+        fiberId   <- UUIDGen.randomUUID[IO]
+        update = Updates.CreateStateMachine(fiberId, Fixtures.minimalDefinition(), ArrayValue(List(IntValue(1))))
         result <- validator.validateUpdate(update)
       } yield expect(result.isInvalid) and
       expect(result.swap.exists(_.exists(_.message.toLowerCase.contains("mapvalue"))))
     }
   }
 
-  // ============== CID Is Found Tests (L1) ==============
+  // ============== fiberId Is Found Tests (L1) ==============
 
-  test("cidIsFound: existing fiber ID accepted for ProcessFiberEvent") {
+  test("fiberIdIsFound: existing fiber ID accepted for ProcessFiberEvent") {
     TestFixture.resource().use { fixture =>
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
@@ -373,31 +373,31 @@ object ValidatorSuite extends SimpleIOSuite {
       for {
         combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
+        fiberId   <- UUIDGen.randomUUID[IO]
 
         createUpdate = Updates
-          .CreateStateMachine(cid, Fixtures.simpleDefinitionWithTransition(), MapValue(Map.empty))
+          .CreateStateMachine(fiberId, Fixtures.simpleDefinitionWithTransition(), MapValue(Map.empty))
         createProof <- fixture.registry.generateProofs(createUpdate, Set(Alice))
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
+        processUpdate = Updates.TransitionStateMachine(fiberId, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isValid)
     }
   }
 
-  test("cidIsFound: non-existent fiber ID rejected for ProcessFiberEvent") {
+  test("fiberIdIsFound: non-existent fiber ID rejected for ProcessFiberEvent") {
     TestFixture.resource().use { fixture =>
       implicit val s: SecurityProvider[IO] = fixture.securityProvider
       implicit val l0ctx: L0NodeContext[IO] = fixture.l0Context
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
+        fiberId   <- UUIDGen.randomUUID[IO]
 
-        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
+        processUpdate = Updates.TransitionStateMachine(fiberId, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result <- validator
           .validateSignedUpdate(
@@ -419,16 +419,16 @@ object ValidatorSuite extends SimpleIOSuite {
       for {
         combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
+        fiberId   <- UUIDGen.randomUUID[IO]
 
         createUpdate = Updates
-          .CreateStateMachine(cid, Fixtures.simpleDefinitionWithTransition(), MapValue(Map.empty))
+          .CreateStateMachine(fiberId, Fixtures.simpleDefinitionWithTransition(), MapValue(Map.empty))
         createProof <- fixture.registry.generateProofs(createUpdate, Set(Alice))
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
         processUpdate = Updates
-          .TransitionStateMachine(cid, "advance", MapValue(Map("data" -> IntValue(123))), FiberOrdinal.MinValue)
+          .TransitionStateMachine(fiberId, "advance", MapValue(Map("data" -> IntValue(123))), FiberOrdinal.MinValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isValid)
@@ -443,15 +443,15 @@ object ValidatorSuite extends SimpleIOSuite {
       for {
         combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
+        fiberId   <- UUIDGen.randomUUID[IO]
 
         createUpdate = Updates
-          .CreateStateMachine(cid, Fixtures.simpleDefinitionWithTransition(), MapValue(Map.empty))
+          .CreateStateMachine(fiberId, Fixtures.simpleDefinitionWithTransition(), MapValue(Map.empty))
         createProof <- fixture.registry.generateProofs(createUpdate, Set(Alice))
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, "advance", NullValue, FiberOrdinal.MinValue)
+        processUpdate = Updates.TransitionStateMachine(fiberId, "advance", NullValue, FiberOrdinal.MinValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isInvalid) and
@@ -469,15 +469,15 @@ object ValidatorSuite extends SimpleIOSuite {
       for {
         combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
+        fiberId   <- UUIDGen.randomUUID[IO]
 
         createUpdate = Updates
-          .CreateStateMachine(cid, Fixtures.simpleDefinitionWithTransition(), MapValue(Map.empty))
+          .CreateStateMachine(fiberId, Fixtures.simpleDefinitionWithTransition(), MapValue(Map.empty))
         createProof <- fixture.registry.generateProofs(createUpdate, Set(Alice))
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
+        processUpdate = Updates.TransitionStateMachine(fiberId, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isValid)
@@ -492,19 +492,19 @@ object ValidatorSuite extends SimpleIOSuite {
       for {
         combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
+        fiberId   <- UUIDGen.randomUUID[IO]
 
         createUpdate = Updates
-          .CreateStateMachine(cid, Fixtures.simpleDefinitionWithTransition(), MapValue(Map.empty))
+          .CreateStateMachine(fiberId, Fixtures.simpleDefinitionWithTransition(), MapValue(Map.empty))
         createProof <- fixture.registry.generateProofs(createUpdate, Set(Alice))
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        archiveUpdate = Updates.ArchiveStateMachine(cid, FiberOrdinal.MinValue)
+        archiveUpdate = Updates.ArchiveStateMachine(fiberId, FiberOrdinal.MinValue)
         archiveProof      <- fixture.registry.generateProofs(archiveUpdate, Set(Alice))
         stateAfterArchive <- combiner.insert(stateAfterCreate, Signed(archiveUpdate, archiveProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
+        processUpdate = Updates.TransitionStateMachine(fiberId, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterArchive, Signed(processUpdate, processProof))
       } yield expect(result.isInvalid) and
@@ -522,15 +522,15 @@ object ValidatorSuite extends SimpleIOSuite {
       for {
         combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
+        fiberId   <- UUIDGen.randomUUID[IO]
 
         createUpdate = Updates
-          .CreateStateMachine(cid, Fixtures.simpleDefinitionWithTransition(), MapValue(Map.empty))
+          .CreateStateMachine(fiberId, Fixtures.simpleDefinitionWithTransition(), MapValue(Map.empty))
         createProof <- fixture.registry.generateProofs(createUpdate, Set(Alice))
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
+        processUpdate = Updates.TransitionStateMachine(fiberId, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isValid)
@@ -545,15 +545,15 @@ object ValidatorSuite extends SimpleIOSuite {
       for {
         combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
+        fiberId   <- UUIDGen.randomUUID[IO]
 
         createUpdate = Updates
-          .CreateStateMachine(cid, Fixtures.simpleDefinitionWithTransition(), MapValue(Map.empty))
+          .CreateStateMachine(fiberId, Fixtures.simpleDefinitionWithTransition(), MapValue(Map.empty))
         createProof <- fixture.registry.generateProofs(createUpdate, Set(Alice))
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
+        processUpdate = Updates.TransitionStateMachine(fiberId, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Bob))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isInvalid) and
@@ -571,15 +571,15 @@ object ValidatorSuite extends SimpleIOSuite {
       for {
         combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
+        fiberId   <- UUIDGen.randomUUID[IO]
 
         createUpdate = Updates
-          .CreateStateMachine(cid, Fixtures.simpleDefinitionWithTransition(), MapValue(Map.empty))
+          .CreateStateMachine(fiberId, Fixtures.simpleDefinitionWithTransition(), MapValue(Map.empty))
         createProof <- fixture.registry.generateProofs(createUpdate, Set(Alice))
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
+        processUpdate = Updates.TransitionStateMachine(fiberId, "advance", MapValue(Map.empty), FiberOrdinal.MinValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isValid)
@@ -594,15 +594,16 @@ object ValidatorSuite extends SimpleIOSuite {
       for {
         combiner  <- Combiner.make[IO]().pure[IO]
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
+        fiberId   <- UUIDGen.randomUUID[IO]
 
         createUpdate = Updates
-          .CreateStateMachine(cid, Fixtures.simpleDefinitionWithTransition(), MapValue(Map.empty))
+          .CreateStateMachine(fiberId, Fixtures.simpleDefinitionWithTransition(), MapValue(Map.empty))
         createProof <- fixture.registry.generateProofs(createUpdate, Set(Alice))
         stateAfterCreate <- combiner
           .insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createUpdate, createProof))
 
-        processUpdate = Updates.TransitionStateMachine(cid, "nonexistent", MapValue(Map.empty), FiberOrdinal.MinValue)
+        processUpdate = Updates
+          .TransitionStateMachine(fiberId, "nonexistent", MapValue(Map.empty), FiberOrdinal.MinValue)
         processProof <- fixture.registry.generateProofs(processUpdate, Set(Alice))
         result       <- validator.validateSignedUpdate(stateAfterCreate, Signed(processUpdate, processProof))
       } yield expect(result.isInvalid) and
@@ -618,9 +619,9 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
+        fiberId   <- UUIDGen.randomUUID[IO]
         update = Updates
-          .CreateScriptOracle(cid, Fixtures.simpleOracleScript(), None, AccessControlPolicy.Public)
+          .CreateScriptOracle(fiberId, Fixtures.simpleOracleScript(), None, AccessControlPolicy.Public)
         result <- validator.validateUpdate(update)
       } yield expect(result.isValid)
     }
@@ -632,9 +633,9 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
+        fiberId   <- UUIDGen.randomUUID[IO]
         update = Updates.CreateScriptOracle(
-          cid,
+          fiberId,
           Fixtures.simpleOracleScript(),
           Some(MapValue(Map("counter" -> IntValue(0)))),
           AccessControlPolicy.Public
@@ -650,9 +651,9 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
+        fiberId   <- UUIDGen.randomUUID[IO]
         update = Updates.CreateScriptOracle(
-          cid,
+          fiberId,
           Fixtures.simpleOracleScript(),
           Some(ArrayValue(List(IntValue(1)))),
           AccessControlPolicy.Public
@@ -671,10 +672,10 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
+        fiberId   <- UUIDGen.randomUUID[IO]
         parentId  <- UUIDGen.randomUUID[IO]
 
-        update = Updates.CreateStateMachine(cid, Fixtures.minimalDefinition(), MapValue(Map.empty), Some(parentId))
+        update = Updates.CreateStateMachine(fiberId, Fixtures.minimalDefinition(), MapValue(Map.empty), Some(parentId))
         result <- validator.validateUpdate(update)
       } yield expect(result.isInvalid) and
       expect(result.swap.exists(_.exists(_.message.contains("Parent fiber"))))
@@ -824,8 +825,8 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
-        update = Updates.CreateStateMachine(cid, Fixtures.definitionWithStates(101), MapValue(Map.empty))
+        fiberId   <- UUIDGen.randomUUID[IO]
+        update = Updates.CreateStateMachine(fiberId, Fixtures.definitionWithStates(101), MapValue(Map.empty))
         result <- validator.validateUpdate(update)
       } yield expect(result.isInvalid) and
       expect(result.swap.exists(_.exists(_.message.toLowerCase.contains("too many states"))))
@@ -838,8 +839,8 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
-        update = Updates.CreateStateMachine(cid, Fixtures.definitionWithStates(100), MapValue(Map.empty))
+        fiberId   <- UUIDGen.randomUUID[IO]
+        update = Updates.CreateStateMachine(fiberId, Fixtures.definitionWithStates(100), MapValue(Map.empty))
         result <- validator.validateUpdate(update)
       } yield expect(result.isValid)
     }
@@ -851,8 +852,8 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
-        update = Updates.CreateStateMachine(cid, Fixtures.definitionWithTransitions(501), MapValue(Map.empty))
+        fiberId   <- UUIDGen.randomUUID[IO]
+        update = Updates.CreateStateMachine(fiberId, Fixtures.definitionWithTransitions(501), MapValue(Map.empty))
         result <- validator.validateUpdate(update)
       } yield expect(result.isInvalid) and
       expect(result.swap.exists(_.exists(_.message.toLowerCase.contains("too many transitions"))))
@@ -865,8 +866,8 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
-        update = Updates.CreateStateMachine(cid, Fixtures.definitionWithTransitions(500), MapValue(Map.empty))
+        fiberId   <- UUIDGen.randomUUID[IO]
+        update = Updates.CreateStateMachine(fiberId, Fixtures.definitionWithTransitions(500), MapValue(Map.empty))
         result <- validator.validateUpdate(update)
       } yield expect(result.isValid)
     }
@@ -878,9 +879,9 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
+        fiberId   <- UUIDGen.randomUUID[IO]
         update = Updates
-          .CreateStateMachine(cid, Fixtures.definitionWithTransitionsPerState(21), MapValue(Map.empty))
+          .CreateStateMachine(fiberId, Fixtures.definitionWithTransitionsPerState(21), MapValue(Map.empty))
         result <- validator.validateUpdate(update)
       } yield expect(result.isInvalid) and
       expect(result.swap.exists(_.exists(_.message.toLowerCase.contains("too many transitions per state"))))
@@ -893,9 +894,9 @@ object ValidatorSuite extends SimpleIOSuite {
       implicit val l1ctx: L1NodeContext[IO] = fixture.l1Context
       for {
         validator <- Validator.make[IO]
-        cid       <- UUIDGen.randomUUID[IO]
+        fiberId   <- UUIDGen.randomUUID[IO]
         update = Updates
-          .CreateStateMachine(cid, Fixtures.definitionWithTransitionsPerState(20), MapValue(Map.empty))
+          .CreateStateMachine(fiberId, Fixtures.definitionWithTransitionsPerState(20), MapValue(Map.empty))
         result <- validator.validateUpdate(update)
       } yield expect(result.isValid)
     }

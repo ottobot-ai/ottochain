@@ -33,14 +33,14 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         combiner <- Combiner.make[IO]().pure[IO]
         ordinal  <- l0ctx.getLastCurrencySnapshot.map(_.map(_.ordinal.next).get)
 
-        propertyCid           <- UUIDGen.randomUUID[IO]
-        contractCid           <- UUIDGen.randomUUID[IO]
-        escrowCid             <- UUIDGen.randomUUID[IO]
-        inspectionCid         <- UUIDGen.randomUUID[IO]
-        appraisalCid          <- UUIDGen.randomUUID[IO]
-        mortgageCid           <- UUIDGen.randomUUID[IO]
-        titleCid              <- UUIDGen.randomUUID[IO]
-        propertyManagementCid <- UUIDGen.randomUUID[IO]
+        propertyfiberId           <- UUIDGen.randomUUID[IO]
+        contractfiberId           <- UUIDGen.randomUUID[IO]
+        escrowfiberId             <- UUIDGen.randomUUID[IO]
+        inspectionfiberId         <- UUIDGen.randomUUID[IO]
+        appraisalfiberId          <- UUIDGen.randomUUID[IO]
+        mortgagefiberId           <- UUIDGen.randomUUID[IO]
+        titlefiberId              <- UUIDGen.randomUUID[IO]
+        propertyManagementfiberId <- UUIDGen.randomUUID[IO]
 
         // Property: core asset that transfers ownership and accumulates history
         propertyJson =
@@ -65,7 +65,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "guard": {
                 "and": [
                   { ">=": [{ "var": "event.offerAmount" }, { "var": "state.minPrice" }] },
-                  { "===": [{ "var": "machines.${contractCid}.state.status" }, "signed"] }
+                  { "===": [{ "var": "machines.${contractfiberId}.state.status" }, "signed"] }
                 ]
               },
               "effect": [
@@ -75,7 +75,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
                 ["contractDate", { "var": "event.timestamp" }],
                 ["saleCount", { "+": [{ "var": "state.saleCount" }, 1] }]
               ],
-              "dependencies": ["${contractCid}"]
+              "dependencies": ["${contractfiberId}"]
             },
             {
               "from": { "value": "under_contract" },
@@ -83,9 +83,9 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "eventName": "cancel_contract",
               "guard": {
                 "or": [
-                  { "===": [{ "var": "machines.${contractCid}.state.status" }, "buyer_default"] },
-                  { "===": [{ "var": "machines.${contractCid}.state.status" }, "seller_default"] },
-                  { "===": [{ "var": "machines.${contractCid}.state.status" }, "contingency_failed"] }
+                  { "===": [{ "var": "machines.${contractfiberId}.state.status" }, "buyer_default"] },
+                  { "===": [{ "var": "machines.${contractfiberId}.state.status" }, "seller_default"] },
+                  { "===": [{ "var": "machines.${contractfiberId}.state.status" }, "contingency_failed"] }
                 ]
               },
               "effect": [
@@ -94,7 +94,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
                 ["contractPrice", null],
                 ["failedContracts", { "+": [{ "var": "state.failedContracts" }, 1] }]
               ],
-              "dependencies": ["${contractCid}"]
+              "dependencies": ["${contractfiberId}"]
             },
             {
               "from": { "value": "under_contract" },
@@ -102,10 +102,10 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "eventName": "pass_contingencies",
               "guard": {
                 "and": [
-                  { "===": [{ "var": "machines.${inspectionCid}.state.result" }, "passed"] },
-                  { "===": [{ "var": "machines.${appraisalCid}.state.result" }, "approved"] },
-                  { "===": [{ "var": "machines.${mortgageCid}.state.status" }, "approved"] },
-                  { "===": [{ "var": "machines.${escrowCid}.state.status" }, "held"] }
+                  { "===": [{ "var": "machines.${inspectionfiberId}.state.result" }, "passed"] },
+                  { "===": [{ "var": "machines.${appraisalfiberId}.state.result" }, "approved"] },
+                  { "===": [{ "var": "machines.${mortgagefiberId}.state.status" }, "approved"] },
+                  { "===": [{ "var": "machines.${escrowfiberId}.state.status" }, "held"] }
                 ]
               },
               "effect": [
@@ -113,7 +113,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
                 ["contingenciesCleared", true],
                 ["clearedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${inspectionCid}", "${appraisalCid}", "${mortgageCid}", "${escrowCid}"]
+              "dependencies": ["${inspectionfiberId}", "${appraisalfiberId}", "${mortgagefiberId}", "${escrowfiberId}"]
             },
             {
               "from": { "value": "pending_sale" },
@@ -121,14 +121,14 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "eventName": "close_sale",
               "guard": {
                 "and": [
-                  { "===": [{ "var": "machines.${titleCid}.state.status" }, "transferred"] },
-                  { "===": [{ "var": "machines.${escrowCid}.state.status" }, "closed"] }
+                  { "===": [{ "var": "machines.${titlefiberId}.state.status" }, "transferred"] },
+                  { "===": [{ "var": "machines.${escrowfiberId}.state.status" }, "closed"] }
                 ]
               },
               "effect": [
                 ["_triggers", [
                   {
-                    "targetMachineId": "${mortgageCid}",
+                    "targetMachineId": "${mortgagefiberId}",
                     "eventName": "activate",
                     "payload": {
                       "propertyId": { "var": "machineId" },
@@ -143,34 +143,34 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
                 ["purchaseDate", { "var": "event.timestamp" }],
                 ["hasMortgage", true]
               ],
-              "dependencies": ["${titleCid}", "${escrowCid}"]
+              "dependencies": ["${titlefiberId}", "${escrowfiberId}"]
             },
             {
               "from": { "value": "owned" },
               "to": { "value": "rented" },
               "eventName": "lease_property",
               "guard": {
-                "===": [{ "var": "machines.${propertyManagementCid}.state.status" }, "lease_active"]
+                "===": [{ "var": "machines.${propertyManagementfiberId}.state.status" }, "lease_active"]
               },
               "effect": [
                 ["status", "rented"],
                 ["rentStartDate", { "var": "event.timestamp" }],
                 ["isInvestmentProperty", true]
               ],
-              "dependencies": ["${propertyManagementCid}"]
+              "dependencies": ["${propertyManagementfiberId}"]
             },
             {
               "from": { "value": "rented" },
               "to": { "value": "owned" },
               "eventName": "end_lease",
               "guard": {
-                "===": [{ "var": "machines.${propertyManagementCid}.state.status" }, "lease_ended"]
+                "===": [{ "var": "machines.${propertyManagementfiberId}.state.status" }, "lease_ended"]
               },
               "effect": [
                 ["status", "owned"],
                 ["rentEndDate", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${propertyManagementCid}"]
+              "dependencies": ["${propertyManagementfiberId}"]
             },
             {
               "from": { "value": "owned" },
@@ -179,14 +179,14 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "guard": {
                 "and": [
                   { "===": [{ "var": "state.hasMortgage" }, true] },
-                  { "===": [{ "var": "machines.${mortgageCid}.state.status" }, "defaulted"] }
+                  { "===": [{ "var": "machines.${mortgagefiberId}.state.status" }, "defaulted"] }
                 ]
               },
               "effect": [
                 ["status", "in_default"],
                 ["defaultDate", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${mortgageCid}"]
+              "dependencies": ["${mortgagefiberId}"]
             },
             {
               "from": { "value": "rented" },
@@ -195,13 +195,13 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "guard": {
                 "and": [
                   { "===": [{ "var": "state.hasMortgage" }, true] },
-                  { "===": [{ "var": "machines.${mortgageCid}.state.status" }, "defaulted"] }
+                  { "===": [{ "var": "machines.${mortgagefiberId}.state.status" }, "defaulted"] }
                 ]
               },
               "effect": [
                 ["_triggers", [
                   {
-                    "targetMachineId": "${propertyManagementCid}",
+                    "targetMachineId": "${propertyManagementfiberId}",
                     "eventName": "terminate_lease",
                     "payload": {
                       "reason": "foreclosure",
@@ -212,40 +212,40 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
                 ["status", "in_default"],
                 ["defaultDate", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${mortgageCid}"]
+              "dependencies": ["${mortgagefiberId}"]
             },
             {
               "from": { "value": "in_default" },
               "to": { "value": "owned" },
               "eventName": "cure_default",
               "guard": {
-                "===": [{ "var": "machines.${mortgageCid}.state.status" }, "current"]
+                "===": [{ "var": "machines.${mortgagefiberId}.state.status" }, "current"]
               },
               "effect": [
                 ["status", "owned"],
                 ["curedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${mortgageCid}"]
+              "dependencies": ["${mortgagefiberId}"]
             },
             {
               "from": { "value": "in_default" },
               "to": { "value": "in_foreclosure" },
               "eventName": "foreclose",
               "guard": {
-                "===": [{ "var": "machines.${mortgageCid}.state.status" }, "foreclosure"]
+                "===": [{ "var": "machines.${mortgagefiberId}.state.status" }, "foreclosure"]
               },
               "effect": [
                 ["status", "in_foreclosure"],
                 ["foreclosureStartDate", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${mortgageCid}"]
+              "dependencies": ["${mortgagefiberId}"]
             },
             {
               "from": { "value": "in_foreclosure" },
               "to": { "value": "foreclosed" },
               "eventName": "complete_foreclosure",
               "guard": {
-                "===": [{ "var": "machines.${mortgageCid}.state.status" }, "foreclosed"]
+                "===": [{ "var": "machines.${mortgagefiberId}.state.status" }, "foreclosed"]
               },
               "effect": [
                 ["_emit", [
@@ -255,17 +255,17 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
                       "noticeType": "foreclosure_complete",
                       "propertyId": { "var": "machineId" },
                       "previousOwner": { "var": "state.owner" },
-                      "newOwner": { "var": "machines.${mortgageCid}.state.lender" }
+                      "newOwner": { "var": "machines.${mortgagefiberId}.state.lender" }
                     }
                   }
                 ]],
                 ["status", "foreclosed"],
                 ["previousOwner", { "var": "state.owner" }],
-                ["owner", { "var": "machines.${mortgageCid}.state.lender" }],
+                ["owner", { "var": "machines.${mortgagefiberId}.state.lender" }],
                 ["foreclosureCompleteDate", { "var": "event.timestamp" }],
                 ["hasMortgage", false]
               ],
-              "dependencies": ["${mortgageCid}"]
+              "dependencies": ["${mortgagefiberId}"]
             },
             {
               "from": { "value": "foreclosed" },
@@ -345,15 +345,15 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "eventName": "fail_contingency",
               "guard": {
                 "or": [
-                  { "===": [{ "var": "machines.${inspectionCid}.state.result" }, "failed"] },
-                  { "===": [{ "var": "machines.${appraisalCid}.state.result" }, "rejected"] },
-                  { "===": [{ "var": "machines.${mortgageCid}.state.status" }, "denied"] }
+                  { "===": [{ "var": "machines.${inspectionfiberId}.state.result" }, "failed"] },
+                  { "===": [{ "var": "machines.${appraisalfiberId}.state.result" }, "rejected"] },
+                  { "===": [{ "var": "machines.${mortgagefiberId}.state.status" }, "denied"] }
                 ]
               },
               "effect": [
                 ["_triggers", [
                   {
-                    "targetMachineId": "${escrowCid}",
+                    "targetMachineId": "${escrowfiberId}",
                     "eventName": "release_to_buyer",
                     "payload": {
                       "reason": "contingency_failed",
@@ -365,7 +365,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
                 ["failureReason", { "var": "event.reason" }],
                 ["failedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${inspectionCid}", "${appraisalCid}", "${mortgageCid}"]
+              "dependencies": ["${inspectionfiberId}", "${appraisalfiberId}", "${mortgagefiberId}"]
             },
             {
               "from": { "value": "contingent" },
@@ -377,7 +377,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "effect": [
                 ["_triggers", [
                   {
-                    "targetMachineId": "${escrowCid}",
+                    "targetMachineId": "${escrowfiberId}",
                     "eventName": "release_to_seller",
                     "payload": {
                       "reason": "buyer_default",
@@ -400,7 +400,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "effect": [
                 ["_triggers", [
                   {
-                    "targetMachineId": "${escrowCid}",
+                    "targetMachineId": "${escrowfiberId}",
                     "eventName": "release_to_buyer",
                     "payload": {
                       "reason": "seller_default",
@@ -419,15 +419,15 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
               "eventName": "close",
               "guard": {
                 "and": [
-                  { "===": [{ "var": "machines.${escrowCid}.state.status" }, "closed"] },
-                  { "===": [{ "var": "machines.${titleCid}.state.status" }, "transferred"] }
+                  { "===": [{ "var": "machines.${escrowfiberId}.state.status" }, "closed"] },
+                  { "===": [{ "var": "machines.${titlefiberId}.state.status" }, "transferred"] }
                 ]
               },
               "effect": [
                 ["status", "executed"],
                 ["closedAt", { "var": "event.timestamp" }]
               ],
-              "dependencies": ["${escrowCid}", "${titleCid}"]
+              "dependencies": ["${escrowfiberId}", "${titlefiberId}"]
             }
           ]
         }"""
@@ -1307,7 +1307,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         propertyManagementHash <- (propertyManagementData: JsonLogicValue).computeDigest
 
         propertyFiber = Records.StateMachineFiberRecord(
-          cid = propertyCid,
+          fiberId = propertyfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1321,7 +1321,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         )
 
         contractFiber = Records.StateMachineFiberRecord(
-          cid = contractCid,
+          fiberId = contractfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1335,7 +1335,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         )
 
         escrowFiber = Records.StateMachineFiberRecord(
-          cid = escrowCid,
+          fiberId = escrowfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1349,7 +1349,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         )
 
         inspectionFiber = Records.StateMachineFiberRecord(
-          cid = inspectionCid,
+          fiberId = inspectionfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1363,7 +1363,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         )
 
         appraisalFiber = Records.StateMachineFiberRecord(
-          cid = appraisalCid,
+          fiberId = appraisalfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1377,7 +1377,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         )
 
         mortgageFiber = Records.StateMachineFiberRecord(
-          cid = mortgageCid,
+          fiberId = mortgagefiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1391,7 +1391,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         )
 
         titleFiber = Records.StateMachineFiberRecord(
-          cid = titleCid,
+          fiberId = titlefiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1405,7 +1405,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         )
 
         propertyManagementFiber = Records.StateMachineFiberRecord(
-          cid = propertyManagementCid,
+          fiberId = propertyManagementfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -1420,21 +1420,21 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
 
         inState <- DataState(OnChain.genesis, CalculatedState.genesis).withRecords[IO](
           Map(
-            propertyCid           -> propertyFiber,
-            contractCid           -> contractFiber,
-            escrowCid             -> escrowFiber,
-            inspectionCid         -> inspectionFiber,
-            appraisalCid          -> appraisalFiber,
-            mortgageCid           -> mortgageFiber,
-            titleCid              -> titleFiber,
-            propertyManagementCid -> propertyManagementFiber
+            propertyfiberId           -> propertyFiber,
+            contractfiberId           -> contractFiber,
+            escrowfiberId             -> escrowFiber,
+            inspectionfiberId         -> inspectionFiber,
+            appraisalfiberId          -> appraisalFiber,
+            mortgagefiberId           -> mortgageFiber,
+            titlefiberId              -> titleFiber,
+            propertyManagementfiberId -> propertyManagementFiber
           )
         )
 
         // PHASE 1: CONTRACT PHASE
         // Step 1: Sign contract
         signContractUpdate = Updates.TransitionStateMachine(
-          contractCid,
+          contractfiberId,
           "sign",
           MapValue(
             Map(
@@ -1455,7 +1455,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
 
         // Step 2: Accept offer on property
         acceptOfferUpdate = Updates.TransitionStateMachine(
-          propertyCid,
+          propertyfiberId,
           "accept_offer",
           MapValue(
             Map(
@@ -1471,7 +1471,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
 
         // Step 3: Deposit earnest money
         depositUpdate = Updates.TransitionStateMachine(
-          escrowCid,
+          escrowfiberId,
           "deposit",
           MapValue(
             Map(
@@ -1485,9 +1485,9 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         state3       <- combiner.insert(state2, Signed(depositUpdate, depositProof))
 
         // Step 4: Hold escrow
-        holdEscrowSeqNum = state3.calculated.stateMachines(escrowCid).sequenceNumber
+        holdEscrowSeqNum = state3.calculated.stateMachines(escrowfiberId).sequenceNumber
         holdEscrowUpdate = Updates.TransitionStateMachine(
-          escrowCid,
+          escrowfiberId,
           "hold",
           MapValue(Map("timestamp" -> IntValue(1300))),
           holdEscrowSeqNum
@@ -1496,9 +1496,9 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         state4          <- combiner.insert(state3, Signed(holdEscrowUpdate, holdEscrowProof))
 
         // Step 5: Enter contingency period
-        enterContingencySeqNum = state4.calculated.stateMachines(contractCid).sequenceNumber
+        enterContingencySeqNum = state4.calculated.stateMachines(contractfiberId).sequenceNumber
         enterContingencyUpdate = Updates.TransitionStateMachine(
-          contractCid,
+          contractfiberId,
           "enter_contingency",
           MapValue(Map("timestamp" -> IntValue(1400))),
           enterContingencySeqNum
@@ -1509,7 +1509,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         // PHASE 2: CONTINGENCY PHASE
         // Step 6: Schedule and complete inspection
         scheduleInspectionUpdate = Updates.TransitionStateMachine(
-          inspectionCid,
+          inspectionfiberId,
           "schedule",
           MapValue(Map("inspectionDate" -> IntValue(1500))),
           FiberOrdinal.MinValue
@@ -1517,9 +1517,9 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         scheduleInspectionProof <- registry.generateProofs(scheduleInspectionUpdate, Set(Dave))
         state6                  <- combiner.insert(state5, Signed(scheduleInspectionUpdate, scheduleInspectionProof))
 
-        completeInspectionSeqNum = state6.calculated.stateMachines(inspectionCid).sequenceNumber
+        completeInspectionSeqNum = state6.calculated.stateMachines(inspectionfiberId).sequenceNumber
         completeInspectionUpdate = Updates.TransitionStateMachine(
-          inspectionCid,
+          inspectionfiberId,
           "complete",
           MapValue(
             Map(
@@ -1532,9 +1532,9 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         completeInspectionProof <- registry.generateProofs(completeInspectionUpdate, Set(Dave))
         state7                  <- combiner.insert(state6, Signed(completeInspectionUpdate, completeInspectionProof))
 
-        approveInspectionSeqNum = state7.calculated.stateMachines(inspectionCid).sequenceNumber
+        approveInspectionSeqNum = state7.calculated.stateMachines(inspectionfiberId).sequenceNumber
         approveInspectionUpdate = Updates.TransitionStateMachine(
-          inspectionCid,
+          inspectionfiberId,
           "approve",
           MapValue(
             Map(
@@ -1549,7 +1549,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
 
         // Step 7: Order and complete appraisal
         orderAppraisalUpdate = Updates.TransitionStateMachine(
-          appraisalCid,
+          appraisalfiberId,
           "order",
           MapValue(
             Map(
@@ -1562,9 +1562,9 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         orderAppraisalProof <- registry.generateProofs(orderAppraisalUpdate, Set(Eve))
         state9              <- combiner.insert(state8, Signed(orderAppraisalUpdate, orderAppraisalProof))
 
-        completeAppraisalSeqNum = state9.calculated.stateMachines(appraisalCid).sequenceNumber
+        completeAppraisalSeqNum = state9.calculated.stateMachines(appraisalfiberId).sequenceNumber
         completeAppraisalUpdate = Updates.TransitionStateMachine(
-          appraisalCid,
+          appraisalfiberId,
           "complete",
           MapValue(
             Map(
@@ -1577,9 +1577,9 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         completeAppraisalProof <- registry.generateProofs(completeAppraisalUpdate, Set(Eve))
         state10                <- combiner.insert(state9, Signed(completeAppraisalUpdate, completeAppraisalProof))
 
-        reviewAppraisalSeqNum = state10.calculated.stateMachines(appraisalCid).sequenceNumber
+        reviewAppraisalSeqNum = state10.calculated.stateMachines(appraisalfiberId).sequenceNumber
         reviewAppraisalUpdate = Updates.TransitionStateMachine(
-          appraisalCid,
+          appraisalfiberId,
           "review",
           MapValue(Map("timestamp" -> IntValue(2000))),
           reviewAppraisalSeqNum
@@ -1589,7 +1589,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
 
         // Step 8: Submit and approve mortgage
         submitMortgageUpdate = Updates.TransitionStateMachine(
-          mortgageCid,
+          mortgagefiberId,
           "submit",
           MapValue(
             Map(
@@ -1604,9 +1604,9 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         submitMortgageProof <- registry.generateProofs(submitMortgageUpdate, Set(Faythe))
         state12             <- combiner.insert(state11, Signed(submitMortgageUpdate, submitMortgageProof))
 
-        underwriteMortgageSeqNum = state12.calculated.stateMachines(mortgageCid).sequenceNumber
+        underwriteMortgageSeqNum = state12.calculated.stateMachines(mortgagefiberId).sequenceNumber
         underwriteMortgageUpdate = Updates.TransitionStateMachine(
-          mortgageCid,
+          mortgagefiberId,
           "underwrite",
           MapValue(
             Map(
@@ -1623,9 +1623,9 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         state13                 <- combiner.insert(state12, Signed(underwriteMortgageUpdate, underwriteMortgageProof))
 
         // Step 9: Pass all contingencies
-        passContingenciesSeqNum = state13.calculated.stateMachines(propertyCid).sequenceNumber
+        passContingenciesSeqNum = state13.calculated.stateMachines(propertyfiberId).sequenceNumber
         passContingenciesUpdate = Updates.TransitionStateMachine(
-          propertyCid,
+          propertyfiberId,
           "pass_contingencies",
           MapValue(Map("timestamp" -> IntValue(2300))),
           passContingenciesSeqNum
@@ -1636,7 +1636,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         // PHASE 3: CLOSING PHASE
         // Step 10: Title search and transfer
         searchTitleUpdate = Updates.TransitionStateMachine(
-          titleCid,
+          titlefiberId,
           "search",
           MapValue(Map("timestamp" -> IntValue(2400))),
           FiberOrdinal.MinValue
@@ -1644,9 +1644,9 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         searchTitleProof <- registry.generateProofs(searchTitleUpdate, Set(Grace))
         state15          <- combiner.insert(state14, Signed(searchTitleUpdate, searchTitleProof))
 
-        completeSearchSeqNum = state15.calculated.stateMachines(titleCid).sequenceNumber
+        completeSearchSeqNum = state15.calculated.stateMachines(titlefiberId).sequenceNumber
         completeSearchUpdate = Updates.TransitionStateMachine(
-          titleCid,
+          titlefiberId,
           "complete_search",
           MapValue(
             Map(
@@ -1659,9 +1659,9 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         completeSearchProof <- registry.generateProofs(completeSearchUpdate, Set(Grace))
         state16             <- combiner.insert(state15, Signed(completeSearchUpdate, completeSearchProof))
 
-        insureTitleSeqNum = state16.calculated.stateMachines(titleCid).sequenceNumber
+        insureTitleSeqNum = state16.calculated.stateMachines(titlefiberId).sequenceNumber
         insureTitleUpdate = Updates.TransitionStateMachine(
-          titleCid,
+          titlefiberId,
           "insure",
           MapValue(Map("timestamp" -> IntValue(2600))),
           insureTitleSeqNum
@@ -1669,9 +1669,9 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         insureTitleProof <- registry.generateProofs(insureTitleUpdate, Set(Grace))
         state17          <- combiner.insert(state16, Signed(insureTitleUpdate, insureTitleProof))
 
-        transferTitleSeqNum = state17.calculated.stateMachines(titleCid).sequenceNumber
+        transferTitleSeqNum = state17.calculated.stateMachines(titlefiberId).sequenceNumber
         transferTitleUpdate = Updates.TransitionStateMachine(
-          titleCid,
+          titlefiberId,
           "transfer",
           MapValue(
             Map(
@@ -1686,9 +1686,9 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         state18            <- combiner.insert(state17, Signed(transferTitleUpdate, transferTitleProof))
 
         // Step 11: Disburse and close escrow
-        disburseEscrowSeqNum = state18.calculated.stateMachines(escrowCid).sequenceNumber
+        disburseEscrowSeqNum = state18.calculated.stateMachines(escrowfiberId).sequenceNumber
         disburseEscrowUpdate = Updates.TransitionStateMachine(
-          escrowCid,
+          escrowfiberId,
           "disburse",
           MapValue(Map("timestamp" -> IntValue(2800))),
           disburseEscrowSeqNum
@@ -1696,9 +1696,9 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         disburseEscrowProof <- registry.generateProofs(disburseEscrowUpdate, Set(Charlie))
         state19             <- combiner.insert(state18, Signed(disburseEscrowUpdate, disburseEscrowProof))
 
-        closeEscrowSeqNum = state19.calculated.stateMachines(escrowCid).sequenceNumber
+        closeEscrowSeqNum = state19.calculated.stateMachines(escrowfiberId).sequenceNumber
         closeEscrowUpdate = Updates.TransitionStateMachine(
-          escrowCid,
+          escrowfiberId,
           "close",
           MapValue(Map("timestamp" -> IntValue(2900))),
           closeEscrowSeqNum
@@ -1707,9 +1707,9 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         state20          <- combiner.insert(state19, Signed(closeEscrowUpdate, closeEscrowProof))
 
         // Step 12: Close sale on property (triggers mortgage activation)
-        closeSaleSeqNum = state20.calculated.stateMachines(propertyCid).sequenceNumber
+        closeSaleSeqNum = state20.calculated.stateMachines(propertyfiberId).sequenceNumber
         closeSaleUpdate = Updates.TransitionStateMachine(
-          propertyCid,
+          propertyfiberId,
           "close_sale",
           MapValue(Map("timestamp" -> IntValue(3000))),
           closeSaleSeqNum
@@ -1719,7 +1719,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
 
         // Verify mortgage was activated by trigger
         mortgageAfterClose = state21.calculated.stateMachines
-          .get(mortgageCid)
+          .get(mortgagefiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         mortgageStatus: Option[String] = mortgageAfterClose.flatMap { f =>
@@ -1730,9 +1730,9 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         }
 
         // Step 13: Close contract
-        closeContractSeqNum = state21.calculated.stateMachines(contractCid).sequenceNumber
+        closeContractSeqNum = state21.calculated.stateMachines(contractfiberId).sequenceNumber
         closeContractUpdate = Updates.TransitionStateMachine(
-          contractCid,
+          contractfiberId,
           "close",
           MapValue(Map("timestamp" -> IntValue(3100))),
           closeContractSeqNum
@@ -1741,9 +1741,9 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         state22            <- combiner.insert(state21, Signed(closeContractUpdate, closeContractProof))
 
         // PHASE 4: OWNERSHIP PHASE - Make first mortgage payment
-        firstPaymentSeqNum = state22.calculated.stateMachines(mortgageCid).sequenceNumber
+        firstPaymentSeqNum = state22.calculated.stateMachines(mortgagefiberId).sequenceNumber
         firstPaymentUpdate = Updates.TransitionStateMachine(
-          mortgageCid,
+          mortgagefiberId,
           "first_payment",
           MapValue(
             Map(
@@ -1757,11 +1757,11 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         state23           <- combiner.insert(state22, Signed(firstPaymentUpdate, firstPaymentProof))
 
         mortgageAfterFirstPayment = state23.calculated.stateMachines
-          .get(mortgageCid)
+          .get(mortgagefiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         propertyAfterSale = state23.calculated.stateMachines
-          .get(propertyCid)
+          .get(propertyfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         propertyOwner: Option[String] = propertyAfterSale.flatMap { f =>
@@ -1787,52 +1787,52 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
 
       } yield expect.all(
         // Verify contract signed
-        state1.calculated.stateMachines.get(contractCid).exists {
+        state1.calculated.stateMachines.get(contractfiberId).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateId("signed")
           case _                                  => false
         },
         // Verify property under contract
-        state2.calculated.stateMachines.get(propertyCid).exists {
+        state2.calculated.stateMachines.get(propertyfiberId).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateId("under_contract")
           case _                                  => false
         },
         // Verify escrow funded
-        state3.calculated.stateMachines.get(escrowCid).exists {
+        state3.calculated.stateMachines.get(escrowfiberId).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateId("funded")
           case _                                  => false
         },
         // Verify contract in contingency
-        state5.calculated.stateMachines.get(contractCid).exists {
+        state5.calculated.stateMachines.get(contractfiberId).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateId("contingent")
           case _                                  => false
         },
         // Verify inspection passed with repairs
-        state8.calculated.stateMachines.get(inspectionCid).exists {
+        state8.calculated.stateMachines.get(inspectionfiberId).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateId("passed_with_repairs")
           case _                                  => false
         },
         // Verify appraisal approved
-        state11.calculated.stateMachines.get(appraisalCid).exists {
+        state11.calculated.stateMachines.get(appraisalfiberId).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateId("approved")
           case _                                  => false
         },
         // Verify mortgage approved
-        state13.calculated.stateMachines.get(mortgageCid).exists {
+        state13.calculated.stateMachines.get(mortgagefiberId).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateId("approved")
           case _                                  => false
         },
         // Verify property pending sale
-        state14.calculated.stateMachines.get(propertyCid).exists {
+        state14.calculated.stateMachines.get(propertyfiberId).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateId("pending_sale")
           case _                                  => false
         },
         // Verify title transferred
-        state18.calculated.stateMachines.get(titleCid).exists {
+        state18.calculated.stateMachines.get(titlefiberId).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateId("transferred")
           case _                                  => false
         },
         // Verify escrow closed
-        state20.calculated.stateMachines.get(escrowCid).exists {
+        state20.calculated.stateMachines.get(escrowfiberId).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateId("closed")
           case _                                  => false
         },
@@ -1849,7 +1849,7 @@ object RealEstateStateMachineSuite extends SimpleIOSuite {
         mortgageAfterFirstPayment.map(_.currentState).contains(StateId("current")),
         mortgageBalance.contains(BigInt(399500)), // 400000 - 500
         // Verify contract executed
-        state22.calculated.stateMachines.get(contractCid).exists {
+        state22.calculated.stateMachines.get(contractfiberId).exists {
           case r: Records.StateMachineFiberRecord => r.currentState == StateId("executed")
           case _                                  => false
         }

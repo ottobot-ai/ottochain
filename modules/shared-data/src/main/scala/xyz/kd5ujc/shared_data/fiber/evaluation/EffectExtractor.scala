@@ -132,7 +132,7 @@ object EffectExtractor {
     extractByKey(effectResult, ReservedKeys.ORACLE_CALL) match {
       case Some(MapValue(oracleCallMap)) =>
         (for {
-          cidStr    <- OptionT.fromOption[G](oracleCallMap.get(ReservedKeys.CID).collect { case StrValue(id) => id })
+          cidStr <- OptionT.fromOption[G](oracleCallMap.get(ReservedKeys.FIBER_ID).collect { case StrValue(id) => id })
           targetId  <- OptionT.fromOption[G](scala.util.Try(UUID.fromString(cidStr)).toOption)
           method    <- OptionT.fromOption[G](oracleCallMap.get(ReservedKeys.METHOD).collect { case StrValue(m) => m })
           argsValue <- OptionT.fromOption[G](oracleCallMap.get(ReservedKeys.ARGS))

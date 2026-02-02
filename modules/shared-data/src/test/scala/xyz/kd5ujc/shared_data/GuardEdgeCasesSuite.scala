@@ -77,7 +77,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -164,7 +164,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -255,7 +255,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -347,7 +347,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -420,7 +420,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -489,7 +489,7 @@ object GuardEdgeCasesSuite extends SimpleIOSuite {
         initialHash <- initialData.computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,

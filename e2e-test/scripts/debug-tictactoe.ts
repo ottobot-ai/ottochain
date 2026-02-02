@@ -28,11 +28,11 @@ const wallets: Record<string, ReturnType<typeof generateWallet>> = {
 };
 
 const smCid = crypto.randomUUID();
-const oracleCid = crypto.randomUUID();
-const session = { cid: smCid, oracleCid };
+const oracleFiberId = crypto.randomUUID();
+const session = { cid: smCid, oracleFiberId };
 
 console.log(`SM CID: ${smCid}`);
-console.log(`Oracle CID: ${oracleCid}`);
+console.log(`Oracle CID: ${oracleFiberId}`);
 
 async function loadModule(file: string, context: Record<string, unknown> = {}) {
   const fullPath = path.join(examplesDir, file);
@@ -89,13 +89,13 @@ async function main() {
   const oracleDef = await loadModule('oracle-definition.json');
   const createOracleLib = await import('../lib/oracle/createOracle.ts');
   const oracleMsg = createOracleLib.generator({
-    cid: oracleCid,
+    cid: oracleFiberId,
     wallets,
     options: { oracleDefinition: oracleDef },
   });
   console.log('Oracle message (first 300 chars):', JSON.stringify(oracleMsg).substring(0, 300));
   await send(oracleMsg);
-  const oracleAfterCreate = await waitForSequence(`oracles/${oracleCid}`, 0, 'oracle create');
+  const oracleAfterCreate = await waitForSequence(`oracles/${oracleFiberId}`, 0, 'oracle create');
   console.log('Oracle after create:', JSON.stringify(oracleAfterCreate, null, 2).substring(0, 500));
 
   // Step 2: Create State Machine
@@ -138,7 +138,7 @@ async function main() {
   console.log('  stateData:', JSON.stringify(smAfterStart.stateData));
 
   // Check oracle state after start_game
-  const oracleAfterStart = await queryEntity(`oracles/${oracleCid}`) as Record<string, unknown>;
+  const oracleAfterStart = await queryEntity(`oracles/${oracleFiberId}`) as Record<string, unknown>;
   console.log('Oracle after start_game:');
   console.log('  sequenceNumber:', oracleAfterStart?.sequenceNumber);
   console.log('  stateData:', JSON.stringify((oracleAfterStart as any)?.stateData)?.substring(0, 500));
@@ -176,7 +176,7 @@ async function main() {
   console.log('  stateData:', JSON.stringify(smAfterMove.stateData));
 
   // Check oracle state after make_move
-  const oracleAfterMove = await queryEntity(`oracles/${oracleCid}`) as Record<string, unknown>;
+  const oracleAfterMove = await queryEntity(`oracles/${oracleFiberId}`) as Record<string, unknown>;
   console.log('Oracle after make_move:');
   console.log('  sequenceNumber:', oracleAfterMove?.sequenceNumber);
   console.log('  stateData:', JSON.stringify((oracleAfterMove as any)?.stateData));

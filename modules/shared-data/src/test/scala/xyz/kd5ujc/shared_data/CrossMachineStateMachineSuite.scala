@@ -31,7 +31,7 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        sellerCid <- UUIDGen.randomUUID[IO]
+        sellerfiberId <- UUIDGen.randomUUID[IO]
         sellerDef = StateMachineDefinition(
           states = Map(
             StateId("holding")  -> State(StateId("holding")),
@@ -50,7 +50,7 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
         sellerHash <- (sellerData: JsonLogicValue).computeDigest
 
         sellerFiber = Records.StateMachineFiberRecord(
-          cid = sellerCid,
+          fiberId = sellerfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -63,7 +63,7 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
           status = FiberStatus.Active
         )
 
-        buyerCid <- UUIDGen.randomUUID[IO]
+        buyerfiberId <- UUIDGen.randomUUID[IO]
         buyerDef = StateMachineDefinition(
           states = Map(
             StateId("pending")   -> State(StateId("pending")),
@@ -78,7 +78,7 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
               guard = ApplyExpression(
                 AndOp,
                 List(
-                  VarExpression(Left(s"machines.$sellerCid.state.hasItem")),
+                  VarExpression(Left(s"machines.$sellerfiberId.state.hasItem")),
                   ApplyExpression(
                     Geq,
                     List(
@@ -96,7 +96,7 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
                   )
                 )
               ),
-              dependencies = Set(sellerCid)
+              dependencies = Set(sellerfiberId)
             )
           )
         )
@@ -109,7 +109,7 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
         buyerHash <- (buyerData: JsonLogicValue).computeDigest
 
         buyerFiber = Records.StateMachineFiberRecord(
-          cid = buyerCid,
+          fiberId = buyerfiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -123,16 +123,21 @@ object CrossMachineStateMachineSuite extends SimpleIOSuite {
         )
 
         inState <- DataState(OnChain.genesis, CalculatedState.genesis)
-          .withRecord[IO](sellerCid, sellerFiber)
-          .flatMap(_.withRecord[IO](buyerCid, buyerFiber))
+          .withRecord[IO](sellerfiberId, sellerFiber)
+          .flatMap(_.withRecord[IO](buyerfiberId, buyerFiber))
 
         buyUpdate = Updates
-          .TransitionStateMachine(buyerCid, "buy", MapValue(Map.empty[String, JsonLogicValue]), FiberOrdinal.MinValue)
+          .TransitionStateMachine(
+            buyerfiberId,
+            "buy",
+            MapValue(Map.empty[String, JsonLogicValue]),
+            FiberOrdinal.MinValue
+          )
         buyProof   <- registry.generateProofs(buyUpdate, Set(Bob))
         finalState <- combiner.insert(inState, Signed(buyUpdate, buyProof))
 
         updatedBuyer = finalState.calculated.stateMachines
-          .get(buyerCid)
+          .get(buyerfiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         buyerBalance: Option[BigInt] = updatedBuyer.flatMap { f =>

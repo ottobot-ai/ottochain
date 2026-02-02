@@ -28,7 +28,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        oracleCid <- UUIDGen.randomUUID[IO]
+        oracleFiberId <- UUIDGen.randomUUID[IO]
 
         aliceAddress = fixture.registry.addresses(Alice)
 
@@ -36,7 +36,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         oracleProg <- IO.fromEither(parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           scriptProgram = oracleProg,
           initialState = None,
           accessControl = AccessControlPolicy.Whitelist(Set(aliceAddress))
@@ -49,7 +49,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           method = "test",
           args = MapValue(Map.empty),
           targetSequenceNumber = FiberOrdinal.MinValue
@@ -57,7 +57,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         invokeProof <- fixture.registry.generateProofs(invokeOracle, Set(Alice))
         finalState  <- combiner.insert(stateAfterOracle, Signed(invokeOracle, invokeProof))
 
-        oracle = finalState.calculated.scriptOracles.get(oracleCid)
+        oracle = finalState.calculated.scriptOracles.get(oracleFiberId)
 
       } yield expect(oracle.isDefined) and
       expect(oracle.map(_.sequenceNumber).contains(FiberOrdinal.MinValue.next)) and
@@ -72,7 +72,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        oracleCid <- UUIDGen.randomUUID[IO]
+        oracleFiberId <- UUIDGen.randomUUID[IO]
 
         aliceAddress = fixture.registry.addresses(Alice)
 
@@ -80,7 +80,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         oracleProg <- IO.fromEither(parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           scriptProgram = oracleProg,
           initialState = None,
           accessControl = AccessControlPolicy.Whitelist(Set(aliceAddress))
@@ -93,7 +93,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           method = "test",
           args = MapValue(Map.empty),
           targetSequenceNumber = FiberOrdinal.MinValue
@@ -102,7 +102,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
 
         result <- combiner.insert(stateAfterOracle, Signed(invokeOracle, invokeProof)).attempt
 
-        oracle = stateAfterOracle.calculated.scriptOracles.get(oracleCid)
+        oracle = stateAfterOracle.calculated.scriptOracles.get(oracleFiberId)
 
       } yield expect(result.isLeft) and
       expect(oracle.isDefined) and
@@ -117,7 +117,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        oracleCid <- UUIDGen.randomUUID[IO]
+        oracleFiberId <- UUIDGen.randomUUID[IO]
 
         aliceAddress = fixture.registry.addresses(Alice)
         bobAddress = fixture.registry.addresses(Bob)
@@ -126,7 +126,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         oracleProg <- IO.fromEither(parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           scriptProgram = oracleProg,
           initialState = None,
           accessControl = AccessControlPolicy.Whitelist(Set(aliceAddress, bobAddress))
@@ -139,7 +139,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         )
 
         invokeOracle1 = Updates.InvokeScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           method = "test",
           args = MapValue(Map.empty),
           targetSequenceNumber = FiberOrdinal.MinValue
@@ -147,9 +147,9 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         invokeProof1    <- fixture.registry.generateProofs(invokeOracle1, Set(Alice))
         stateAfterAlice <- combiner.insert(stateAfterOracle, Signed(invokeOracle1, invokeProof1))
 
-        oracleSeq1 = stateAfterAlice.calculated.scriptOracles(oracleCid).sequenceNumber
+        oracleSeq1 = stateAfterAlice.calculated.scriptOracles(oracleFiberId).sequenceNumber
         invokeOracle2 = Updates.InvokeScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           method = "test",
           args = MapValue(Map.empty),
           targetSequenceNumber = oracleSeq1
@@ -157,9 +157,9 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         invokeProof2  <- fixture.registry.generateProofs(invokeOracle2, Set(Bob))
         stateAfterBob <- combiner.insert(stateAfterAlice, Signed(invokeOracle2, invokeProof2))
 
-        oracleSeq2 = stateAfterBob.calculated.scriptOracles(oracleCid).sequenceNumber
+        oracleSeq2 = stateAfterBob.calculated.scriptOracles(oracleFiberId).sequenceNumber
         invokeOracle3 = Updates.InvokeScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           method = "test",
           args = MapValue(Map.empty),
           targetSequenceNumber = oracleSeq2
@@ -167,7 +167,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         invokeProof3  <- fixture.registry.generateProofs(invokeOracle3, Set(Charlie))
         charlieResult <- combiner.insert(stateAfterBob, Signed(invokeOracle3, invokeProof3)).attempt
 
-        oracle = stateAfterBob.calculated.scriptOracles.get(oracleCid)
+        oracle = stateAfterBob.calculated.scriptOracles.get(oracleFiberId)
 
       } yield expect(oracle.isDefined) and
       expect(oracle.map(_.sequenceNumber).contains(FiberOrdinal.unsafeApply(2L))) and
@@ -182,8 +182,8 @@ object OracleAccessControlSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        oracleCid  <- UUIDGen.randomUUID[IO]
-        machineCid <- UUIDGen.randomUUID[IO]
+        oracleFiberId  <- UUIDGen.randomUUID[IO]
+        machineFiberId <- UUIDGen.randomUUID[IO]
 
         aliceAddress = fixture.registry.addresses(Alice)
 
@@ -197,7 +197,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         oracleProg <- IO.fromEither(parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           scriptProgram = oracleProg,
           initialState = None,
           accessControl = AccessControlPolicy.Whitelist(Set(aliceAddress))
@@ -224,7 +224,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
               "guard": true,
               "effect": {
                 "_oracleCall": {
-                  "cid": "$oracleCid",
+                  "fiberId": "$oracleFiberId",
                   "method": "validate",
                   "args": {}
                 },
@@ -239,12 +239,12 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("status" -> StrValue("idle")))
 
-        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineFiberId, machineDef, initialData)
         machineProof      <- fixture.registry.generateProofs(createMachine, Set(Alice))
         stateAfterMachine <- combiner.insert(stateAfterOracle, Signed(createMachine, machineProof))
 
         validateEvent = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "validate",
           MapValue(Map.empty),
           FiberOrdinal.MinValue
@@ -253,10 +253,10 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         finalState    <- combiner.insert(stateAfterMachine, Signed(validateEvent, validateProof))
 
         machine = finalState.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        oracle = finalState.calculated.scriptOracles.get(oracleCid)
+        oracle = finalState.calculated.scriptOracles.get(oracleFiberId)
 
       } yield expect(machine.isDefined) and
       expect(machine.map(_.currentState).contains(StateId("validated"))) and
@@ -272,8 +272,8 @@ object OracleAccessControlSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        oracleCid  <- UUIDGen.randomUUID[IO]
-        machineCid <- UUIDGen.randomUUID[IO]
+        oracleFiberId  <- UUIDGen.randomUUID[IO]
+        machineFiberId <- UUIDGen.randomUUID[IO]
 
         aliceAddress = fixture.registry.addresses(Alice)
 
@@ -287,7 +287,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         oracleProg <- IO.fromEither(parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           scriptProgram = oracleProg,
           initialState = None,
           accessControl = AccessControlPolicy.Whitelist(Set(aliceAddress))
@@ -314,7 +314,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
               "guard": true,
               "effect": {
                 "_oracleCall": {
-                  "cid": "$oracleCid",
+                  "fiberId": "$oracleFiberId",
                   "method": "validate",
                   "args": {}
                 },
@@ -329,12 +329,12 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("status" -> StrValue("idle")))
 
-        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineFiberId, machineDef, initialData)
         machineProof      <- fixture.registry.generateProofs(createMachine, Set(Bob))
         stateAfterMachine <- combiner.insert(stateAfterOracle, Signed(createMachine, machineProof))
 
         validateEvent = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "validate",
           MapValue(Map.empty),
           FiberOrdinal.MinValue
@@ -343,10 +343,10 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         finalState    <- combiner.insert(stateAfterMachine, Signed(validateEvent, validateProof))
 
         machine = finalState.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        oracle = finalState.calculated.scriptOracles.get(oracleCid)
+        oracle = finalState.calculated.scriptOracles.get(oracleFiberId)
 
       } yield expect(machine.isDefined) and
       expect(machine.map(_.currentState).contains(StateId("idle"))) and
@@ -370,8 +370,8 @@ object OracleAccessControlSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        oracleCid  <- UUIDGen.randomUUID[IO]
-        machineCid <- UUIDGen.randomUUID[IO]
+        oracleFiberId  <- UUIDGen.randomUUID[IO]
+        machineFiberId <- UUIDGen.randomUUID[IO]
 
         aliceAddress = fixture.registry.addresses(Alice)
 
@@ -386,7 +386,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         oracleProg <- IO.fromEither(parse(oracleScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           scriptProgram = oracleProg,
           initialState = None,
           accessControl = AccessControlPolicy.Whitelist(Set(aliceAddress))
@@ -417,7 +417,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
                 "status": "triggered",
                 "_triggers": [
                   {
-                    "targetMachineId": "$oracleCid",
+                    "targetMachineId": "$oracleFiberId",
                     "eventName": "process",
                     "payload": {}
                   }
@@ -433,12 +433,12 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         initialData = MapValue(Map("status" -> StrValue("idle")))
 
         // Create state machine owned by Bob (not in whitelist)
-        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineFiberId, machineDef, initialData)
         machineProof      <- fixture.registry.generateProofs(createMachine, Set(Bob))
         stateAfterMachine <- combiner.insert(stateAfterOracle, Signed(createMachine, machineProof))
 
         triggerEvent = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "trigger",
           MapValue(Map.empty),
           FiberOrdinal.MinValue
@@ -447,10 +447,10 @@ object OracleAccessControlSuite extends SimpleIOSuite {
         finalState   <- combiner.insert(stateAfterMachine, Signed(triggerEvent, triggerProof))
 
         machine = finalState.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
-        oracle = finalState.calculated.scriptOracles.get(oracleCid)
+        oracle = finalState.calculated.scriptOracles.get(oracleFiberId)
 
       } yield expect(machine.isDefined) and
       // The SM's transition should have been aborted due to oracle access denial
@@ -476,8 +476,8 @@ object OracleAccessControlSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        oracleCid    <- IO.randomUUID
-        ownerFiberId <- IO.randomUUID // Non-existent fiber ID
+        oracleFiberId <- IO.randomUUID
+        ownerFiberId  <- IO.randomUUID // Non-existent fiber ID
 
         oracleScript =
           """|{
@@ -492,7 +492,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
 
         // Create oracle with FiberOwned access control (pointing to non-existent fiber)
         createOracle = Updates.CreateScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           scriptProgram = oracleProg,
           initialState = None,
           accessControl = AccessControlPolicy.FiberOwned(ownerFiberId)
@@ -506,7 +506,7 @@ object OracleAccessControlSuite extends SimpleIOSuite {
 
         // Attempt to invoke the oracle (should fail - owner fiber doesn't exist)
         invokeOracle = Updates.InvokeScriptOracle(
-          fiberId = oracleCid,
+          fiberId = oracleFiberId,
           method = "process",
           args = MapValue(Map.empty),
           targetSequenceNumber = FiberOrdinal.MinValue

@@ -92,7 +92,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
         royaltyHash <- (royaltyOracleData: JsonLogicValue).computeDigest
 
         royaltyOracle = Records.ScriptOracleFiberRecord(
-          cid = royaltyOracleId,
+          fiberId = royaltyOracleId,
           creationOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
           scriptProgram = royaltyProgramExpr,
@@ -323,7 +323,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
         )
 
         // Create marketplace fiber
-        marketplaceCid <- UUIDGen.randomUUID[IO]
+        marketplacefiberId <- UUIDGen.randomUUID[IO]
         marketplaceData = MapValue(
           Map(
             "name"         -> StrValue("Constellation NFT Marketplace"),
@@ -333,7 +333,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
         marketplaceHash <- (marketplaceData: JsonLogicValue).computeDigest
 
         marketplaceFiber = Records.StateMachineFiberRecord(
-          cid = marketplaceCid,
+          fiberId = marketplacefiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -347,13 +347,13 @@ object NftMarketplaceSuite extends SimpleIOSuite {
         )
 
         inState <- DataState(OnChain.genesis, CalculatedState.genesis)
-          .withRecord[IO](marketplaceCid, marketplaceFiber)
+          .withRecord[IO](marketplacefiberId, marketplaceFiber)
           .flatMap(_.withRecord[IO](royaltyOracleId, royaltyOracle))
 
         // Alice creates an NFT listing (spawns child)
         nftListingId1 <- UUIDGen.randomUUID[IO]
         createListing1Update = Updates.TransitionStateMachine(
-          marketplaceCid,
+          marketplacefiberId,
           "createListing",
           MapValue(
             Map(
@@ -377,7 +377,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
         state1              <- combiner.insert(inState, Signed(createListing1Update, createListing1Proof))
 
         // Verify marketplace state updated
-        marketplaceAfterListing = state1.calculated.stateMachines.get(marketplaceCid)
+        marketplaceAfterListing = state1.calculated.stateMachines.get(marketplacefiberId)
         listingCount1: Option[BigInt] = marketplaceAfterListing.flatMap { f =>
           f.stateData match {
             case MapValue(m) => m.get("listingCount").collect { case IntValue(c) => c }
@@ -397,7 +397,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
         // Charlie creates another NFT listing
         nftListingId2 <- UUIDGen.randomUUID[IO]
         createListing2Update = Updates.TransitionStateMachine(
-          marketplaceCid,
+          marketplacefiberId,
           "createListing",
           MapValue(
             Map(
@@ -415,7 +415,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
               "timestamp" -> IntValue(2000)
             )
           ),
-          state1.calculated.stateMachines(marketplaceCid).sequenceNumber
+          state1.calculated.stateMachines(marketplacefiberId).sequenceNumber
         )
         createListing2Proof <- registry.generateProofs(createListing2Update, Set(Charlie))
         state2              <- combiner.insert(state1, Signed(createListing2Update, createListing2Proof))
@@ -525,7 +525,7 @@ object NftMarketplaceSuite extends SimpleIOSuite {
         oracleInvocationCount: Option[FiberOrdinal] = oracleFinal.map(_.sequenceNumber)
 
         // Verify marketplace still active with 2 listings
-        marketplaceFinal = finalState.calculated.stateMachines.get(marketplaceCid)
+        marketplaceFinal = finalState.calculated.stateMachines.get(marketplacefiberId)
         listingCountFinal: Option[BigInt] = marketplaceFinal.flatMap { f =>
           f.stateData match {
             case MapValue(m) => m.get("listingCount").collect { case IntValue(c) => c }

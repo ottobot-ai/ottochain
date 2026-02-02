@@ -54,11 +54,11 @@ object CounterOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        prog <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
+        fiberId <- IO.randomUUID
+        prog    <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           scriptProgram = prog,
           initialState = Some(counterInitialState),
           accessControl = AccessControlPolicy.Public
@@ -67,7 +67,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         createProof <- registry.generateProofs(createOracle, Set(Alice))
         state <- combiner.insert(DataState(OnChain.genesis, CalculatedState.genesis), Signed(createOracle, createProof))
 
-        oracle = state.calculated.scriptOracles.get(cid)
+        oracle = state.calculated.scriptOracles.get(fiberId)
       } yield expect.all(
         oracle.isDefined,
         oracle.flatMap(_.stateData).contains(counterInitialState),
@@ -84,11 +84,11 @@ object CounterOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        prog <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
+        fiberId <- IO.randomUUID
+        prog    <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           scriptProgram = prog,
           initialState = Some(counterInitialState),
           accessControl = AccessControlPolicy.Public
@@ -101,7 +101,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           method = "increment",
           args = MapValue(Map.empty),
           targetSequenceNumber = FiberOrdinal.MinValue
@@ -110,7 +110,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
-        oracle = state2.calculated.scriptOracles.get(cid)
+        oracle = state2.calculated.scriptOracles.get(fiberId)
         expectedState = MapValue(Map("value" -> IntValue(1)))
       } yield expect.all(
         oracle.isDefined,
@@ -127,11 +127,11 @@ object CounterOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        prog <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
+        fiberId <- IO.randomUUID
+        prog    <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           scriptProgram = prog,
           initialState = Some(counterInitialState),
           accessControl = AccessControlPolicy.Public
@@ -144,7 +144,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           method = "decrement",
           args = MapValue(Map.empty),
           targetSequenceNumber = FiberOrdinal.MinValue
@@ -153,7 +153,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
-        oracle = state2.calculated.scriptOracles.get(cid)
+        oracle = state2.calculated.scriptOracles.get(fiberId)
         expectedState = MapValue(Map("value" -> IntValue(-1)))
       } yield expect.all(
         oracle.isDefined,
@@ -170,14 +170,14 @@ object CounterOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        prog <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
+        fiberId <- IO.randomUUID
+        prog    <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
 
         // Start with non-zero initial state
         nonZeroInitial = MapValue(Map("value" -> IntValue(42)))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           scriptProgram = prog,
           initialState = Some(nonZeroInitial),
           accessControl = AccessControlPolicy.Public
@@ -190,7 +190,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           method = "reset",
           args = MapValue(Map.empty),
           targetSequenceNumber = FiberOrdinal.MinValue
@@ -199,7 +199,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
-        oracle = state2.calculated.scriptOracles.get(cid)
+        oracle = state2.calculated.scriptOracles.get(fiberId)
         expectedState = MapValue(Map("value" -> IntValue(0)))
       } yield expect.all(
         oracle.isDefined,
@@ -216,11 +216,11 @@ object CounterOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        prog <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
+        fiberId <- IO.randomUUID
+        prog    <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           scriptProgram = prog,
           initialState = Some(counterInitialState),
           accessControl = AccessControlPolicy.Public
@@ -233,35 +233,35 @@ object CounterOracleSuite extends SimpleIOSuite {
         )
 
         // First increment (0 -> 1)
-        invoke1 = Updates.InvokeScriptOracle(cid, "increment", MapValue(Map.empty), FiberOrdinal.MinValue)
+        invoke1 = Updates.InvokeScriptOracle(fiberId, "increment", MapValue(Map.empty), FiberOrdinal.MinValue)
         proof1 <- registry.generateProofs(invoke1, Set(Alice))
         state1 <- combiner.insert(state0, Signed(invoke1, proof1))
 
-        oracle1 = state1.calculated.scriptOracles.get(cid)
+        oracle1 = state1.calculated.scriptOracles.get(fiberId)
 
         // Second increment (1 -> 2)
         invoke2 = Updates.InvokeScriptOracle(
-          cid,
+          fiberId,
           "increment",
           MapValue(Map.empty),
-          state1.calculated.scriptOracles(cid).sequenceNumber
+          state1.calculated.scriptOracles(fiberId).sequenceNumber
         )
         proof2 <- registry.generateProofs(invoke2, Set(Alice))
         state2 <- combiner.insert(state1, Signed(invoke2, proof2))
 
-        oracle2 = state2.calculated.scriptOracles.get(cid)
+        oracle2 = state2.calculated.scriptOracles.get(fiberId)
 
         // Third increment (2 -> 3)
         invoke3 = Updates.InvokeScriptOracle(
-          cid,
+          fiberId,
           "increment",
           MapValue(Map.empty),
-          state2.calculated.scriptOracles(cid).sequenceNumber
+          state2.calculated.scriptOracles(fiberId).sequenceNumber
         )
         proof3 <- registry.generateProofs(invoke3, Set(Alice))
         state3 <- combiner.insert(state2, Signed(invoke3, proof3))
 
-        oracle3 = state3.calculated.scriptOracles.get(cid)
+        oracle3 = state3.calculated.scriptOracles.get(fiberId)
       } yield expect.all(
         oracle1.flatMap(_.stateData).contains(MapValue(Map("value" -> IntValue(1)))),
         oracle2.flatMap(_.stateData).contains(MapValue(Map("value" -> IntValue(2)))),
@@ -279,11 +279,11 @@ object CounterOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        prog <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
+        fiberId <- IO.randomUUID
+        prog    <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           scriptProgram = prog,
           initialState = Some(counterInitialState),
           accessControl = AccessControlPolicy.Public
@@ -296,31 +296,31 @@ object CounterOracleSuite extends SimpleIOSuite {
         )
 
         // First increment (0 -> 1)
-        invoke1 = Updates.InvokeScriptOracle(cid, "increment", MapValue(Map.empty), FiberOrdinal.MinValue)
+        invoke1 = Updates.InvokeScriptOracle(fiberId, "increment", MapValue(Map.empty), FiberOrdinal.MinValue)
         proof1 <- registry.generateProofs(invoke1, Set(Alice))
         state1 <- combiner.insert(state0, Signed(invoke1, proof1))
 
         // Second increment (1 -> 2)
         invoke2 = Updates.InvokeScriptOracle(
-          cid,
+          fiberId,
           "increment",
           MapValue(Map.empty),
-          state1.calculated.scriptOracles(cid).sequenceNumber
+          state1.calculated.scriptOracles(fiberId).sequenceNumber
         )
         proof2 <- registry.generateProofs(invoke2, Set(Alice))
         state2 <- combiner.insert(state1, Signed(invoke2, proof2))
 
         // Decrement (2 -> 1)
         invoke3 = Updates.InvokeScriptOracle(
-          cid,
+          fiberId,
           "decrement",
           MapValue(Map.empty),
-          state2.calculated.scriptOracles(cid).sequenceNumber
+          state2.calculated.scriptOracles(fiberId).sequenceNumber
         )
         proof3 <- registry.generateProofs(invoke3, Set(Alice))
         state3 <- combiner.insert(state2, Signed(invoke3, proof3))
 
-        oracle = state3.calculated.scriptOracles.get(cid)
+        oracle = state3.calculated.scriptOracles.get(fiberId)
         expectedState = MapValue(Map("value" -> IntValue(1)))
       } yield expect.all(
         oracle.isDefined,
@@ -337,14 +337,14 @@ object CounterOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        prog <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
+        fiberId <- IO.randomUUID
+        prog    <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
 
         // Start with non-zero value
         initialState = MapValue(Map("value" -> IntValue(5)))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           scriptProgram = prog,
           initialState = Some(initialState),
           accessControl = AccessControlPolicy.Public
@@ -357,7 +357,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           method = "increment",
           args = MapValue(Map.empty),
           targetSequenceNumber = FiberOrdinal.MinValue
@@ -366,7 +366,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
-        oracle = state2.calculated.scriptOracles.get(cid)
+        oracle = state2.calculated.scriptOracles.get(fiberId)
         expectedState = MapValue(Map("value" -> IntValue(6)))
       } yield expect.all(
         oracle.isDefined,
@@ -383,11 +383,11 @@ object CounterOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        prog <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
+        fiberId <- IO.randomUUID
+        prog    <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           scriptProgram = prog,
           initialState = Some(counterInitialState),
           accessControl = AccessControlPolicy.Public
@@ -399,11 +399,11 @@ object CounterOracleSuite extends SimpleIOSuite {
           Signed(createOracle, createProof)
         )
 
-        oracleBefore = state1.calculated.scriptOracles.get(cid)
+        oracleBefore = state1.calculated.scriptOracles.get(fiberId)
         hashBefore = oracleBefore.flatMap(_.stateDataHash)
 
         invokeOracle = Updates.InvokeScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           method = "increment",
           args = MapValue(Map.empty),
           targetSequenceNumber = FiberOrdinal.MinValue
@@ -412,7 +412,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         invokeProof <- registry.generateProofs(invokeOracle, Set(Alice))
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
-        oracleAfter = state2.calculated.scriptOracles.get(cid)
+        oracleAfter = state2.calculated.scriptOracles.get(fiberId)
         hashAfter = oracleAfter.flatMap(_.stateDataHash)
       } yield expect.all(
         hashBefore.isDefined,
@@ -430,11 +430,11 @@ object CounterOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice, Bob))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        prog <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
+        fiberId <- IO.randomUUID
+        prog    <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           scriptProgram = prog,
           initialState = Some(counterInitialState),
           accessControl = AccessControlPolicy.Public
@@ -447,7 +447,7 @@ object CounterOracleSuite extends SimpleIOSuite {
           Signed(createOracle, createProof)
         )
 
-        oracle = state1.calculated.scriptOracles.get(cid)
+        oracle = state1.calculated.scriptOracles.get(fiberId)
       } yield expect.all(
         oracle.isDefined,
         oracle.flatMap(_.stateData).contains(counterInitialState),
@@ -463,11 +463,11 @@ object CounterOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice, Bob))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        prog <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
+        fiberId <- IO.randomUUID
+        prog    <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           scriptProgram = prog,
           initialState = Some(counterInitialState),
           accessControl = AccessControlPolicy.Public
@@ -481,7 +481,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         )
 
         invokeOracle = Updates.InvokeScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           method = "increment",
           args = MapValue(Map.empty),
           targetSequenceNumber = FiberOrdinal.MinValue
@@ -491,7 +491,7 @@ object CounterOracleSuite extends SimpleIOSuite {
         invokeProof <- registry.generateProofs(invokeOracle, Set(Bob))
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
-        oracle = state2.calculated.scriptOracles.get(cid)
+        oracle = state2.calculated.scriptOracles.get(fiberId)
         expectedState = MapValue(Map("value" -> IntValue(1)))
       } yield expect.all(
         oracle.isDefined,
@@ -508,11 +508,11 @@ object CounterOracleSuite extends SimpleIOSuite {
         registry                            <- Participant.ParticipantRegistry.create[IO](Set(Alice))
         combiner                            <- Combiner.make[IO]().pure[IO]
 
-        cid  <- IO.randomUUID
-        prog <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
+        fiberId <- IO.randomUUID
+        prog    <- IO.fromEither(parser.parse(counterScript).flatMap(_.as[JsonLogicExpression]))
 
         createOracle = Updates.CreateScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           scriptProgram = prog,
           initialState = Some(counterInitialState),
           accessControl = AccessControlPolicy.Public
@@ -525,11 +525,11 @@ object CounterOracleSuite extends SimpleIOSuite {
         )
 
         // Check onChain has hashes for this oracle
-        initialOnChainHashes = state1.onChain.fiberCommits.get(cid)
-        initialStateHash = state1.calculated.scriptOracles.get(cid).flatMap(_.stateDataHash)
+        initialOnChainHashes = state1.onChain.fiberCommits.get(fiberId)
+        initialStateHash = state1.calculated.scriptOracles.get(fiberId).flatMap(_.stateDataHash)
 
         invokeOracle = Updates.InvokeScriptOracle(
-          fiberId = cid,
+          fiberId = fiberId,
           method = "increment",
           args = MapValue(Map.empty),
           targetSequenceNumber = FiberOrdinal.MinValue
@@ -539,8 +539,8 @@ object CounterOracleSuite extends SimpleIOSuite {
         state2      <- combiner.insert(state1, Signed(invokeOracle, invokeProof))
 
         // Check onChain hashes were updated
-        updatedOnChainHashes = state2.onChain.fiberCommits.get(cid)
-        updatedStateHash = state2.calculated.scriptOracles.get(cid).flatMap(_.stateDataHash)
+        updatedOnChainHashes = state2.onChain.fiberCommits.get(fiberId)
+        updatedStateHash = state2.calculated.scriptOracles.get(fiberId).flatMap(_.stateDataHash)
       } yield expect.all(
         initialOnChainHashes.isDefined,
         initialStateHash.isDefined,

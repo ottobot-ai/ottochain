@@ -91,7 +91,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
         parentHash <- (parentData: JsonLogicValue).computeDigest
 
         parentFiber = Records.StateMachineFiberRecord(
-          cid = parentId,
+          fiberId = parentId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -156,7 +156,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -317,7 +317,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
         hash3 <- (data3: JsonLogicValue).computeDigest
 
         fiber1 = Records.StateMachineFiberRecord(
-          cid = machine1,
+          fiberId = machine1,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -331,7 +331,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
         )
 
         fiber2 = Records.StateMachineFiberRecord(
-          cid = machine2,
+          fiberId = machine2,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -345,7 +345,7 @@ object DepthAndHashSuite extends SimpleIOSuite {
         )
 
         fiber3 = Records.StateMachineFiberRecord(
-          cid = machine3,
+          fiberId = machine3,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,

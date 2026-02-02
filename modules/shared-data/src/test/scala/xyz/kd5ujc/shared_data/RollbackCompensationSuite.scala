@@ -140,7 +140,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
         hashC <- (dataC: JsonLogicValue).computeDigest
 
         fiberA = Records.StateMachineFiberRecord(
-          cid = machineA,
+          fiberId = machineA,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -154,7 +154,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
         )
 
         fiberB = Records.StateMachineFiberRecord(
-          cid = machineB,
+          fiberId = machineB,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -168,7 +168,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
         )
 
         fiberC = Records.StateMachineFiberRecord(
-          cid = machineC,
+          fiberId = machineC,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -257,7 +257,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
         initialHash <- (initialData: JsonLogicValue).computeDigest
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -385,7 +385,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
         parentHash <- (parentData: JsonLogicValue).computeDigest
 
         parentFiber = Records.StateMachineFiberRecord(
-          cid = parentId,
+          fiberId = parentId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,
@@ -450,7 +450,7 @@ object RollbackCompensationSuite extends SimpleIOSuite {
         originalSeqNum = FiberOrdinal.unsafeApply(42L)
 
         fiber = Records.StateMachineFiberRecord(
-          cid = fiberId,
+          fiberId = fiberId,
           creationOrdinal = ordinal,
           previousUpdateOrdinal = ordinal,
           latestUpdateOrdinal = ordinal,

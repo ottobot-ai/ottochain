@@ -28,7 +28,7 @@ object ProofValidationSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        machineCid <- UUIDGen.randomUUID[IO]
+        machineFiberId <- UUIDGen.randomUUID[IO]
 
         aliceAddress = registry.addresses(Alice).toString
         bobAddress = registry.addresses(Bob).toString
@@ -65,7 +65,7 @@ object ProofValidationSuite extends SimpleIOSuite {
         machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("approved" -> BoolValue(false)))
 
-        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineFiberId, machineDef, initialData)
         machineProof <- registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -74,7 +74,7 @@ object ProofValidationSuite extends SimpleIOSuite {
 
         // Send approve event with proofs from both Alice and Bob
         approveEvent = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "approve",
           MapValue(Map.empty),
           FiberOrdinal.MinValue
@@ -83,7 +83,7 @@ object ProofValidationSuite extends SimpleIOSuite {
         finalState   <- combiner.insert(stateAfterCreate, Signed(approveEvent, approveProof))
 
         machine = finalState.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         approved = machine.flatMap { f =>
@@ -126,7 +126,7 @@ object ProofValidationSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        machineCid <- UUIDGen.randomUUID[IO]
+        machineFiberId <- UUIDGen.randomUUID[IO]
 
         aliceAddress = registry.addresses(Alice).toString
         bobAddress = registry.addresses(Bob).toString
@@ -163,7 +163,7 @@ object ProofValidationSuite extends SimpleIOSuite {
         machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("status" -> StrValue("pending")))
 
-        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineFiberId, machineDef, initialData)
         machineProof <- registry.generateProofs(createMachine, Set(Bob))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -172,7 +172,7 @@ object ProofValidationSuite extends SimpleIOSuite {
 
         // Test 1: Bob tries to approve (should fail guard)
         approveBobEvent = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "approve",
           MapValue(Map.empty),
           FiberOrdinal.MinValue
@@ -181,12 +181,12 @@ object ProofValidationSuite extends SimpleIOSuite {
         stateAfterBob <- combiner.insert(stateAfterCreate, Signed(approveBobEvent, bobProof))
 
         machineBob = stateAfterBob.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Test 2: Alice approves (should succeed)
         approveAliceEvent = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "approve",
           MapValue(Map.empty),
           FiberOrdinal.MinValue
@@ -195,7 +195,7 @@ object ProofValidationSuite extends SimpleIOSuite {
         stateAfterAlice <- combiner.insert(stateAfterBob, Signed(approveAliceEvent, aliceProof))
 
         machineAlice = stateAfterAlice.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         statusAfterAlice = machineAlice.flatMap { f =>
@@ -221,7 +221,7 @@ object ProofValidationSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        machineCid <- UUIDGen.randomUUID[IO]
+        machineFiberId <- UUIDGen.randomUUID[IO]
 
         // Machine requires at least 2 signatures to approve
         machineJson = """
@@ -255,7 +255,7 @@ object ProofValidationSuite extends SimpleIOSuite {
         machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("status" -> StrValue("pending")))
 
-        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineFiberId, machineDef, initialData)
         machineProof <- registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -264,7 +264,7 @@ object ProofValidationSuite extends SimpleIOSuite {
 
         // Test 1: Only Alice signs (should fail - need 2 signatures)
         approveAliceOnly = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "approve",
           MapValue(Map.empty),
           FiberOrdinal.MinValue
@@ -273,12 +273,12 @@ object ProofValidationSuite extends SimpleIOSuite {
         stateAfterAliceOnly <- combiner.insert(stateAfterCreate, Signed(approveAliceOnly, aliceOnlyProof))
 
         machineAfterAliceOnly = stateAfterAliceOnly.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         // Test 2: Alice and Bob sign (should succeed)
         approveAliceBob = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "approve",
           MapValue(Map.empty),
           FiberOrdinal.MinValue
@@ -287,7 +287,7 @@ object ProofValidationSuite extends SimpleIOSuite {
         stateAfterAliceBob <- combiner.insert(stateAfterAliceOnly, Signed(approveAliceBob, aliceBobProof))
 
         machineAfterAliceBob = stateAfterAliceBob.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         statusAfterAliceBob = machineAfterAliceBob.flatMap { f =>
@@ -313,7 +313,7 @@ object ProofValidationSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        machineCid <- UUIDGen.randomUUID[IO]
+        machineFiberId <- UUIDGen.randomUUID[IO]
 
         aliceAddress = registry.addresses(Alice).toString
         bobAddress = registry.addresses(Bob).toString
@@ -357,7 +357,7 @@ object ProofValidationSuite extends SimpleIOSuite {
         machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map("status" -> StrValue("pending")))
 
-        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineFiberId, machineDef, initialData)
         machineProof <- registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -366,7 +366,7 @@ object ProofValidationSuite extends SimpleIOSuite {
 
         // Test: Alice and Bob sign (should succeed - 2 signatures and Alice is included)
         approveEvent = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "approve",
           MapValue(Map.empty),
           FiberOrdinal.MinValue
@@ -375,7 +375,7 @@ object ProofValidationSuite extends SimpleIOSuite {
         finalState   <- combiner.insert(stateAfterCreate, Signed(approveEvent, approveProof))
 
         machine = finalState.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         status = machine.flatMap { f =>
@@ -409,7 +409,7 @@ object ProofValidationSuite extends SimpleIOSuite {
       for {
         combiner <- Combiner.make[IO]().pure[IO]
 
-        machineCid <- UUIDGen.randomUUID[IO]
+        machineFiberId <- UUIDGen.randomUUID[IO]
 
         // Machine that records proof metadata
         machineJson = """
@@ -440,7 +440,7 @@ object ProofValidationSuite extends SimpleIOSuite {
         machineDef <- IO.fromEither(decode[StateMachineDefinition](machineJson))
         initialData = MapValue(Map.empty[String, JsonLogicValue])
 
-        createMachine = Updates.CreateStateMachine(machineCid, machineDef, initialData)
+        createMachine = Updates.CreateStateMachine(machineFiberId, machineDef, initialData)
         machineProof <- registry.generateProofs(createMachine, Set(Alice))
         stateAfterCreate <- combiner.insert(
           DataState(OnChain.genesis, CalculatedState.genesis),
@@ -449,7 +449,7 @@ object ProofValidationSuite extends SimpleIOSuite {
 
         // Send log event
         logEvent = Updates.TransitionStateMachine(
-          machineCid,
+          machineFiberId,
           "log",
           MapValue(Map.empty),
           FiberOrdinal.MinValue
@@ -458,7 +458,7 @@ object ProofValidationSuite extends SimpleIOSuite {
         finalState <- combiner.insert(stateAfterCreate, Signed(logEvent, logProof))
 
         machine = finalState.calculated.stateMachines
-          .get(machineCid)
+          .get(machineFiberId)
           .collect { case r: Records.StateMachineFiberRecord => r }
 
         hasProofs = machine.flatMap { f =>

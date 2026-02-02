@@ -10,7 +10,6 @@ import io.constellationnetwork.currency
 import io.constellationnetwork.currency.dataApplication._
 import io.constellationnetwork.currency.l1.CurrencyL1App
 import io.constellationnetwork.ext.cats.effect.ResourceIO
-import io.constellationnetwork.node.shared.infrastructure.DataL1
 import io.constellationnetwork.schema.cluster.ClusterId
 import io.constellationnetwork.schema.semver.{MetagraphVersion, TessellationVersion}
 import io.constellationnetwork.security.SecurityProvider
@@ -41,7 +40,7 @@ object Main
     val configFileOpt: Opts[Option[String]] =
       Opts.option[String]("config", help = "Path to a custom configuration file").orNone
 
-    (currency.l1.cli.method.opts(DataL1), configFileOpt).mapN { (parentOpts, configPath) =>
+    (currency.l1.cli.method.opts, configFileOpt).mapN { (parentOpts, configPath) =>
       CustomConfig.configPath = configPath
 
       parentOpts
