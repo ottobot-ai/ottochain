@@ -413,14 +413,17 @@ async function runFlow(
       };
 
       // Determine which fiber this step targets and fetch its current sequence number
+      // Script actions (createScript, invokeScript, invoke) use the /oracles/ endpoint
       const isOracleStep =
-        (step.action as string).includes('Oracle') || step.action === 'invoke';
+        (step.action as string).includes('Oracle') ||
+        (step.action as string).includes('Script') ||
+        step.action === 'invoke';
       const isCreateStep =
         step.action === 'create' ||
         step.action === 'createStateMachine' ||
-        step.action === 'createOracle';
+        step.action === 'createScript';
 
-      // For createOracle, oracleFiberId is assigned inside the switch below,
+      // For createScript, oracleFiberId is assigned inside the switch below,
       // so we defer activeCid/entityPath until after the switch for create steps.
       let activeCid = isOracleStep ? session.oracleFiberId! : session.cid;
       let entityPath = isOracleStep
@@ -467,7 +470,7 @@ async function runFlow(
           break;
         }
 
-        case 'createOracle': {
+        case 'createScript': {
           session.oracleFiberId = (example.oracleFiberId as string) || crypto.randomUUID();
           const definition = await loadFileOrModule(
             path.join(examplesDir, example.dir, step.definition!),
@@ -476,7 +479,7 @@ async function runFlow(
 
           stepOptions = { oracleDefinition: definition };
 
-          const libModule = await import('./lib/oracle/createOracle.ts');
+          const libModule = await import('./lib/script/createScript.ts');
           generator = libModule.generator;
           validator = libModule.validator;
           message = generator({
@@ -536,7 +539,7 @@ async function runFlow(
             targetSequenceNumber: preSendSeqNum >= 0 ? preSendSeqNum : 0,
           };
 
-          const libModule = await import('./lib/oracle/invokeOracle.ts');
+          const libModule = await import('./lib/script/invokeScript.ts');
           generator = libModule.generator;
           validator = libModule.validator;
           message = generator({
@@ -551,7 +554,7 @@ async function runFlow(
           throw new Error(`Unknown action: ${step.action}`);
       }
 
-      // Re-compute activeCid/entityPath after the switch — createOracle assigns
+      // Re-compute activeCid/entityPath after the switch — createScript assigns
       // session.oracleFiberId inside the switch, so the pre-switch values may be stale.
       if (isCreateStep) {
         activeCid = isOracleStep ? session.oracleFiberId! : session.cid;
