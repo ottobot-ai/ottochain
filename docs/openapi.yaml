@@ -76,6 +76,35 @@ paths:
         '503':
           description: Node is unhealthy
 
+  /node/session:
+    get:
+      tags: [Node]
+      summary: Get current session ID
+      operationId: getNodeSession
+      responses:
+        '200':
+          description: Current session
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session:
+                    type: string
+
+  /metrics:
+    get:
+      tags: [Node]
+      summary: Prometheus metrics
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+
   # ===== Cluster Endpoints =====
   /cluster/info:
     get:
@@ -104,6 +133,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ClusterSession'
+
+  /cluster/peers:
+    get:
+      tags: [Cluster]
+      summary: Get peer details
+      operationId: getClusterPeers
+      responses:
+        '200':
+          description: Detailed peer information
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClusterPeer'
+
+  /cluster/join:
+    post:
+      tags: [Cluster]
+      summary: Join cluster
+      operationId: joinCluster
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinRequest'
+      responses:
+        '200':
+          description: Successfully joined
+        '400':
+          description: Invalid request
+
+  /cluster/leave:
+    post:
+      tags: [Cluster]
+      summary: Leave cluster
+      operationId: leaveCluster
+      responses:
+        '200':
+          description: Successfully left cluster
 
   # ===== Snapshot Endpoints (ML0) =====
   /snapshots/latest:
@@ -147,6 +217,53 @@ paths:
       responses:
         '200':
           description: Snapshot at ordinal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Snapshot'
+        '404':
+          description: Snapshot not found
+
+  /snapshots/latest/metadata:
+    get:
+      tags: [Snapshots]
+      summary: Get latest snapshot metadata
+      operationId: getLatestSnapshotMetadata
+      responses:
+        '200':
+          description: Snapshot metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotMetadata'
+
+  /snapshots/latest/combined:
+    get:
+      tags: [Snapshots]
+      summary: Get latest combined snapshot
+      operationId: getLatestCombinedSnapshot
+      responses:
+        '200':
+          description: Combined snapshot with full state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CombinedSnapshot'
+
+  /snapshots/{hash}:
+    get:
+      tags: [Snapshots]
+      summary: Get snapshot by hash
+      operationId: getSnapshotByHash
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/HashValue'
+      responses:
+        '200':
+          description: Snapshot
           content:
             application/json:
               schema:
@@ -236,6 +353,68 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenSupply'
+
+  /currency/last-reference/{address}:
+    get:
+      tags: [Currency]
+      summary: Get last transaction reference for address
+      operationId: getLastReference
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Address'
+      responses:
+        '200':
+          description: Last reference
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionReference'
+
+  # ===== Transaction Endpoints (CL1) =====
+  /transactions:
+    post:
+      tags: [Currency]
+      summary: Submit currency transaction
+      operationId: submitTransaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignedTransaction'
+      responses:
+        '200':
+          description: Transaction accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          description: Invalid transaction
+
+  /transactions/{hash}:
+    get:
+      tags: [Currency]
+      summary: Get pending transaction by hash
+      operationId: getTransaction
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/HashValue'
+      responses:
+        '200':
+          description: Transaction details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionInfo'
+        '404':
+          description: Transaction not found
 
   # ===== Data L1 Endpoints =====
   /data:
@@ -360,6 +539,18 @@ components:
         token:
           type: string
 
+    JoinRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Peer ID to join
+        ip:
+          type: string
+        p2pPort:
+          type: integer
+      required: [id, ip, p2pPort]
+
     # ===== Snapshot Types =====
     Snapshot:
       type: object
@@ -379,6 +570,28 @@ components:
             type: object
         tips:
           type: object
+
+    SnapshotMetadata:
+      type: object
+      properties:
+        ordinal:
+          $ref: '#/components/schemas/SnapshotOrdinal'
+        hash:
+          $ref: '#/components/schemas/HashValue'
+        timestamp:
+          type: string
+          format: date-time
+        size:
+          type: integer
+
+    CombinedSnapshot:
+      type: object
+      properties:
+        snapshot:
+          $ref: '#/components/schemas/Snapshot'
+        state:
+          type: object
+          description: Full calculated state
 
     # ===== OttoChain State Machine Types (from ottochain.v1.records) =====
     StateMachineFiberRecord:
@@ -538,6 +751,56 @@ components:
         total:
           type: integer
           format: int64
+
+    TransactionReference:
+      type: object
+      properties:
+        ordinal:
+          type: integer
+          format: int64
+        hash:
+          $ref: '#/components/schemas/HashValue'
+
+    SignedTransaction:
+      type: object
+      properties:
+        value:
+          $ref: '#/components/schemas/Transaction'
+        proofs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Proof'
+      required: [value, proofs]
+
+    Transaction:
+      type: object
+      properties:
+        source:
+          $ref: '#/components/schemas/Address'
+        destination:
+          $ref: '#/components/schemas/Address'
+        amount:
+          type: integer
+          format: int64
+        fee:
+          type: integer
+          format: int64
+        parent:
+          $ref: '#/components/schemas/TransactionReference'
+        salt:
+          type: integer
+          format: int64
+
+    TransactionInfo:
+      type: object
+      properties:
+        transaction:
+          $ref: '#/components/schemas/SignedTransaction'
+        hash:
+          $ref: '#/components/schemas/HashValue'
+        status:
+          type: string
+          enum: [Pending, Accepted, Rejected]
 
     # ===== Transaction Types =====
     DataTransaction:
