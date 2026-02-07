@@ -1,5 +1,8 @@
 # OttoChain
 
+[![CI](https://github.com/ottobot-ai/ottochain/actions/workflows/ci.yml/badge.svg)](https://github.com/ottobot-ai/ottochain/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/ottobot-ai/ottochain/branch/main/graph/badge.svg)](https://codecov.io/gh/ottobot-ai/ottochain)
+
 A metagraph on [Constellation Network](https://constellationnetwork.io/) for creating automated workflow contracts using JSON-encoded state machines and script oracles.
 
 **[📖 Read the Introduction →](docs/introduction.md)**
