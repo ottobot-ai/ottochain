@@ -23,18 +23,20 @@ SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o Connect
 #######################
 
 # Keystore files (from euclid configuration)
-KEYSTORE_FILES=("kd5ujc-01.p12" "kd5ujc-02.p12" "kd5ujc-03.p12")
-KEYSTORE_ALIAS=("kd5ujc-01" "kd5ujc-02" "kd5ujc-03")
+# Passwords should be set via environment variables or .env file
+# Generate new keystores: tessellation keytool generate --password <password>
+KEYSTORE_FILES=("node-01.p12" "node-02.p12" "node-03.p12")
+KEYSTORE_ALIAS=("node-01" "node-02" "node-03")
 KEYSTORE_PASSWORD=(
-  "Refusing-Avenge8-Repose-Garnish"
-  "Italicize6-Drippy-Stool-Trash"
-  "Huntress-Gossip6-Deflected-Jitters"
+  "${NODE1_KEYSTORE_PASSWORD:?Set NODE1_KEYSTORE_PASSWORD}"
+  "${NODE2_KEYSTORE_PASSWORD:?Set NODE2_KEYSTORE_PASSWORD}"
+  "${NODE3_KEYSTORE_PASSWORD:?Set NODE3_KEYSTORE_PASSWORD}"
 )
 
 # Owner wallet (using first keystore as owner)
-OWNER_KEYSTORE_FILE="kd5ujc-03.p12"
-OWNER_KEYSTORE_ALIAS="kd5ujc-03"
-OWNER_KEYSTORE_PASSWORD="Huntress-Gossip6-Deflected-Jitters"
+OWNER_KEYSTORE_FILE="node-01.p12"
+OWNER_KEYSTORE_ALIAS="node-01"
+OWNER_KEYSTORE_PASSWORD="${OWNER_KEYSTORE_PASSWORD:-$NODE1_KEYSTORE_PASSWORD}"
 
 #######################
 # Hypergraph Network Configuration
