@@ -1,0 +1,165 @@
+{
+  "metadata": {
+    "name": "Escrow",
+    "description": "Asset custody during multi-party transactions with conditional release",
+    "version": "1.0.0"
+  },
+  "states": {
+    "CREATED": { "id": { "value": "CREATED" }, "isFinal": false },
+    "FUNDED": { "id": { "value": "FUNDED" }, "isFinal": false },
+    "ACTIVE": { "id": { "value": "ACTIVE" }, "isFinal": false },
+    "RELEASING": { "id": { "value": "RELEASING" }, "isFinal": false },
+    "DISPUTED": { "id": { "value": "DISPUTED" }, "isFinal": false },
+    "RELEASED": { "id": { "value": "RELEASED" }, "isFinal": true },
+    "REFUNDED": { "id": { "value": "REFUNDED" }, "isFinal": true },
+    "SPLIT": { "id": { "value": "SPLIT" }, "isFinal": true }
+  },
+  "initialState": { "value": "CREATED" },
+  "crossReferences": {
+    "contractId": "Links to Contract SM that created this escrow",
+    "marketId": "Links to Market SM for market-based escrow",
+    "insuranceId": "Links to Insurance SM for protected escrow",
+    "arbitrationPoolId": "Links to ArbitrationPool for dispute resolution",
+    "treasuryId": "Links to Treasury for fee collection"
+  },
+  "transitions": [
+    {
+      "from": { "value": "CREATED" },
+      "to": { "value": "FUNDED" },
+      "eventName": "deposit",
+      "guard": {
+        "and": [
+          { "===": [{ "var": "event.agent" }, { "var": "state.depositor" }] },
+          { ">=": [{ "var": "event.amount" }, { "var": "state.requiredAmount" }] }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "balance": { "var": "event.amount" },
+            "fundedAt": { "var": "$timestamp" }
+          }
+        ]
+      }
+    },
+    {
+      "from": { "value": "FUNDED" },
+      "to": { "value": "ACTIVE" },
+      "eventName": "activate",
+      "guard": {
+        "or": [
+          { "===": [{ "var": "event.agent" }, { "var": "state.beneficiary" }] },
+          { "var": "state.autoActivate" }
+        ]
+      },
+      "effect": {
+        "merge": [{ "var": "state" }, { "activatedAt": { "var": "$timestamp" } }]
+      },
+      "emits": {
+        "target": "Contract",
+        "event": "escrow_activated",
+        "payload": { "escrowId": { "var": "fiberId" } }
+      }
+    },
+    {
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "RELEASING" },
+      "eventName": "request_release",
+      "guard": {
+        "===": [{ "var": "event.agent" }, { "var": "state.beneficiary" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "releaseRequest": {
+              "requestedBy": { "var": "event.agent" },
+              "amount": { "var": "event.amount" },
+              "reason": { "var": "event.reason" },
+              "requestedAt": { "var": "$timestamp" }
+            },
+            "releaseDeadline": { "+": [{ "var": "$timestamp" }, { "var": "state.releaseWindowMs" }] }
+          }
+        ]
+      }
+    },
+    {
+      "from": { "value": "RELEASING" },
+      "to": { "value": "RELEASED" },
+      "eventName": "approve_release",
+      "guard": {
+        "or": [
+          { "===": [{ "var": "event.agent" }, { "var": "state.depositor" }] },
+          { ">=": [{ "var": "$timestamp" }, { "var": "state.releaseDeadline" }] }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          { "releasedAt": { "var": "$timestamp" }, "releasedTo": { "var": "state.beneficiary" } }
+        ]
+      },
+      "emits": {
+        "target": "Treasury",
+        "event": "collect_fee",
+        "payload": {
+          "amount": { "*": [{ "var": "state.balance" }, { "var": "state.feePercent" }] },
+          "source": "escrow"
+        }
+      }
+    },
+    {
+      "from": { "value": "RELEASING" },
+      "to": { "value": "DISPUTED" },
+      "eventName": "dispute",
+      "guard": {
+        "and": [
+          { "===": [{ "var": "event.agent" }, { "var": "state.depositor" }] },
+          { "<": [{ "var": "$timestamp" }, { "var": "state.releaseDeadline" }] }
+        ]
+      },
+      "effect": {
+        "merge": [{ "var": "state" }, { "disputedAt": { "var": "$timestamp" } }]
+      },
+      "spawns": {
+        "sm": "Judiciary",
+        "initialData": {
+          "caseType": "escrow_dispute",
+          "plaintiff": { "var": "state.depositor" },
+          "defendant": { "var": "state.beneficiary" },
+          "claim": { "escrowId": { "var": "fiberId" }, "amount": { "var": "state.balance" } }
+        }
+      }
+    },
+    {
+      "from": { "value": "DISPUTED" },
+      "to": { "value": "SPLIT" },
+      "eventName": "ruling",
+      "guard": { "var": "event.judicialRuling" },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "splits": { "var": "event.splits" },
+            "rulingId": { "var": "event.rulingId" }
+          }
+        ]
+      }
+    },
+    {
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "REFUNDED" },
+      "eventName": "refund",
+      "guard": {
+        "or": [
+          { "var": "event.mutualConsent" },
+          { ">=": [{ "var": "$timestamp" }, { "var": "state.expiresAt" }] }
+        ]
+      },
+      "effect": {
+        "merge": [{ "var": "state" }, { "refundedAt": { "var": "$timestamp" } }]
+      }
+    }
+  ]
+}

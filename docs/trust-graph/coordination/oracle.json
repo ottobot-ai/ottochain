@@ -1,0 +1,211 @@
+{
+  "metadata": {
+    "name": "Oracle",
+    "description": "Oracle registration, reputation, and slashing state machine",
+    "version": "1.0.0"
+  },
+  "states": {
+    "UNREGISTERED": { "id": { "value": "UNREGISTERED" }, "isFinal": false },
+    "REGISTERED": { "id": { "value": "REGISTERED" }, "isFinal": false },
+    "ACTIVE": { "id": { "value": "ACTIVE" }, "isFinal": false },
+    "SLASHED": { "id": { "value": "SLASHED" }, "isFinal": false },
+    "WITHDRAWN": { "id": { "value": "WITHDRAWN" }, "isFinal": true }
+  },
+  "initialState": { "value": "UNREGISTERED" },
+  "transitions": [
+    {
+      "_comment": "Register as oracle with initial stake",
+      "from": { "value": "UNREGISTERED" },
+      "to": { "value": "REGISTERED" },
+      "eventName": "register",
+      "guard": {
+        ">=": [{ "var": "event.stake" }, { "var": "state.minStake" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "REGISTERED",
+            "address": { "var": "event.agent" },
+            "stake": { "var": "event.stake" },
+            "registeredAt": { "var": "$timestamp" },
+            "reputation": { "accuracy": 100, "totalResolutions": 0, "disputesWon": 0, "disputesLost": 0 },
+            "domains": { "var": "event.domains" },
+            "slashingHistory": []
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Activate oracle after verification period",
+      "from": { "value": "REGISTERED" },
+      "to": { "value": "ACTIVE" },
+      "eventName": "activate",
+      "guard": {
+        "or": [
+          { "===": [{ "var": "event.agent" }, { "var": "state.address" }] },
+          { "var": "event.adminOverride" }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          { "status": "ACTIVE", "activatedAt": { "var": "$timestamp" } }
+        ]
+      }
+    },
+    {
+      "_comment": "Add more stake",
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "ACTIVE" },
+      "eventName": "add_stake",
+      "guard": {
+        "and": [
+          { "===": [{ "var": "event.agent" }, { "var": "state.address" }] },
+          { ">": [{ "var": "event.amount" }, 0] }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "stake": { "+": [{ "var": "state.stake" }, { "var": "event.amount" }] },
+            "lastStakeAt": { "var": "$timestamp" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Record successful resolution (called by market settlement)",
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "ACTIVE" },
+      "eventName": "record_resolution",
+      "guard": { "var": "event.marketId" },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "reputation": {
+              "merge": [
+                { "var": "state.reputation" },
+                {
+                  "totalResolutions": { "+": [{ "var": "state.reputation.totalResolutions" }, 1] },
+                  "accuracy": {
+                    "if": [
+                      { "var": "event.correct" },
+                      { "var": "state.reputation.accuracy" },
+                      { "-": [{ "var": "state.reputation.accuracy" }, 5] }
+                    ]
+                  }
+                }
+              ]
+            },
+            "lastResolutionAt": { "var": "$timestamp" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Slash oracle for misbehavior",
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "SLASHED" },
+      "eventName": "slash",
+      "guard": {
+        "and": [
+          { "var": "event.reason" },
+          { ">": [{ "var": "event.amount" }, 0] },
+          { "<=": [{ "var": "event.amount" }, { "var": "state.stake" }] }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "SLASHED",
+            "stake": { "-": [{ "var": "state.stake" }, { "var": "event.amount" }] },
+            "slashingHistory": {
+              "cat": [
+                { "var": "state.slashingHistory" },
+                [{
+                  "reason": { "var": "event.reason" },
+                  "amount": { "var": "event.amount" },
+                  "marketId": { "var": "event.marketId" },
+                  "slashedAt": { "var": "$timestamp" }
+                }]
+              ]
+            },
+            "slashedAt": { "var": "$timestamp" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Reactivate after slash cooldown",
+      "from": { "value": "SLASHED" },
+      "to": { "value": "ACTIVE" },
+      "eventName": "reactivate",
+      "guard": {
+        "and": [
+          { "===": [{ "var": "event.agent" }, { "var": "state.address" }] },
+          { ">=": [{ "var": "state.stake" }, { "var": "state.minStake" }] }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          { "status": "ACTIVE", "reactivatedAt": { "var": "$timestamp" } }
+        ]
+      }
+    },
+    {
+      "_comment": "Withdraw from oracle role",
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "WITHDRAWN" },
+      "eventName": "withdraw",
+      "guard": { "===": [{ "var": "event.agent" }, { "var": "state.address" }] },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "WITHDRAWN",
+            "withdrawnAt": { "var": "$timestamp" },
+            "finalStake": { "var": "state.stake" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Withdraw after slash (may have reduced stake)",
+      "from": { "value": "SLASHED" },
+      "to": { "value": "WITHDRAWN" },
+      "eventName": "withdraw",
+      "guard": { "===": [{ "var": "event.agent" }, { "var": "state.address" }] },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "WITHDRAWN",
+            "withdrawnAt": { "var": "$timestamp" },
+            "finalStake": { "var": "state.stake" }
+          }
+        ]
+      }
+    }
+  ],
+  "initialDataTemplate": {
+    "_comment": "Template for creating new oracle registrations",
+    "schema": "Oracle",
+    "address": "<address>",
+    "stake": 0,
+    "minStake": 100,
+    "reputation": {
+      "accuracy": 100,
+      "totalResolutions": 0,
+      "disputesWon": 0,
+      "disputesLost": 0
+    },
+    "domains": [],
+    "slashingHistory": [],
+    "status": "UNREGISTERED"
+  }
+}

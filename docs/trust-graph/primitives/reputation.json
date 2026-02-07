@@ -1,0 +1,180 @@
+{
+  "metadata": {
+    "name": "ReputationOracle",
+    "description": "Script oracle that computes composite reputation from cross-SM activity",
+    "version": "1.0.0"
+  },
+  
+  "_comment": "This is a SCRIPT oracle, not a state machine. It's invoked to compute reputation.",
+  
+  "dimensions": {
+    "reliability": {
+      "description": "Contract completion rate, promise keeping",
+      "weight": 0.25,
+      "sources": ["Contract.completed", "Contract.failed", "Executive.completed", "Executive.failed"],
+      "compute": {
+        "if": [
+          { "===": [{ "+": [{ "var": "completed" }, { "var": "failed" }] }, 0] },
+          50,
+          { "*": [
+            100,
+            { "/": [{ "var": "completed" }, { "+": [{ "var": "completed" }, { "var": "failed" }] }] }
+          ]}
+        ]
+      }
+    },
+    "accuracy": {
+      "description": "Oracle resolution correctness",
+      "weight": 0.20,
+      "sources": ["Oracle.resolutions", "Oracle.disputes_won", "Oracle.disputes_lost"],
+      "compute": {
+        "if": [
+          { "===": [{ "var": "resolutions" }, 0] },
+          50,
+          { "-": [
+            100,
+            { "*": [
+              { "/": [{ "var": "disputes_lost" }, { "var": "resolutions" }] },
+              100
+            ]}
+          ]}
+        ]
+      }
+    },
+    "judgment": {
+      "description": "Dispute resolution quality (as judge/juror)",
+      "weight": 0.15,
+      "sources": ["Judiciary.rulings", "Judiciary.appeals_upheld", "Judiciary.appeals_overturned"],
+      "compute": {
+        "if": [
+          { "===": [{ "var": "rulings" }, 0] },
+          50,
+          { "-": [
+            100,
+            { "*": [
+              { "/": [{ "var": "appeals_overturned" }, { "var": "rulings" }] },
+              100
+            ]}
+          ]}
+        ]
+      }
+    },
+    "participation": {
+      "description": "Governance engagement level",
+      "weight": 0.15,
+      "sources": ["Governance.proposals", "Governance.votes", "Governance.attendance"],
+      "compute": {
+        "min": [
+          100,
+          { "+": [
+            { "*": [{ "var": "proposals" }, 10] },
+            { "*": [{ "var": "votes" }, 2] },
+            { "*": [{ "var": "attendance" }, 1] }
+          ]}
+        ]
+      }
+    },
+    "social": {
+      "description": "Trust from other agents (vouches)",
+      "weight": 0.15,
+      "sources": ["Identity.vouches_received", "Identity.vouches_given", "Identity.vouches_revoked"],
+      "compute": {
+        "min": [
+          100,
+          { "*": [
+            { "-": [
+              { "var": "vouches_received" },
+              { "var": "vouches_revoked" }
+            ]},
+            5
+          ]}
+        ]
+      }
+    },
+    "longevity": {
+      "description": "Time-weighted presence in ecosystem",
+      "weight": 0.10,
+      "sources": ["Identity.registered_at", "Identity.last_active_at"],
+      "compute": {
+        "min": [
+          100,
+          { "/": [
+            { "-": [{ "var": "$timestamp" }, { "var": "registered_at" }] },
+            86400000
+          ]}
+        ]
+      }
+    }
+  },
+  
+  "composite": {
+    "description": "Weighted sum of all dimensions",
+    "compute": {
+      "+": [
+        { "*": [{ "var": "dimensions.reliability" }, 0.25] },
+        { "*": [{ "var": "dimensions.accuracy" }, 0.20] },
+        { "*": [{ "var": "dimensions.judgment" }, 0.15] },
+        { "*": [{ "var": "dimensions.participation" }, 0.15] },
+        { "*": [{ "var": "dimensions.social" }, 0.15] },
+        { "*": [{ "var": "dimensions.longevity" }, 0.10] }
+      ]
+    }
+  },
+  
+  "decay": {
+    "description": "Reputation decays without activity",
+    "halfLifeMs": 2592000000,
+    "compute": {
+      "*": [
+        { "var": "currentReputation" },
+        { "^": [
+          0.5,
+          { "/": [
+            { "-": [{ "var": "$timestamp" }, { "var": "lastActivityAt" }] },
+            2592000000
+          ]}
+        ]}
+      ]
+    }
+  },
+  
+  "recovery": {
+    "description": "Recovery rate after slashing/suspension",
+    "probationPeriodMs": 604800000,
+    "recoveryRatePerDay": 5,
+    "maxRecoveryPercent": 80,
+    "compute": {
+      "if": [
+        { "<": [
+          { "-": [{ "var": "$timestamp" }, { "var": "slashedAt" }] },
+          604800000
+        ]},
+        { "var": "slashedReputation" },
+        { "min": [
+          { "*": [{ "var": "preSlashReputation" }, 0.8] },
+          { "+": [
+            { "var": "slashedReputation" },
+            { "*": [
+              5,
+              { "/": [
+                { "-": [{ "var": "$timestamp" }, { "+": [{ "var": "slashedAt" }, 604800000] }] },
+                86400000
+              ]}
+            ]}
+          ]}
+        ]}
+      ]
+    }
+  },
+  
+  "tiers": {
+    "description": "Reputation tiers unlock capabilities",
+    "levels": [
+      { "name": "Newcomer", "min": 0, "max": 20, "color": "gray" },
+      { "name": "Participant", "min": 20, "max": 40, "color": "blue" },
+      { "name": "Contributor", "min": 40, "max": 60, "color": "green" },
+      { "name": "Trusted", "min": 60, "max": 80, "color": "purple" },
+      { "name": "Elder", "min": 80, "max": 100, "color": "gold" }
+    ]
+  }
+}

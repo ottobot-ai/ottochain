@@ -1,0 +1,357 @@
+{
+  "metadata": {
+    "name": "CrossSMEvents",
+    "description": "Event propagation rules across state machines - how actions in one SM affect others",
+    "version": "1.0.0"
+  },
+  
+  "_comment": "Defines how events in source SMs trigger effects in target SMs via fiber dependencies",
+  
+  "propagationRules": [
+    
+    {
+      "id": "oracle_slash_propagates",
+      "description": "Oracle slashing affects governance and market eligibility",
+      "source": {
+        "sm": "Oracle",
+        "event": "slash",
+        "conditions": {
+          ">=": [{ "var": "event.amount" }, 50]
+        }
+      },
+      "targets": [
+        {
+          "sm": "Identity",
+          "effect": "add_flag",
+          "payload": {
+            "flag": "slashed",
+            "reason": { "var": "source.event.reason" },
+            "sourceFiberId": { "var": "source.fiberId" },
+            "expiresAt": { "+": [{ "var": "$timestamp" }, 604800000] }
+          }
+        },
+        {
+          "sm": "ReputationOracle",
+          "effect": "record_negative",
+          "payload": {
+            "dimension": "accuracy",
+            "delta": { "*": [{ "var": "source.event.amount" }, -0.5] },
+            "reason": "oracle_slashed"
+          }
+        }
+      ]
+    },
+    
+    {
+      "id": "contract_default_propagates",
+      "description": "Contract default affects reputation and future contract eligibility",
+      "source": {
+        "sm": "Contract",
+        "event": "default",
+        "conditions": null
+      },
+      "targets": [
+        {
+          "sm": "Identity",
+          "effect": "add_attestation",
+          "payload": {
+            "type": "VIOLATION",
+            "severity": "major",
+            "details": {
+              "contractId": { "var": "source.fiberId" },
+              "defaultedAt": { "var": "$timestamp" }
+            }
+          }
+        },
+        {
+          "sm": "ReputationOracle",
+          "effect": "record_negative",
+          "payload": {
+            "dimension": "reliability",
+            "delta": -15,
+            "reason": "contract_default"
+          }
+        }
+      ]
+    },
+    
+    {
+      "id": "contract_completion_propagates",
+      "description": "Successful contract completion boosts reputation",
+      "source": {
+        "sm": "Contract",
+        "event": "complete",
+        "conditions": null
+      },
+      "targets": [
+        {
+          "sm": "Identity",
+          "effect": "add_attestation",
+          "payload": {
+            "type": "COMPLETION",
+            "details": {
+              "contractId": { "var": "source.fiberId" },
+              "completedAt": { "var": "$timestamp" }
+            }
+          }
+        },
+        {
+          "sm": "ReputationOracle",
+          "effect": "record_positive",
+          "payload": {
+            "dimension": "reliability",
+            "delta": 5,
+            "reason": "contract_completed"
+          }
+        }
+      ]
+    },
+    
+    {
+      "id": "market_win_propagates",
+      "description": "Market win (correct prediction, auction win) affects reputation",
+      "source": {
+        "sm": "Market",
+        "event": "claim",
+        "conditions": {
+          ">": [{ "var": "event.amount" }, 0]
+        }
+      },
+      "targets": [
+        {
+          "sm": "ReputationOracle",
+          "effect": "record_positive",
+          "payload": {
+            "dimension": "accuracy",
+            "delta": { "min": [10, { "/": [{ "var": "source.event.amount" }, 100] }] },
+            "reason": "market_win"
+          }
+        }
+      ]
+    },
+    
+    {
+      "id": "governance_proposal_passed",
+      "description": "Successful proposal boosts participation reputation",
+      "source": {
+        "sm": "Governance",
+        "event": "finalize",
+        "conditions": {
+          "===": [{ "var": "event.outcome" }, "passed"]
+        }
+      },
+      "targets": [
+        {
+          "sm": "ReputationOracle",
+          "effect": "record_positive",
+          "payload": {
+            "dimension": "participation",
+            "delta": 10,
+            "reason": "proposal_passed",
+            "agent": { "var": "source.state.proposal.proposer" }
+          }
+        }
+      ]
+    },
+    
+    {
+      "id": "judiciary_ruling_appealed_overturned",
+      "description": "Overturned ruling affects judge reputation",
+      "source": {
+        "sm": "Judiciary",
+        "event": "appeal_ruling",
+        "conditions": {
+          "===": [{ "var": "event.outcome" }, "overturned"]
+        }
+      },
+      "targets": [
+        {
+          "sm": "ReputationOracle",
+          "effect": "record_negative",
+          "payload": {
+            "dimension": "judgment",
+            "delta": -10,
+            "reason": "ruling_overturned",
+            "agents": { "var": "source.state.assignedJudges" }
+          }
+        }
+      ]
+    },
+    
+    {
+      "id": "judiciary_ruling_upheld",
+      "description": "Upheld ruling on appeal boosts judge reputation",
+      "source": {
+        "sm": "Judiciary",
+        "event": "appeal_ruling",
+        "conditions": {
+          "===": [{ "var": "event.outcome" }, "upheld"]
+        }
+      },
+      "targets": [
+        {
+          "sm": "ReputationOracle",
+          "effect": "record_positive",
+          "payload": {
+            "dimension": "judgment",
+            "delta": 5,
+            "reason": "ruling_upheld",
+            "agents": { "var": "source.state.assignedJudges" }
+          }
+        }
+      ]
+    },
+    
+    {
+      "id": "identity_suspended_propagates",
+      "description": "Suspension blocks roles across all SMs",
+      "source": {
+        "sm": "Identity",
+        "event": "suspend",
+        "conditions": null
+      },
+      "targets": [
+        {
+          "sm": "Oracle",
+          "effect": "deactivate",
+          "payload": {
+            "reason": "identity_suspended",
+            "until": { "var": "source.event.suspendedUntil" }
+          },
+          "filter": {
+            "===": [{ "var": "target.state.address" }, { "var": "source.state.address" }]
+          }
+        },
+        {
+          "sm": "Governance",
+          "effect": "revoke_roles",
+          "payload": {
+            "roles": ["proposer", "executor", "vetoer"],
+            "reason": "identity_suspended"
+          },
+          "filter": {
+            "in": [{ "var": "source.state.address" }, { "var": "target.state.members" }]
+          }
+        }
+      ]
+    },
+    
+    {
+      "id": "identity_vouch_received",
+      "description": "Receiving vouch boosts social reputation",
+      "source": {
+        "sm": "Identity",
+        "event": "vouch",
+        "conditions": null
+      },
+      "targets": [
+        {
+          "sm": "ReputationOracle",
+          "effect": "record_positive",
+          "payload": {
+            "dimension": "social",
+            "delta": { "*": [2, { "/": [{ "var": "source.event.voucherReputation" }, 100] }] },
+            "reason": "vouch_received"
+          }
+        }
+      ]
+    },
+    
+    {
+      "id": "identity_vouch_revoked",
+      "description": "Vouch revocation damages social reputation",
+      "source": {
+        "sm": "Identity",
+        "event": "revoke_vouch",
+        "conditions": null
+      },
+      "targets": [
+        {
+          "sm": "ReputationOracle",
+          "effect": "record_negative",
+          "payload": {
+            "dimension": "social",
+            "delta": -5,
+            "reason": "vouch_revoked"
+          }
+        }
+      ]
+    },
+    
+    {
+      "id": "executive_failure_propagates",
+      "description": "Failed execution affects executor reputation",
+      "source": {
+        "sm": "Executive",
+        "event": "fail",
+        "conditions": null
+      },
+      "targets": [
+        {
+          "sm": "ReputationOracle",
+          "effect": "record_negative",
+          "payload": {
+            "dimension": "reliability",
+            "delta": -10,
+            "reason": "execution_failed",
+            "agent": { "var": "source.state.acceptedBy" }
+          }
+        }
+      ]
+    },
+    
+    {
+      "id": "constitution_amendment_passed",
+      "description": "Successfully amending constitution is prestigious",
+      "source": {
+        "sm": "Constitution",
+        "event": "ratify_amendment",
+        "conditions": null
+      },
+      "targets": [
+        {
+          "sm": "ReputationOracle",
+          "effect": "record_positive",
+          "payload": {
+            "dimension": "participation",
+            "delta": 25,
+            "reason": "constitution_amended",
+            "agent": { "var": "source.state.pendingAmendment.proposer" }
+          }
+        },
+        {
+          "sm": "Identity",
+          "effect": "add_attestation",
+          "payload": {
+            "type": "ACHIEVEMENT",
+            "details": {
+              "achievement": "constitution_amender",
+              "amendmentId": { "var": "source.state.pendingAmendment.id" }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  
+  "eventBus": {
+    "description": "How events are propagated technically",
+    "mechanism": "fiber_spawn",
+    "options": [
+      {
+        "name": "fiber_spawn",
+        "description": "Source SM spawns child fiber with propagation message"
+      },
+      {
+        "name": "combiner_hook",
+        "description": "Combiner intercepts events and applies cross-SM effects"
+      },
+      {
+        "name": "script_oracle",
+        "description": "Script oracle invoked after each transition to check propagation rules"
+      }
+    ],
+    "recommended": "combiner_hook",
+    "rationale": "Combiner sees all state transitions and can atomically apply cross-SM effects"
+  }
+}

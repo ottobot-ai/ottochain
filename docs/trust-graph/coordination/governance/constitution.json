@@ -1,0 +1,247 @@
+{
+  "metadata": {
+    "name": "Constitution",
+    "description": "Foundational charter that defines governance structure, branch powers, and amendment rules",
+    "version": "1.0.0"
+  },
+  "states": {
+    "DRAFT": { "id": { "value": "DRAFT" }, "isFinal": false },
+    "RATIFIED": { "id": { "value": "RATIFIED" }, "isFinal": false },
+    "AMENDING": { "id": { "value": "AMENDING" }, "isFinal": false },
+    "SUSPENDED": { "id": { "value": "SUSPENDED" }, "isFinal": false },
+    "DISSOLVED": { "id": { "value": "DISSOLVED" }, "isFinal": true }
+  },
+  "initialState": { "value": "DRAFT" },
+  "transitions": [
+    {
+      "_comment": "Founders ratify the constitution",
+      "from": { "value": "DRAFT" },
+      "to": { "value": "RATIFIED" },
+      "eventName": "ratify",
+      "guard": {
+        ">=": [
+          { "size": { "var": "state.ratifications" } },
+          { "var": "state.ratificationThreshold" }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          { "status": "RATIFIED", "ratifiedAt": { "var": "$timestamp" } }
+        ]
+      }
+    },
+    {
+      "_comment": "Founder signs ratification",
+      "from": { "value": "DRAFT" },
+      "to": { "value": "DRAFT" },
+      "eventName": "sign",
+      "guard": {
+        "and": [
+          { "in": [{ "var": "event.agent" }, { "var": "state.founders" }] },
+          { "!": { "in": [{ "var": "event.agent" }, { "var": "state.ratifications" }] } }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "ratifications": {
+              "cat": [{ "var": "state.ratifications" }, [{ "var": "event.agent" }]]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Begin amendment process",
+      "from": { "value": "RATIFIED" },
+      "to": { "value": "AMENDING" },
+      "eventName": "propose_amendment",
+      "guard": {
+        "or": [
+          { "in": [{ "var": "event.agent" }, { "var": "state.branches.legislature.members" }] },
+          { ">=": [{ "var": "event.petitionSignatures" }, { "var": "state.amendmentPetitionThreshold" }] }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "AMENDING",
+            "pendingAmendment": {
+              "id": { "var": "event.amendmentId" },
+              "proposer": { "var": "event.agent" },
+              "changes": { "var": "event.changes" },
+              "proposedAt": { "var": "$timestamp" },
+              "votes": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Amendment passes",
+      "from": { "value": "AMENDING" },
+      "to": { "value": "RATIFIED" },
+      "eventName": "ratify_amendment",
+      "guard": {
+        ">=": [
+          { "var": "state.pendingAmendment.approvalCount" },
+          { "var": "state.amendmentThreshold" }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "RATIFIED",
+            "amendments": {
+              "cat": [
+                { "var": "state.amendments" },
+                [{
+                  "id": { "var": "state.pendingAmendment.id" },
+                  "changes": { "var": "state.pendingAmendment.changes" },
+                  "ratifiedAt": { "var": "$timestamp" }
+                }]
+              ]
+            },
+            "pendingAmendment": null
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Amendment fails",
+      "from": { "value": "AMENDING" },
+      "to": { "value": "RATIFIED" },
+      "eventName": "reject_amendment",
+      "guard": { "var": "state.pendingAmendment.rejected" },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "RATIFIED",
+            "failedAmendments": {
+              "cat": [
+                { "var": "state.failedAmendments" },
+                [{ "var": "state.pendingAmendment" }]
+              ]
+            },
+            "pendingAmendment": null
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Emergency suspension",
+      "from": { "value": "RATIFIED" },
+      "to": { "value": "SUSPENDED" },
+      "eventName": "suspend",
+      "guard": {
+        "and": [
+          { "in": [{ "var": "event.agent" }, { "var": "state.emergencyCouncil" }] },
+          { "var": "event.reason" }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "SUSPENDED",
+            "suspendedBy": { "var": "event.agent" },
+            "suspensionReason": { "var": "event.reason" },
+            "suspendedAt": { "var": "$timestamp" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Restore from suspension",
+      "from": { "value": "SUSPENDED" },
+      "to": { "value": "RATIFIED" },
+      "eventName": "restore",
+      "guard": {
+        ">=": [
+          { "var": "event.restorationVotes" },
+          { "var": "state.restorationThreshold" }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          { "status": "RATIFIED", "restoredAt": { "var": "$timestamp" } }
+        ]
+      }
+    },
+    {
+      "_comment": "Dissolve the constitution entirely",
+      "from": { "value": "RATIFIED" },
+      "to": { "value": "DISSOLVED" },
+      "eventName": "dissolve",
+      "guard": {
+        ">=": [
+          { "var": "event.dissolutionVotes" },
+          { "var": "state.dissolutionThreshold" }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          { "status": "DISSOLVED", "dissolvedAt": { "var": "$timestamp" } }
+        ]
+      }
+    }
+  ],
+  "initialDataTemplate": {
+    "schema": "Constitution",
+    
+    "name": "",
+    "preamble": "",
+    
+    "founders": [],
+    "ratifications": [],
+    "ratificationThreshold": 0,
+    
+    "branches": {
+      "legislature": {
+        "name": "Legislature",
+        "powers": ["propose_law", "vote_law", "impeach", "amend_constitution"],
+        "members": [],
+        "quorum": 0.5,
+        "passingThreshold": 0.5
+      },
+      "executive": {
+        "name": "Executive",
+        "powers": ["execute_law", "veto", "appoint", "emergency_action"],
+        "members": [],
+        "head": null
+      },
+      "judiciary": {
+        "name": "Judiciary",
+        "powers": ["interpret", "review", "overturn", "resolve_dispute"],
+        "members": [],
+        "quorum": 0.5
+      }
+    },
+    
+    "checksAndBalances": {
+      "executiveVeto": true,
+      "legislativeOverride": 0.67,
+      "judicialReview": true,
+      "impeachment": true
+    },
+    
+    "amendmentThreshold": 0.67,
+    "amendmentPetitionThreshold": 100,
+    "dissolutionThreshold": 0.9,
+    "restorationThreshold": 0.67,
+    "emergencyCouncil": [],
+    
+    "amendments": [],
+    "failedAmendments": [],
+    "pendingAmendment": null,
+    
+    "status": "DRAFT"
+  }
+}
