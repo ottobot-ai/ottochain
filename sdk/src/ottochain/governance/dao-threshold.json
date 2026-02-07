@@ -1,0 +1,256 @@
+{
+  "metadata": {
+    "name": "ThresholdDAO",
+    "description": "Reputation-threshold governance. Minimum reputation required for participation.",
+    "version": "1.0.0",
+    "category": "governance/dao"
+  },
+  "states": {
+    "ACTIVE": { "id": { "value": "ACTIVE" }, "isFinal": false },
+    "VOTING": { "id": { "value": "VOTING" }, "isFinal": false },
+    "DISSOLVED": { "id": { "value": "DISSOLVED" }, "isFinal": true }
+  },
+  "initialState": { "value": "ACTIVE" },
+  "transitions": [
+    {
+      "_comment": "Propose (requires proposer reputation threshold)",
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "VOTING" },
+      "eventName": "propose",
+      "guard": {
+        ">=": [{ "var": "event.agentReputation" }, { "var": "state.proposeThreshold" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "proposal": {
+              "id": { "var": "event.proposalId" },
+              "title": { "var": "event.title" },
+              "description": { "var": "event.description" },
+              "actionType": { "var": "event.actionType" },
+              "payload": { "var": "event.payload" },
+              "proposer": { "var": "event.agent" },
+              "proposedAt": { "var": "$timestamp" },
+              "deadline": { "+": [{ "var": "$timestamp" }, { "var": "state.votingPeriodMs" }] }
+            },
+            "votes": {
+              "for": [],
+              "against": [],
+              "abstain": []
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Vote (requires voter reputation threshold)",
+      "from": { "value": "VOTING" },
+      "to": { "value": "VOTING" },
+      "eventName": "vote",
+      "guard": {
+        "and": [
+          { ">=": [{ "var": "event.agentReputation" }, { "var": "state.voteThreshold" }] },
+          { "!": { "in": [{ "var": "event.agent" }, { "var": "state.votes.for" }] } },
+          { "!": { "in": [{ "var": "event.agent" }, { "var": "state.votes.against" }] } },
+          { "!": { "in": [{ "var": "event.agent" }, { "var": "state.votes.abstain" }] } },
+          { "<=": [{ "var": "$timestamp" }, { "var": "state.proposal.deadline" }] }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "votes": {
+              "if": [
+                { "===": [{ "var": "event.vote" }, "for"] },
+                { "merge": [{ "var": "state.votes" }, { "for": { "cat": [{ "var": "state.votes.for" }, [{ "var": "event.agent" }]] } }] },
+                { "===": [{ "var": "event.vote" }, "against"] },
+                { "merge": [{ "var": "state.votes" }, { "against": { "cat": [{ "var": "state.votes.against" }, [{ "var": "event.agent" }]] } }] },
+                { "merge": [{ "var": "state.votes" }, { "abstain": { "cat": [{ "var": "state.votes.abstain" }, [{ "var": "event.agent" }]] } }] }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Execute (majority + quorum)",
+      "from": { "value": "VOTING" },
+      "to": { "value": "ACTIVE" },
+      "eventName": "execute",
+      "guard": {
+        "and": [
+          { ">": [{ "var": "$timestamp" }, { "var": "state.proposal.deadline" }] },
+          { ">": [{ "size": { "var": "state.votes.for" } }, { "size": { "var": "state.votes.against" } }] },
+          { ">=": [
+            { "+": [{ "size": { "var": "state.votes.for" } }, { "size": { "var": "state.votes.against" } }] },
+            { "var": "state.quorum" }
+          ]}
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "history": {
+              "cat": [
+                { "var": "state.history" },
+                [{
+                  "type": "executed",
+                  "proposal": { "var": "state.proposal" },
+                  "votes": { "var": "state.votes" },
+                  "at": { "var": "$timestamp" }
+                }]
+              ]
+            },
+            "proposal": null,
+            "votes": null
+          }
+        ]
+      },
+      "emits": [
+        { "event": "proposal_executed", "to": "Reputation", "payload": { "action": "increase", "agents": { "var": "state.votes.for" } } }
+      ]
+    },
+    {
+      "_comment": "Reject (didn't pass)",
+      "from": { "value": "VOTING" },
+      "to": { "value": "ACTIVE" },
+      "eventName": "reject",
+      "guard": {
+        "and": [
+          { ">": [{ "var": "$timestamp" }, { "var": "state.proposal.deadline" }] },
+          { "or": [
+            { "<=": [{ "size": { "var": "state.votes.for" } }, { "size": { "var": "state.votes.against" } }] },
+            { "<": [
+              { "+": [{ "size": { "var": "state.votes.for" } }, { "size": { "var": "state.votes.against" } }] },
+              { "var": "state.quorum" }
+            ]}
+          ]}
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "history": {
+              "cat": [
+                { "var": "state.history" },
+                [{
+                  "type": "rejected",
+                  "proposal": { "var": "state.proposal" },
+                  "votes": { "var": "state.votes" },
+                  "at": { "var": "$timestamp" }
+                }]
+              ]
+            },
+            "proposal": null,
+            "votes": null
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Add member (if meets threshold)",
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "ACTIVE" },
+      "eventName": "join",
+      "guard": {
+        "and": [
+          { ">=": [{ "var": "event.agentReputation" }, { "var": "state.memberThreshold" }] },
+          { "!": { "in": [{ "var": "event.agent" }, { "var": "state.members" }] } }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "members": { "cat": [{ "var": "state.members" }, [{ "var": "event.agent" }]] },
+            "memberJoinedAt": {
+              "setKey": [
+                { "var": "state.memberJoinedAt" },
+                { "var": "event.agent" },
+                { "var": "$timestamp" }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Leave",
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "ACTIVE" },
+      "eventName": "leave",
+      "guard": {
+        "in": [{ "var": "event.agent" }, { "var": "state.members" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "members": {
+              "filter": [{ "var": "state.members" }, { "!==": [{ "var": "" }, { "var": "event.agent" }] }]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Update thresholds (via vote)",
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "VOTING" },
+      "eventName": "propose_threshold_change",
+      "guard": {
+        ">=": [{ "var": "event.agentReputation" }, { "var": "state.proposeThreshold" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "proposal": {
+              "id": { "var": "event.proposalId" },
+              "title": "Threshold Change",
+              "actionType": "threshold_change",
+              "payload": {
+                "memberThreshold": { "var": "event.memberThreshold" },
+                "voteThreshold": { "var": "event.voteThreshold" },
+                "proposeThreshold": { "var": "event.proposeThreshold" }
+              },
+              "proposer": { "var": "event.agent" },
+              "proposedAt": { "var": "$timestamp" },
+              "deadline": { "+": [{ "var": "$timestamp" }, { "var": "state.votingPeriodMs" }] }
+            },
+            "votes": { "for": [], "against": [], "abstain": [] }
+          }
+        ]
+      }
+    }
+  ],
+  "initialDataTemplate": {
+    "schema": "ThresholdDAO",
+    "name": "",
+    
+    "members": [],
+    "memberJoinedAt": {},
+    
+    "memberThreshold": 20,
+    "voteThreshold": 30,
+    "proposeThreshold": 50,
+    "quorum": 3,
+    "votingPeriodMs": 604800000,
+    
+    "proposal": null,
+    "votes": null,
+    "history": [],
+    
+    "metadata": {},
+    "status": "ACTIVE"
+  },
+  "crossReferences": {
+    "Identity": "member verification",
+    "Reputation": "threshold checks",
+    "Contract": "action execution"
+  }
+}
