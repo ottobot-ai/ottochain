@@ -1,0 +1,397 @@
+{
+  "metadata": {
+    "name": "Governance",
+    "description": "Flexible governance for proposals, voting, delegation, and execution across relationship types",
+    "version": "1.0.0"
+  },
+  "states": {
+    "DRAFT": { "id": { "value": "DRAFT" }, "isFinal": false },
+    "ACTIVE": { "id": { "value": "ACTIVE" }, "isFinal": false },
+    "PENDING": { "id": { "value": "PENDING" }, "isFinal": false },
+    "EXECUTING": { "id": { "value": "EXECUTING" }, "isFinal": false },
+    "EXECUTED": { "id": { "value": "EXECUTED" }, "isFinal": true },
+    "VETOED": { "id": { "value": "VETOED" }, "isFinal": true },
+    "DEFEATED": { "id": { "value": "DEFEATED" }, "isFinal": true },
+    "EXPIRED": { "id": { "value": "EXPIRED" }, "isFinal": true },
+    "CANCELLED": { "id": { "value": "CANCELLED" }, "isFinal": true }
+  },
+  "initialState": { "value": "DRAFT" },
+  "transitions": [
+    {
+      "_comment": "Proposer submits proposal for voting",
+      "from": { "value": "DRAFT" },
+      "to": { "value": "ACTIVE" },
+      "eventName": "submit",
+      "guard": {
+        "and": [
+          { "in": [{ "var": "event.agent" }, { "var": "state.proposers" }] },
+          { "var": "state.proposal.title" },
+          { "var": "state.proposal.actions" }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "ACTIVE",
+            "submittedAt": { "var": "$timestamp" },
+            "votingEndsAt": { "+": [{ "var": "$timestamp" }, { "var": "state.config.votingPeriodMs" }] }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Cast vote (supports multiple voting mechanisms)",
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "ACTIVE" },
+      "eventName": "vote",
+      "guard": {
+        "and": [
+          { "<=": [{ "var": "$timestamp" }, { "var": "state.votingEndsAt" }] },
+          { "!": { "getKey": [{ "var": "state.votes" }, { "var": "event.agent" }] } },
+          { "or": [
+            { "in": [{ "var": "event.agent" }, { "var": "state.voters" }] },
+            { "===": [{ "var": "state.config.openVoting" }, true] }
+          ]}
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "votes": {
+              "setKey": [
+                { "var": "state.votes" },
+                { "var": "event.agent" },
+                {
+                  "choice": { "var": "event.choice" },
+                  "weight": { "var": "event.weight" },
+                  "conviction": { "var": "event.conviction" },
+                  "delegatedFrom": { "var": "event.delegatedFrom" },
+                  "votedAt": { "var": "$timestamp" }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Delegate voting power to another address",
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "ACTIVE" },
+      "eventName": "delegate",
+      "guard": {
+        "and": [
+          { "var": "state.config.allowDelegation" },
+          { "!==": [{ "var": "event.agent" }, { "var": "event.delegateTo" }] },
+          { "!": { "getKey": [{ "var": "state.votes" }, { "var": "event.agent" }] } }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "delegations": {
+              "setKey": [
+                { "var": "state.delegations" },
+                { "var": "event.agent" },
+                {
+                  "delegateTo": { "var": "event.delegateTo" },
+                  "weight": { "var": "event.weight" },
+                  "delegatedAt": { "var": "$timestamp" }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Voting period ends, tally and move to pending/defeated",
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "PENDING" },
+      "eventName": "finalize_voting",
+      "guard": {
+        "and": [
+          { ">=": [{ "var": "$timestamp" }, { "var": "state.votingEndsAt" }] },
+          { "var": "state.tally.passed" }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "PENDING",
+            "finalizedAt": { "var": "$timestamp" },
+            "vetoEndsAt": { "+": [{ "var": "$timestamp" }, { "var": "state.config.vetoPeriodMs" }] }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Voting failed - quorum not met or majority against",
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "DEFEATED" },
+      "eventName": "finalize_voting",
+      "guard": {
+        "and": [
+          { ">=": [{ "var": "$timestamp" }, { "var": "state.votingEndsAt" }] },
+          { "!": { "var": "state.tally.passed" } }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "DEFEATED",
+            "finalizedAt": { "var": "$timestamp" },
+            "defeatReason": { "var": "state.tally.reason" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Vetoer blocks execution during veto period",
+      "from": { "value": "PENDING" },
+      "to": { "value": "VETOED" },
+      "eventName": "veto",
+      "guard": {
+        "and": [
+          { "<=": [{ "var": "$timestamp" }, { "var": "state.vetoEndsAt" }] },
+          { "in": [{ "var": "event.agent" }, { "var": "state.vetoers" }] }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "VETOED",
+            "vetoedBy": { "var": "event.agent" },
+            "vetoReason": { "var": "event.reason" },
+            "vetoedAt": { "var": "$timestamp" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Begin execution after veto period",
+      "from": { "value": "PENDING" },
+      "to": { "value": "EXECUTING" },
+      "eventName": "execute",
+      "guard": {
+        "and": [
+          { ">=": [{ "var": "$timestamp" }, { "var": "state.vetoEndsAt" }] },
+          { "in": [{ "var": "event.agent" }, { "var": "state.executors" }] }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "EXECUTING",
+            "executedBy": { "var": "event.agent" },
+            "executionStartedAt": { "var": "$timestamp" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Mark execution complete",
+      "from": { "value": "EXECUTING" },
+      "to": { "value": "EXECUTED" },
+      "eventName": "complete",
+      "guard": {
+        "in": [{ "var": "event.agent" }, { "var": "state.executors" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "EXECUTED",
+            "completedAt": { "var": "$timestamp" },
+            "executionProof": { "var": "event.proof" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Proposer cancels before voting ends",
+      "from": { "value": "DRAFT" },
+      "to": { "value": "CANCELLED" },
+      "eventName": "cancel",
+      "guard": {
+        "===": [{ "var": "event.agent" }, { "var": "state.proposer" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          { "status": "CANCELLED", "cancelledAt": { "var": "$timestamp" } }
+        ]
+      }
+    },
+    {
+      "_comment": "Cancel from active (proposer or admin)",
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "CANCELLED" },
+      "eventName": "cancel",
+      "guard": {
+        "or": [
+          { "===": [{ "var": "event.agent" }, { "var": "state.proposer" }] },
+          { "in": [{ "var": "event.agent" }, { "var": "state.admins" }] }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "CANCELLED",
+            "cancelledBy": { "var": "event.agent" },
+            "cancelledAt": { "var": "$timestamp" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Expire if not finalized in time",
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "EXPIRED" },
+      "eventName": "expire",
+      "guard": {
+        ">": [{ "var": "$timestamp" }, { "+": [{ "var": "state.votingEndsAt" }, { "var": "state.config.gracePeriodMs" }] }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          { "status": "EXPIRED", "expiredAt": { "var": "$timestamp" } }
+        ]
+      }
+    }
+  ],
+  "initialDataTemplate": {
+    "_comment": "Template for creating governance proposals",
+    "schema": "Governance",
+    
+    "governanceType": "dao | multisig | council | bilateral | dictator",
+    
+    "proposal": {
+      "title": "",
+      "description": "",
+      "discussionUrl": "",
+      "actions": []
+    },
+    
+    "config": {
+      "votingMechanism": "simple | supermajority | quadratic | conviction | ranked",
+      "quorumType": "percentage | absolute",
+      "quorumValue": 0.1,
+      "passingThreshold": 0.5,
+      "votingPeriodMs": 259200000,
+      "vetoPeriodMs": 86400000,
+      "gracePeriodMs": 86400000,
+      "allowDelegation": true,
+      "openVoting": false,
+      "onePersonOneVote": false,
+      "convictionHalfLifeMs": 604800000
+    },
+    
+    "roles": {
+      "_comment": "Role arrays - empty means open/unrestricted",
+      "proposers": [],
+      "voters": [],
+      "executors": [],
+      "vetoers": [],
+      "admins": []
+    },
+    
+    "votes": {},
+    "delegations": {},
+    "tally": {
+      "for": 0,
+      "against": 0,
+      "abstain": 0,
+      "quorumReached": false,
+      "passed": false
+    },
+    
+    "status": "DRAFT"
+  },
+  
+  "presets": {
+    "_comment": "Common governance configurations",
+    
+    "bilateral": {
+      "description": "Two-party mutual consent (like a contract)",
+      "config": {
+        "votingMechanism": "simple",
+        "quorumType": "absolute",
+        "quorumValue": 2,
+        "passingThreshold": 1.0,
+        "allowDelegation": false,
+        "openVoting": false
+      }
+    },
+    
+    "multisig": {
+      "description": "N-of-M threshold signing",
+      "config": {
+        "votingMechanism": "simple",
+        "quorumType": "absolute",
+        "passingThreshold": 0.6,
+        "vetoPeriodMs": 0,
+        "allowDelegation": false
+      }
+    },
+    
+    "council": {
+      "description": "Small elected/appointed body",
+      "config": {
+        "votingMechanism": "simple",
+        "quorumType": "percentage",
+        "quorumValue": 0.5,
+        "passingThreshold": 0.5,
+        "openVoting": false,
+        "allowDelegation": true
+      }
+    },
+    
+    "liquid_democracy": {
+      "description": "Delegatable voting power",
+      "config": {
+        "votingMechanism": "simple",
+        "allowDelegation": true,
+        "openVoting": true,
+        "onePersonOneVote": true
+      }
+    },
+    
+    "conviction": {
+      "description": "Time-weighted conviction voting",
+      "config": {
+        "votingMechanism": "conviction",
+        "allowDelegation": true,
+        "convictionHalfLifeMs": 604800000
+      }
+    },
+    
+    "quadratic": {
+      "description": "Quadratic voting to reduce whale power",
+      "config": {
+        "votingMechanism": "quadratic",
+        "onePersonOneVote": false
+      }
+    },
+    
+    "dictator": {
+      "description": "Single admin with full control",
+      "config": {
+        "votingMechanism": "simple",
+        "quorumType": "absolute",
+        "quorumValue": 1,
+        "passingThreshold": 1.0,
+        "vetoPeriodMs": 0,
+        "allowDelegation": false
+      }
+    }
+  }
+}

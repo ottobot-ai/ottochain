@@ -1,0 +1,323 @@
+{
+  "metadata": {
+    "name": "Governance",
+    "description": "Simple org governance: manage members, update rules, resolve disputes",
+    "version": "1.0.0"
+  },
+  "states": {
+    "ACTIVE": { "id": { "value": "ACTIVE" }, "isFinal": false },
+    "VOTING": { "id": { "value": "VOTING" }, "isFinal": false },
+    "DISPUTE": { "id": { "value": "DISPUTE" }, "isFinal": false },
+    "DISSOLVED": { "id": { "value": "DISSOLVED" }, "isFinal": true }
+  },
+  "initialState": { "value": "ACTIVE" },
+  "transitions": [
+    {
+      "_comment": "Add member",
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "ACTIVE" },
+      "eventName": "add_member",
+      "guard": {
+        "in": [{ "var": "event.agent" }, { "var": "state.admins" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "members": {
+              "setKey": [
+                { "var": "state.members" },
+                { "var": "event.member" },
+                { "role": { "var": "event.role" }, "addedAt": { "var": "$timestamp" } }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Remove member",
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "ACTIVE" },
+      "eventName": "remove_member",
+      "guard": {
+        "in": [{ "var": "event.agent" }, { "var": "state.admins" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "members": {
+              "deleteKey": [{ "var": "state.members" }, { "var": "event.member" }]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Propose rule change",
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "VOTING" },
+      "eventName": "propose",
+      "guard": {
+        "getKey": [{ "var": "state.members" }, { "var": "event.agent" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "proposal": {
+              "id": { "var": "event.proposalId" },
+              "type": { "var": "event.type" },
+              "changes": { "var": "event.changes" },
+              "proposer": { "var": "event.agent" },
+              "proposedAt": { "var": "$timestamp" },
+              "deadline": { "+": [{ "var": "$timestamp" }, { "var": "state.votingPeriodMs" }] }
+            },
+            "votes": {}
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Cast vote",
+      "from": { "value": "VOTING" },
+      "to": { "value": "VOTING" },
+      "eventName": "vote",
+      "guard": {
+        "and": [
+          { "getKey": [{ "var": "state.members" }, { "var": "event.agent" }] },
+          { "!": { "getKey": [{ "var": "state.votes" }, { "var": "event.agent" }] } }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "votes": {
+              "setKey": [
+                { "var": "state.votes" },
+                { "var": "event.agent" },
+                { "vote": { "var": "event.vote" }, "votedAt": { "var": "$timestamp" } }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Finalize vote - passes",
+      "from": { "value": "VOTING" },
+      "to": { "value": "ACTIVE" },
+      "eventName": "finalize",
+      "guard": {
+        ">=": [
+          { "var": "event.forCount" },
+          { "*": [{ "size": { "var": "state.members" } }, { "var": "state.passingThreshold" }] }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "rules": { "merge": [{ "var": "state.rules" }, { "var": "state.proposal.changes" }] },
+            "history": {
+              "cat": [
+                { "var": "state.history" },
+                [{
+                  "type": "rule_change",
+                  "proposal": { "var": "state.proposal" },
+                  "outcome": "passed",
+                  "finalizedAt": { "var": "$timestamp" }
+                }]
+              ]
+            },
+            "proposal": null,
+            "votes": {}
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Finalize vote - fails",
+      "from": { "value": "VOTING" },
+      "to": { "value": "ACTIVE" },
+      "eventName": "finalize",
+      "guard": {
+        "<": [
+          { "var": "event.forCount" },
+          { "*": [{ "size": { "var": "state.members" } }, { "var": "state.passingThreshold" }] }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "history": {
+              "cat": [
+                { "var": "state.history" },
+                [{
+                  "type": "rule_change",
+                  "proposal": { "var": "state.proposal" },
+                  "outcome": "failed",
+                  "finalizedAt": { "var": "$timestamp" }
+                }]
+              ]
+            },
+            "proposal": null,
+            "votes": {}
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "File dispute",
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "DISPUTE" },
+      "eventName": "file_dispute",
+      "guard": {
+        "getKey": [{ "var": "state.members" }, { "var": "event.agent" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "dispute": {
+              "id": { "var": "event.disputeId" },
+              "plaintiff": { "var": "event.agent" },
+              "defendant": { "var": "event.defendant" },
+              "claim": { "var": "event.claim" },
+              "filedAt": { "var": "$timestamp" },
+              "evidence": []
+            },
+            "votes": {}
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Submit evidence",
+      "from": { "value": "DISPUTE" },
+      "to": { "value": "DISPUTE" },
+      "eventName": "submit_evidence",
+      "guard": {
+        "or": [
+          { "===": [{ "var": "event.agent" }, { "var": "state.dispute.plaintiff" }] },
+          { "===": [{ "var": "event.agent" }, { "var": "state.dispute.defendant" }] }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "dispute": {
+              "merge": [
+                { "var": "state.dispute" },
+                {
+                  "evidence": {
+                    "cat": [
+                      { "var": "state.dispute.evidence" },
+                      [{ "from": { "var": "event.agent" }, "content": { "var": "event.content" }, "at": { "var": "$timestamp" } }]
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Vote on dispute",
+      "from": { "value": "DISPUTE" },
+      "to": { "value": "DISPUTE" },
+      "eventName": "vote",
+      "guard": {
+        "and": [
+          { "getKey": [{ "var": "state.members" }, { "var": "event.agent" }] },
+          { "!==": [{ "var": "event.agent" }, { "var": "state.dispute.plaintiff" }] },
+          { "!==": [{ "var": "event.agent" }, { "var": "state.dispute.defendant" }] },
+          { "!": { "getKey": [{ "var": "state.votes" }, { "var": "event.agent" }] } }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "votes": {
+              "setKey": [
+                { "var": "state.votes" },
+                { "var": "event.agent" },
+                { "ruling": { "var": "event.ruling" }, "votedAt": { "var": "$timestamp" } }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Resolve dispute",
+      "from": { "value": "DISPUTE" },
+      "to": { "value": "ACTIVE" },
+      "eventName": "resolve",
+      "guard": {
+        ">=": [{ "size": { "var": "state.votes" } }, { "var": "state.disputeQuorum" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "history": {
+              "cat": [
+                { "var": "state.history" },
+                [{
+                  "type": "dispute",
+                  "dispute": { "var": "state.dispute" },
+                  "ruling": { "var": "event.ruling" },
+                  "remedy": { "var": "event.remedy" },
+                  "resolvedAt": { "var": "$timestamp" }
+                }]
+              ]
+            },
+            "dispute": null,
+            "votes": {}
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Dissolve org",
+      "from": { "value": "ACTIVE" },
+      "to": { "value": "DISSOLVED" },
+      "eventName": "dissolve",
+      "guard": {
+        ">=": [{ "var": "event.approvalCount" }, { "*": [{ "size": { "var": "state.members" } }, 0.9] }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          { "dissolvedAt": { "var": "$timestamp" } }
+        ]
+      }
+    }
+  ],
+  "initialDataTemplate": {
+    "schema": "Governance",
+    
+    "name": "",
+    "admins": [],
+    "members": {},
+    "rules": {},
+    
+    "votingPeriodMs": 604800000,
+    "passingThreshold": 0.5,
+    "disputeQuorum": 3,
+    
+    "proposal": null,
+    "dispute": null,
+    "votes": {},
+    "history": [],
+    
+    "status": "ACTIVE"
+  }
+}

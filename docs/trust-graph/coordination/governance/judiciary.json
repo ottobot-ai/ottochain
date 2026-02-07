@@ -1,0 +1,326 @@
+{
+  "metadata": {
+    "name": "Judiciary",
+    "description": "Judicial branch - interprets rules, reviews actions, resolves disputes, issues rulings",
+    "version": "1.0.0"
+  },
+  "states": {
+    "FILED": { "id": { "value": "FILED" }, "isFinal": false },
+    "REVIEW": { "id": { "value": "REVIEW" }, "isFinal": false },
+    "HEARING": { "id": { "value": "HEARING" }, "isFinal": false },
+    "DELIBERATION": { "id": { "value": "DELIBERATION" }, "isFinal": false },
+    "RULING": { "id": { "value": "RULING" }, "isFinal": false },
+    "ENFORCING": { "id": { "value": "ENFORCING" }, "isFinal": false },
+    "CLOSED": { "id": { "value": "CLOSED" }, "isFinal": true },
+    "DISMISSED": { "id": { "value": "DISMISSED" }, "isFinal": true },
+    "APPEALED": { "id": { "value": "APPEALED" }, "isFinal": false }
+  },
+  "initialState": { "value": "FILED" },
+  "transitions": [
+    {
+      "_comment": "Case accepted for review",
+      "from": { "value": "FILED" },
+      "to": { "value": "REVIEW" },
+      "eventName": "accept",
+      "guard": {
+        "in": [{ "var": "event.agent" }, { "var": "state.judges" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "REVIEW",
+            "acceptedBy": { "var": "event.agent" },
+            "acceptedAt": { "var": "$timestamp" },
+            "assignedJudges": { "var": "event.panel" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Case dismissed (lacks standing, jurisdiction, or merit)",
+      "from": { "value": "FILED" },
+      "to": { "value": "DISMISSED" },
+      "eventName": "dismiss",
+      "guard": {
+        "in": [{ "var": "event.agent" }, { "var": "state.judges" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "DISMISSED",
+            "dismissedBy": { "var": "event.agent" },
+            "dismissReason": { "var": "event.reason" },
+            "dismissedAt": { "var": "$timestamp" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Issue emergency stay/injunction",
+      "from": { "value": "REVIEW" },
+      "to": { "value": "REVIEW" },
+      "eventName": "issue_stay",
+      "guard": {
+        "in": [{ "var": "event.agent" }, { "var": "state.assignedJudges" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "emergencyStay": {
+              "issuedBy": { "var": "event.agent" },
+              "issuedAt": { "var": "$timestamp" },
+              "targetFiberId": { "var": "event.targetFiberId" },
+              "reason": { "var": "event.reason" },
+              "expiresAt": { "var": "event.expiresAt" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Begin hearing phase",
+      "from": { "value": "REVIEW" },
+      "to": { "value": "HEARING" },
+      "eventName": "schedule_hearing",
+      "guard": {
+        "in": [{ "var": "event.agent" }, { "var": "state.assignedJudges" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "HEARING",
+            "hearingScheduledAt": { "var": "event.hearingDate" },
+            "submissions": []
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Party submits evidence/argument",
+      "from": { "value": "HEARING" },
+      "to": { "value": "HEARING" },
+      "eventName": "submit_evidence",
+      "guard": {
+        "or": [
+          { "===": [{ "var": "event.agent" }, { "var": "state.plaintiff" }] },
+          { "===": [{ "var": "event.agent" }, { "var": "state.defendant" }] },
+          { "in": [{ "var": "event.agent" }, { "var": "state.interestedParties" }] }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "submissions": {
+              "cat": [
+                { "var": "state.submissions" },
+                [{
+                  "party": { "var": "event.agent" },
+                  "type": { "var": "event.type" },
+                  "content": { "var": "event.content" },
+                  "submittedAt": { "var": "$timestamp" }
+                }]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Close hearing, begin deliberation",
+      "from": { "value": "HEARING" },
+      "to": { "value": "DELIBERATION" },
+      "eventName": "close_hearing",
+      "guard": {
+        "in": [{ "var": "event.agent" }, { "var": "state.assignedJudges" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "DELIBERATION",
+            "hearingClosedAt": { "var": "$timestamp" },
+            "votes": {}
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Judge casts vote during deliberation",
+      "from": { "value": "DELIBERATION" },
+      "to": { "value": "DELIBERATION" },
+      "eventName": "vote",
+      "guard": {
+        "and": [
+          { "in": [{ "var": "event.agent" }, { "var": "state.assignedJudges" }] },
+          { "!": { "getKey": [{ "var": "state.votes" }, { "var": "event.agent" }] } }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "votes": {
+              "setKey": [
+                { "var": "state.votes" },
+                { "var": "event.agent" },
+                {
+                  "position": { "var": "event.position" },
+                  "opinion": { "var": "event.opinion" },
+                  "votedAt": { "var": "$timestamp" }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Issue ruling after deliberation",
+      "from": { "value": "DELIBERATION" },
+      "to": { "value": "RULING" },
+      "eventName": "issue_ruling",
+      "guard": {
+        ">=": [
+          { "size": { "var": "state.votes" } },
+          { "var": "state.quorum" }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "RULING",
+            "ruling": {
+              "decision": { "var": "event.decision" },
+              "majority": { "var": "event.majority" },
+              "dissent": { "var": "event.dissent" },
+              "remedy": { "var": "event.remedy" },
+              "issuedAt": { "var": "$timestamp" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Ruling requires enforcement action",
+      "from": { "value": "RULING" },
+      "to": { "value": "ENFORCING" },
+      "eventName": "begin_enforcement",
+      "guard": { "var": "state.ruling.remedy" },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "ENFORCING",
+            "enforcementStartedAt": { "var": "$timestamp" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Case closed after enforcement or no remedy needed",
+      "from": { "value": "RULING" },
+      "to": { "value": "CLOSED" },
+      "eventName": "close",
+      "guard": { "!": { "var": "state.ruling.remedy" } },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          { "status": "CLOSED", "closedAt": { "var": "$timestamp" } }
+        ]
+      }
+    },
+    {
+      "_comment": "Enforcement complete",
+      "from": { "value": "ENFORCING" },
+      "to": { "value": "CLOSED" },
+      "eventName": "enforcement_complete",
+      "guard": { "var": "event.evidence" },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "CLOSED",
+            "enforcementCompletedAt": { "var": "$timestamp" },
+            "enforcementEvidence": { "var": "event.evidence" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Party appeals ruling",
+      "from": { "value": "RULING" },
+      "to": { "value": "APPEALED" },
+      "eventName": "appeal",
+      "guard": {
+        "and": [
+          { "var": "state.config.allowAppeals" },
+          { "or": [
+            { "===": [{ "var": "event.agent" }, { "var": "state.plaintiff" }] },
+            { "===": [{ "var": "event.agent" }, { "var": "state.defendant" }] }
+          ]},
+          { "<=": [
+            { "-": [{ "var": "$timestamp" }, { "var": "state.ruling.issuedAt" }] },
+            { "var": "state.config.appealWindowMs" }
+          ]}
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "APPEALED",
+            "appeal": {
+              "filedBy": { "var": "event.agent" },
+              "grounds": { "var": "event.grounds" },
+              "filedAt": { "var": "$timestamp" }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "initialDataTemplate": {
+    "schema": "Judiciary",
+    
+    "caseType": "dispute | challenge | interpretation | review",
+    "caseNumber": "",
+    
+    "plaintiff": null,
+    "defendant": null,
+    "interestedParties": [],
+    
+    "claim": {
+      "summary": "",
+      "facts": [],
+      "legalBasis": [],
+      "reliefSought": []
+    },
+    
+    "targetFiberId": null,
+    "constitutionId": null,
+    
+    "judges": [],
+    "assignedJudges": [],
+    "quorum": 1,
+    
+    "config": {
+      "allowAppeals": true,
+      "appealWindowMs": 604800000,
+      "expedited": false
+    },
+    
+    "emergencyStay": null,
+    "submissions": [],
+    "votes": {},
+    "ruling": null,
+    "appeal": null,
+    
+    "status": "FILED"
+  }
+}
