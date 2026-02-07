@@ -71,3 +71,39 @@ export {
 // Metagraph client
 export type { Checkpoint, MetagraphClientConfig } from './metagraph-client.js';
 export { MetagraphClient } from './metagraph-client.js';
+
+// Governance types and definitions
+export type {
+  // Enums
+  GovernanceType,
+  DAOType,
+  ProposalStatus,
+  VoteChoice,
+  VotingMechanism,
+  QuorumType,
+  // State types
+  ProposalAction,
+  ProposalState,
+  VoteRecord,
+  VoteTally,
+  Delegation,
+  // Config types
+  DAOConfig,
+  DAORoles,
+  MultisigConfig,
+  TokenDAOConfig,
+  // Definition wrapper
+  GovernanceDefinition,
+  // On-chain state
+  DAOState,
+  MultisigDAOState,
+  TokenDAOState,
+} from './governance.js';
+
+export {
+  DAO_DEFINITIONS,
+  GOVERNANCE_DEFINITIONS,
+  getDAODefinition,
+  getGovernanceDefinition,
+  extractStateMachineDefinition,
+} from './governance.js';
