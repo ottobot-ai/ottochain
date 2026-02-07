@@ -113,7 +113,28 @@ object ML0Service {
           state:   DataState[OnChain, CalculatedState],
           updates: NonEmptyList[Signed[OttochainMessage]]
         )(implicit context: L0NodeContext[F]): F[DataApplicationValidationErrorOr[Unit]] =
-          validator.validateDataParallel(state, updates)
+          for {
+            // Get current ordinal for rejection tracking
+            ordinal <- checkpointService.get.map(_.ordinal)
+
+            // Validate each update individually to track per-update rejections
+            results <- updates.toList.traverse { signedUpdate =>
+              validator.validateSignedUpdate(state, signedUpdate).map(signedUpdate -> _)
+            }
+
+            // Dispatch rejection notifications for failures (fire-and-forget)
+            _ <- webhookDispatcher match {
+              case Some(dispatcher) =>
+                results.collect { case (signedUpdate, cats.data.Validated.Invalid(errors)) =>
+                  // Fire-and-forget: start dispatch but don't wait
+                  Async[F].start(dispatcher.dispatchRejection(ordinal, signedUpdate, errors)).void
+                }.sequence_
+              case None =>
+                Async[F].unit
+            }
+
+            // Return combined validation result
+          } yield results.map(_._2).combineAll
 
         override def combine(
           state:   DataState[OnChain, CalculatedState],

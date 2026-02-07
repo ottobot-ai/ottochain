@@ -5,11 +5,17 @@ import java.time.Instant
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
+import cats.data.NonEmptyChain
 import cats.effect.kernel.Async
 import cats.implicits._
 
+import io.constellationnetwork.currency.dataApplication.DataApplicationValidationError
 import io.constellationnetwork.currency.schema.currency.CurrencyIncrementalSnapshot
-import io.constellationnetwork.security.Hashed
+import io.constellationnetwork.schema.SnapshotOrdinal
+import io.constellationnetwork.security.signature.Signed
+import io.constellationnetwork.security.{Hashed, SecurityProvider}
+
+import xyz.kd5ujc.schema.Updates.OttochainMessage
 
 import io.circe.syntax._
 import org.http4s.client.Client
@@ -33,6 +39,18 @@ trait WebhookDispatcher[F[_]] {
     snapshot: Hashed[CurrencyIncrementalSnapshot],
     stats:    NotificationStats
   ): F[Unit]
+
+  /**
+   * Dispatch rejection notification when ML0 validation fails.
+   * This surfaces transactions that were accepted by DL1 but rejected at ML0.
+   *
+   * Delivery is fire-and-forget to avoid blocking consensus.
+   */
+  def dispatchRejection(
+    ordinal:      SnapshotOrdinal,
+    signedUpdate: Signed[OttochainMessage],
+    errors:       NonEmptyChain[DataApplicationValidationError]
+  ): F[Unit]
 }
 
 object WebhookDispatcher {
@@ -48,7 +66,7 @@ object WebhookDispatcher {
     client:      Client[F],
     registry:    SubscriberRegistry[F],
     metagraphId: String
-  )(implicit F: Async[F], logger: SelfAwareStructuredLogger[F]): WebhookDispatcher[F] =
+  )(implicit F: Async[F], S: SecurityProvider[F], logger: SelfAwareStructuredLogger[F]): WebhookDispatcher[F] =
     new WebhookDispatcher[F] {
 
       def dispatch(
@@ -105,6 +123,71 @@ object WebhookDispatcher {
             }
 
             client.expect[Unit](request)
+        }
+
+      def dispatchRejection(
+        ordinal:      SnapshotOrdinal,
+        signedUpdate: Signed[OttochainMessage],
+        errors:       NonEmptyChain[DataApplicationValidationError]
+      ): F[Unit] = {
+        val update = signedUpdate.value
+        val fiberId = extractFiberId(update)
+        val updateType = update.getClass.getSimpleName
+        val updateHash = signedUpdate.hashCode().toHexString // Simple hash for dedup
+
+        val errorInfos = errors.toList.map { err =>
+          ValidationErrorInfo(
+            code = err.getClass.getSimpleName.stripSuffix("$"),
+            message = err.message
+          )
+        }
+
+        // Extract signer addresses from proofs (effectful)
+        signedUpdate.proofs.toList.traverse(_.id.toAddress).flatMap { addresses =>
+          val signerAddresses = addresses.map(_.value.value)
+
+          val notification = RejectionNotification(
+            event = "transaction.rejected",
+            ordinal = ordinal.value.value,
+            timestamp = Instant.now(),
+            metagraphId = metagraphId,
+            rejection = RejectedUpdate(
+              updateType = updateType,
+              fiberId = fiberId,
+              errors = errorInfos,
+              signers = signerAddresses,
+              updateHash = updateHash
+            )
+          )
+
+          val body = notification.asJson.noSpaces
+
+          registry.listActive.flatMap { subscribers =>
+            if (subscribers.isEmpty) {
+              F.unit
+            } else {
+              logger.info(
+                s"Dispatching rejection webhook for $updateType fiberId=$fiberId to ${subscribers.size} subscribers"
+              ) *>
+              subscribers.traverse_ { sub =>
+                deliverToSubscriber(sub, body)
+                  .flatTap(_ => logger.debug(s"Rejection webhook delivered to ${sub.callbackUrl}"))
+                  .handleErrorWith { err =>
+                    logger.warn(s"Rejection webhook delivery failed for ${sub.callbackUrl}: ${err.getMessage}")
+                  }
+              }
+            }
+          }
+        }
+      }
+
+      private def extractFiberId(update: OttochainMessage): String =
+        update match {
+          case u: xyz.kd5ujc.schema.Updates.CreateStateMachine     => u.fiberId.toString
+          case u: xyz.kd5ujc.schema.Updates.TransitionStateMachine => u.fiberId.toString
+          case u: xyz.kd5ujc.schema.Updates.ArchiveStateMachine    => u.fiberId.toString
+          case u: xyz.kd5ujc.schema.Updates.CreateScript           => u.fiberId.toString
+          case u: xyz.kd5ujc.schema.Updates.InvokeScript           => u.fiberId.toString
         }
 
       private def computeHmacSignature(body: String, secret: String): String = {

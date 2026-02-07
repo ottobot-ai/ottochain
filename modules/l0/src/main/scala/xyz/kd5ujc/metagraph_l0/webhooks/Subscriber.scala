@@ -89,3 +89,47 @@ case class NotificationStats(
 object NotificationStats {
   implicit val encoder: Encoder[NotificationStats] = deriveEncoder[NotificationStats]
 }
+
+/**
+ * Rejection notification payload sent to subscribers when ML0 validation fails.
+ * This surfaces transactions that were accepted by DL1 but rejected at ML0
+ * due to contextual validation (ownership, state checks, etc.)
+ */
+case class RejectionNotification(
+  event:       String,
+  ordinal:     Long,
+  timestamp:   Instant,
+  metagraphId: String,
+  rejection:   RejectedUpdate
+)
+
+object RejectionNotification {
+  implicit val encoder: Encoder[RejectionNotification] = deriveEncoder[RejectionNotification]
+}
+
+/**
+ * Details of a rejected transaction update
+ */
+case class RejectedUpdate(
+  updateType: String, // "CreateStateMachine", "TransitionStateMachine", etc.
+  fiberId:    String, // UUID of target fiber
+  errors:     List[ValidationErrorInfo],
+  signers:    List[String], // DAG addresses from signature proofs
+  updateHash: String // Hash of the signed update for dedup
+)
+
+object RejectedUpdate {
+  implicit val encoder: Encoder[RejectedUpdate] = deriveEncoder[RejectedUpdate]
+}
+
+/**
+ * Validation error details
+ */
+case class ValidationErrorInfo(
+  code:    String, // Error class name e.g. "FiberNotActive", "NotSignedByOwner"
+  message: String // Human-readable error message
+)
+
+object ValidationErrorInfo {
+  implicit val encoder: Encoder[ValidationErrorInfo] = deriveEncoder[ValidationErrorInfo]
+}
