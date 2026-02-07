@@ -71,3 +71,6 @@ export {
 // Metagraph client
 export type { Checkpoint, MetagraphClientConfig } from './metagraph-client.js';
 export { MetagraphClient } from './metagraph-client.js';
+
+// Corporate governance types and definitions
+export * from './corporate.js';
