@@ -1,6 +1,6 @@
 package xyz.kd5ujc.metagraph_l0
 
-import cats.data.NonEmptyList
+import cats.data.{NonEmptyList, Validated}
 import cats.effect.Async
 import cats.syntax.all._
 import cats.{Applicative, Parallel}
@@ -113,7 +113,27 @@ object ML0Service {
           state:   DataState[OnChain, CalculatedState],
           updates: NonEmptyList[Signed[OttochainMessage]]
         )(implicit context: L0NodeContext[F]): F[DataApplicationValidationErrorOr[Unit]] =
-          validator.validateDataParallel(state, updates)
+          for {
+            // Get current ordinal for rejection tracking
+            ordinal <- checkpointService.get.map(_.ordinal)
+
+            // Validate each update individually to track per-update rejections
+            results <- updates.toList.traverse { signedUpdate =>
+              validator.validateSignedUpdate(state, signedUpdate).map(signedUpdate -> _)
+            }
+
+            // Dispatch rejections (fire-and-forget) for failed validations
+            _ <- webhookDispatcher match {
+              case Some(dispatcher) =>
+                results.collect { case (signedUpdate, Validated.Invalid(errors)) =>
+                  Async[F].start(dispatcher.dispatchRejection(ordinal, signedUpdate, errors)).void
+                }.sequence_
+              case None =>
+                Async[F].unit
+            }
+
+            // Return combined result (all errors accumulated)
+          } yield results.map(_._2).combineAll
 
         override def combine(
           state:   DataState[OnChain, CalculatedState],
