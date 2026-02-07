@@ -91,10 +91,13 @@ jobs:
       - name: Set up sbt
         uses: sbt/setup-sbt@v1
 
-      - name: Run tests with coverage
-        run: sbt clean coverage sharedData/test coverageReport
+      - name: Run tests
+        # TODO: Re-enable coverage when scoverage supports Scala 2.13.18
+        # Currently scoverage only has plugins up to 2.13.16
+        run: sbt clean sharedData/test
 
       - name: Upload coverage to Codecov
+        if: false  # Disabled until scoverage supports Scala 2.13.18
         uses: codecov/codecov-action@v4
         with:
           file: ./target/scala-2.13/scoverage-report/scoverage.xml
