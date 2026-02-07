@@ -1,0 +1,282 @@
+{
+  "metadata": {
+    "name": "EligibilityGuards",
+    "description": "JSON Logic guards for reputation-gated role access across all SMs",
+    "version": "1.0.0"
+  },
+  
+  "_comment": "These guards are injected into SM transitions to enforce reputation requirements",
+  
+  "roles": {
+    
+    "market_participant": {
+      "description": "Can commit to markets (stake, bid, pledge)",
+      "minimumTier": "Newcomer",
+      "requirements": {
+        "composite": 0,
+        "reliability": null,
+        "accuracy": null
+      },
+      "guard": {
+        ">=": [{ "var": "agent.reputation.composite" }, 0]
+      }
+    },
+    
+    "market_creator": {
+      "description": "Can create new markets",
+      "minimumTier": "Participant",
+      "requirements": {
+        "composite": 20,
+        "reliability": 30
+      },
+      "guard": {
+        "and": [
+          { ">=": [{ "var": "agent.reputation.composite" }, 20] },
+          { ">=": [{ "var": "agent.reputation.reliability" }, 30] }
+        ]
+      }
+    },
+    
+    "oracle": {
+      "description": "Can resolve markets as oracle",
+      "minimumTier": "Contributor",
+      "requirements": {
+        "composite": 40,
+        "accuracy": 60,
+        "stake": 100
+      },
+      "guard": {
+        "and": [
+          { ">=": [{ "var": "agent.reputation.composite" }, 40] },
+          { ">=": [{ "var": "agent.reputation.accuracy" }, 60] },
+          { ">=": [{ "var": "agent.stake" }, 100] }
+        ]
+      }
+    },
+    
+    "high_value_oracle": {
+      "description": "Can resolve high-stakes markets",
+      "minimumTier": "Trusted",
+      "requirements": {
+        "composite": 70,
+        "accuracy": 80,
+        "resolutions": 50,
+        "stake": 1000
+      },
+      "guard": {
+        "and": [
+          { ">=": [{ "var": "agent.reputation.composite" }, 70] },
+          { ">=": [{ "var": "agent.reputation.accuracy" }, 80] },
+          { ">=": [{ "var": "agent.metrics.oracle_resolutions" }, 50] },
+          { ">=": [{ "var": "agent.stake" }, 1000] }
+        ]
+      }
+    },
+    
+    "contract_party": {
+      "description": "Can enter contracts",
+      "minimumTier": "Newcomer",
+      "requirements": {
+        "composite": 10
+      },
+      "guard": {
+        ">=": [{ "var": "agent.reputation.composite" }, 10]
+      }
+    },
+    
+    "high_value_contract": {
+      "description": "Can enter high-value contracts without escrow",
+      "minimumTier": "Trusted",
+      "requirements": {
+        "composite": 60,
+        "reliability": 80,
+        "completed_contracts": 20
+      },
+      "guard": {
+        "and": [
+          { ">=": [{ "var": "agent.reputation.composite" }, 60] },
+          { ">=": [{ "var": "agent.reputation.reliability" }, 80] },
+          { ">=": [{ "var": "agent.metrics.completed_contracts" }, 20] }
+        ]
+      }
+    },
+    
+    "proposer": {
+      "description": "Can propose governance actions",
+      "minimumTier": "Contributor",
+      "requirements": {
+        "composite": 40,
+        "participation": 30
+      },
+      "guard": {
+        "and": [
+          { ">=": [{ "var": "agent.reputation.composite" }, 40] },
+          { ">=": [{ "var": "agent.reputation.participation" }, 30] }
+        ]
+      }
+    },
+    
+    "voter": {
+      "description": "Can vote on governance proposals",
+      "minimumTier": "Participant",
+      "requirements": {
+        "composite": 20
+      },
+      "guard": {
+        ">=": [{ "var": "agent.reputation.composite" }, 20]
+      },
+      "voteWeight": {
+        "_comment": "Vote weight scales with reputation",
+        "compute": {
+          "+": [
+            1,
+            { "/": [{ "var": "agent.reputation.composite" }, 25] }
+          ]
+        }
+      }
+    },
+    
+    "delegate": {
+      "description": "Can receive delegated votes",
+      "minimumTier": "Contributor",
+      "requirements": {
+        "composite": 50,
+        "participation": 50,
+        "social": 40
+      },
+      "guard": {
+        "and": [
+          { ">=": [{ "var": "agent.reputation.composite" }, 50] },
+          { ">=": [{ "var": "agent.reputation.participation" }, 50] },
+          { ">=": [{ "var": "agent.reputation.social" }, 40] }
+        ]
+      }
+    },
+    
+    "judge": {
+      "description": "Can serve on judiciary panels",
+      "minimumTier": "Trusted",
+      "requirements": {
+        "composite": 60,
+        "judgment": 50,
+        "disputes_participated": 10
+      },
+      "guard": {
+        "and": [
+          { ">=": [{ "var": "agent.reputation.composite" }, 60] },
+          { ">=": [{ "var": "agent.reputation.judgment" }, 50] },
+          { ">=": [{ "var": "agent.metrics.disputes_participated" }, 10] },
+          { "!": { "var": "agent.flags.suspended" } }
+        ]
+      }
+    },
+    
+    "chief_justice": {
+      "description": "Can lead judiciary panels, issue emergency stays",
+      "minimumTier": "Elder",
+      "requirements": {
+        "composite": 80,
+        "judgment": 80,
+        "rulings": 50,
+        "appeals_upheld_rate": 0.9
+      },
+      "guard": {
+        "and": [
+          { ">=": [{ "var": "agent.reputation.composite" }, 80] },
+          { ">=": [{ "var": "agent.reputation.judgment" }, 80] },
+          { ">=": [{ "var": "agent.metrics.rulings" }, 50] },
+          { ">=": [
+            { "/": [{ "var": "agent.metrics.appeals_upheld" }, { "var": "agent.metrics.rulings" }] },
+            0.9
+          ]}
+        ]
+      }
+    },
+    
+    "executor": {
+      "description": "Can execute governance mandates",
+      "minimumTier": "Trusted",
+      "requirements": {
+        "composite": 60,
+        "reliability": 70
+      },
+      "guard": {
+        "and": [
+          { ">=": [{ "var": "agent.reputation.composite" }, 60] },
+          { ">=": [{ "var": "agent.reputation.reliability" }, 70] }
+        ]
+      }
+    },
+    
+    "vetoer": {
+      "description": "Can veto proposals during veto period",
+      "minimumTier": "Elder",
+      "requirements": {
+        "composite": 80,
+        "longevity": 90
+      },
+      "guard": {
+        "and": [
+          { ">=": [{ "var": "agent.reputation.composite" }, 80] },
+          { ">=": [{ "var": "agent.reputation.longevity" }, 90] }
+        ]
+      }
+    },
+    
+    "voucher": {
+      "description": "Can vouch for new agents",
+      "minimumTier": "Contributor",
+      "requirements": {
+        "composite": 40,
+        "social": 30
+      },
+      "guard": {
+        "and": [
+          { ">=": [{ "var": "agent.reputation.composite" }, 40] },
+          { ">=": [{ "var": "agent.reputation.social" }, 30] }
+        ]
+      },
+      "limits": {
+        "maxActiveVouches": {
+          "compute": { "+": [3, { "/": [{ "var": "agent.reputation.social" }, 20] }] }
+        }
+      }
+    },
+    
+    "constitution_amender": {
+      "description": "Can propose constitutional amendments",
+      "minimumTier": "Elder",
+      "requirements": {
+        "composite": 85,
+        "participation": 80,
+        "longevity": 80
+      },
+      "guard": {
+        "and": [
+          { ">=": [{ "var": "agent.reputation.composite" }, 85] },
+          { ">=": [{ "var": "agent.reputation.participation" }, 80] },
+          { ">=": [{ "var": "agent.reputation.longevity" }, 80] }
+        ]
+      }
+    }
+  },
+  
+  "flags": {
+    "suspended": {
+      "description": "Agent is suspended from most activities",
+      "blocksRoles": ["oracle", "judge", "executor", "vetoer", "proposer"],
+      "allowsRoles": ["contract_party", "market_participant"]
+    },
+    "probation": {
+      "description": "Agent is in probation, limited activities",
+      "blocksRoles": ["high_value_oracle", "chief_justice", "vetoer", "constitution_amender"],
+      "allowsRoles": ["market_participant", "voter", "oracle"]
+    },
+    "slashed": {
+      "description": "Agent was recently slashed",
+      "cooldownMs": 604800000,
+      "blocksRoles": ["oracle", "judge"],
+      "reputationMultiplier": 0.5
+    }
+  }
+}

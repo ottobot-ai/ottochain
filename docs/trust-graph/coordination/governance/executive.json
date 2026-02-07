@@ -1,0 +1,241 @@
+{
+  "metadata": {
+    "name": "Executive",
+    "description": "Execution branch - implements mandates, manages operations, reports outcomes",
+    "version": "1.0.0"
+  },
+  "states": {
+    "RECEIVED": { "id": { "value": "RECEIVED" }, "isFinal": false },
+    "PLANNING": { "id": { "value": "PLANNING" }, "isFinal": false },
+    "EXECUTING": { "id": { "value": "EXECUTING" }, "isFinal": false },
+    "PAUSED": { "id": { "value": "PAUSED" }, "isFinal": false },
+    "COMPLETED": { "id": { "value": "COMPLETED" }, "isFinal": true },
+    "FAILED": { "id": { "value": "FAILED" }, "isFinal": true },
+    "BLOCKED": { "id": { "value": "BLOCKED" }, "isFinal": true },
+    "VETOED": { "id": { "value": "VETOED" }, "isFinal": true }
+  },
+  "initialState": { "value": "RECEIVED" },
+  "transitions": [
+    {
+      "_comment": "Executive receives mandate from legislature",
+      "from": { "value": "RECEIVED" },
+      "to": { "value": "PLANNING" },
+      "eventName": "accept",
+      "guard": {
+        "in": [{ "var": "event.agent" }, { "var": "state.executors" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "PLANNING",
+            "acceptedBy": { "var": "event.agent" },
+            "acceptedAt": { "var": "$timestamp" },
+            "plan": { "var": "event.plan" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Executive vetoes mandate (if has veto power)",
+      "from": { "value": "RECEIVED" },
+      "to": { "value": "VETOED" },
+      "eventName": "veto",
+      "guard": {
+        "and": [
+          { "var": "state.config.executiveVeto" },
+          { "===": [{ "var": "event.agent" }, { "var": "state.executiveHead" }] }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "VETOED",
+            "vetoedBy": { "var": "event.agent" },
+            "vetoReason": { "var": "event.reason" },
+            "vetoedAt": { "var": "$timestamp" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Begin execution",
+      "from": { "value": "PLANNING" },
+      "to": { "value": "EXECUTING" },
+      "eventName": "begin",
+      "guard": {
+        "in": [{ "var": "event.agent" }, { "var": "state.executors" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "EXECUTING",
+            "executionStartedAt": { "var": "$timestamp" },
+            "milestones": []
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Report progress milestone",
+      "from": { "value": "EXECUTING" },
+      "to": { "value": "EXECUTING" },
+      "eventName": "report_progress",
+      "guard": {
+        "in": [{ "var": "event.agent" }, { "var": "state.executors" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "milestones": {
+              "cat": [
+                { "var": "state.milestones" },
+                [{
+                  "description": { "var": "event.description" },
+                  "completedAt": { "var": "$timestamp" },
+                  "evidence": { "var": "event.evidence" }
+                }]
+              ]
+            },
+            "lastProgressAt": { "var": "$timestamp" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Pause execution (self or judiciary order)",
+      "from": { "value": "EXECUTING" },
+      "to": { "value": "PAUSED" },
+      "eventName": "pause",
+      "guard": {
+        "or": [
+          { "in": [{ "var": "event.agent" }, { "var": "state.executors" }] },
+          { "var": "event.judicialOrder" }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "PAUSED",
+            "pausedBy": { "var": "event.agent" },
+            "pauseReason": { "var": "event.reason" },
+            "pausedAt": { "var": "$timestamp" },
+            "judicialHold": { "var": "event.judicialOrder" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Resume from pause",
+      "from": { "value": "PAUSED" },
+      "to": { "value": "EXECUTING" },
+      "eventName": "resume",
+      "guard": {
+        "and": [
+          { "in": [{ "var": "event.agent" }, { "var": "state.executors" }] },
+          { "!": { "var": "state.judicialHold" } }
+        ]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "EXECUTING",
+            "resumedAt": { "var": "$timestamp" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Judiciary blocks execution permanently",
+      "from": { "value": "PAUSED" },
+      "to": { "value": "BLOCKED" },
+      "eventName": "block",
+      "guard": { "var": "event.judicialRuling" },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "BLOCKED",
+            "blockedBy": { "var": "event.agent" },
+            "rulingId": { "var": "event.rulingId" },
+            "blockedAt": { "var": "$timestamp" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Complete execution successfully",
+      "from": { "value": "EXECUTING" },
+      "to": { "value": "COMPLETED" },
+      "eventName": "complete",
+      "guard": {
+        "in": [{ "var": "event.agent" }, { "var": "state.executors" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "COMPLETED",
+            "completedAt": { "var": "$timestamp" },
+            "outcome": { "var": "event.outcome" },
+            "finalReport": { "var": "event.report" }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Execution fails",
+      "from": { "value": "EXECUTING" },
+      "to": { "value": "FAILED" },
+      "eventName": "fail",
+      "guard": {
+        "in": [{ "var": "event.agent" }, { "var": "state.executors" }]
+      },
+      "effect": {
+        "merge": [
+          { "var": "state" },
+          {
+            "status": "FAILED",
+            "failedAt": { "var": "$timestamp" },
+            "failureReason": { "var": "event.reason" }
+          }
+        ]
+      }
+    }
+  ],
+  "initialDataTemplate": {
+    "schema": "Executive",
+    
+    "mandateId": "",
+    "mandateFrom": "",
+    "mandate": {
+      "title": "",
+      "description": "",
+      "actions": [],
+      "deadline": null,
+      "budget": null
+    },
+    
+    "constitutionId": "",
+    "executiveHead": null,
+    "executors": [],
+    
+    "config": {
+      "executiveVeto": false,
+      "requirePlan": true,
+      "progressReportingInterval": null
+    },
+    
+    "plan": null,
+    "milestones": [],
+    "outcome": null,
+    "finalReport": null,
+    
+    "status": "RECEIVED"
+  }
+}
