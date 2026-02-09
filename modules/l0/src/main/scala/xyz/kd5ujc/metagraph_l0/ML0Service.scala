@@ -138,11 +138,17 @@ object ML0Service {
         override def combine(
           state:   DataState[OnChain, CalculatedState],
           updates: List[Signed[OttochainMessage]]
-        )(implicit context: L0NodeContext[F]): F[DataState[OnChain, CalculatedState]] =
+        )(implicit context: L0NodeContext[F]): F[DataState[OnChain, CalculatedState]] = {
+          // Sort updates using canonical ordering from OttochainMessage companion object.
+          // This ensures creates are processed before transitions, and transitions for the
+          // same fiber are processed in sequence number order.
+          val sortedUpdates = updates.sorted(OttochainMessage.signedOrdering)
+
           combiner.foldLeft(
             state.focus(_.onChain.latestLogs).replace(SortedMap.empty),
-            updates
+            sortedUpdates
           )
+        }
 
         override def getCalculatedState(implicit
           context: L0NodeContext[F]
