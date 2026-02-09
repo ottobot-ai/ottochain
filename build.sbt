@@ -58,7 +58,15 @@ lazy val buildInfoSettings = Seq(
     name,
     version,
     scalaVersion,
-    sbtVersion
+    sbtVersion,
+    BuildInfoKey.action("gitCommit") {
+      scala.util.Try(
+        scala.sys.process.Process("git rev-parse --short HEAD").!!.trim
+      ).getOrElse("unknown")
+    },
+    BuildInfoKey.action("buildTime") {
+      java.time.Instant.now().toString
+    }
   ),
   buildInfoPackage := "xyz.kd5ujc.buildinfo"
 )
