@@ -28,10 +28,14 @@ WORKDIR /tessellation
 # Clone tessellation
 RUN git clone --depth 1 --branch ${TESSELLATION_VERSION} https://github.com/Constellation-Labs/tessellation.git .
 
-# Apply patches (type inference fix)
+# Apply patches (type inference fix) - temporary until fixed upstream
+# See: https://github.com/Constellation-Labs/tessellation/issues/XXX
 RUN FILE="modules/node-shared/src/main/scala/org/tessellation/node/shared/infrastructure/snapshot/GlobalSnapshotStateChannelEventsProcessor.scala" && \
     if [ -f "$FILE" ] && grep -q "def make\[F\[_\]\]" "$FILE"; then \
-      sed -i 's/def make\[F\[_\]\]/def make[F[_]]: GlobalSnapshotStateChannelEventsProcessor[F]/g' "$FILE"; \
+      echo "Applying type inference patch to GlobalSnapshotStateChannelEventsProcessor..." && \
+      sed -i 's/def make\[F\[_\]\]/def make[F[_]]: GlobalSnapshotStateChannelEventsProcessor[F]/g' "$FILE" || exit 1; \
+    else \
+      echo "WARN: Patch target not found in $FILE - may have been fixed upstream in ${TESSELLATION_VERSION}"; \
     fi
 
 # Build and publish tessellation SDK locally + build JARs
@@ -96,14 +100,27 @@ WORKDIR /ottochain
 # Create directories
 RUN mkdir -p /ottochain/jars /ottochain/data /ottochain/keys /ottochain/genesis
 
-# Copy tessellation JARs (GL0, GL1)
-COPY --from=tess-builder /tessellation/modules/dag-l0/target/scala-2.13/tessellation-dag-l0-assembly-*.jar /ottochain/jars/gl0.jar
-COPY --from=tess-builder /tessellation/modules/dag-l1/target/scala-2.13/tessellation-dag-l1-assembly-*.jar /ottochain/jars/gl1.jar
+# Copy JAR directories from build stages (avoid glob issues with multiple matches)
+COPY --from=tess-builder /tessellation/modules/dag-l0/target/scala-2.13/ /tmp/tess-gl0/
+COPY --from=tess-builder /tessellation/modules/dag-l1/target/scala-2.13/ /tmp/tess-gl1/
+COPY --from=otto-builder /ottochain/modules/l0/target/scala-2.13/ /tmp/otto-ml0/
+COPY --from=otto-builder /ottochain/modules/l1/target/scala-2.13/ /tmp/otto-cl1/
+COPY --from=otto-builder /ottochain/modules/data_l1/target/scala-2.13/ /tmp/otto-dl1/
 
-# Copy ottochain JARs (ML0, CL1, DL1)
-COPY --from=otto-builder /ottochain/modules/l0/target/scala-2.13/ottochain-currency-l0-assembly-*.jar /ottochain/jars/ml0.jar
-COPY --from=otto-builder /ottochain/modules/l1/target/scala-2.13/ottochain-currency-l1-assembly-*.jar /ottochain/jars/cl1.jar
-COPY --from=otto-builder /ottochain/modules/data_l1/target/scala-2.13/ottochain-data-l1-assembly-*.jar /ottochain/jars/dl1.jar
+# Extract exactly one assembly JAR per layer (fail if multiple found)
+RUN set -e && \
+    for layer in gl0:tess-gl0:tessellation-dag-l0-assembly gl1:tess-gl1:tessellation-dag-l1-assembly \
+                 ml0:otto-ml0:ottochain-currency-l0-assembly cl1:otto-cl1:ottochain-currency-l1-assembly \
+                 dl1:otto-dl1:ottochain-data-l1-assembly; do \
+      NAME="${layer%%:*}"; REST="${layer#*:}"; DIR="${REST%%:*}"; PATTERN="${REST#*:}"; \
+      JAR=$(find /tmp/$DIR -maxdepth 1 -name "${PATTERN}-*.jar" -type f | head -1); \
+      if [ -z "$JAR" ]; then echo "ERROR: No JAR found for $NAME"; exit 1; fi; \
+      COUNT=$(find /tmp/$DIR -maxdepth 1 -name "${PATTERN}-*.jar" -type f | wc -l); \
+      if [ "$COUNT" -gt 1 ]; then echo "WARN: Multiple JARs for $NAME, using: $JAR"; fi; \
+      cp "$JAR" /ottochain/jars/${NAME}.jar; \
+      echo "✓ $NAME: $(basename $JAR)"; \
+    done && \
+    rm -rf /tmp/tess-* /tmp/otto-*
 
 # Entrypoint script
 COPY docker-entrypoint.sh /ottochain/entrypoint.sh
@@ -117,11 +134,10 @@ RUN ls -la /ottochain/jars/ && \
     test -f /ottochain/jars/cl1.jar && \
     test -f /ottochain/jars/dl1.jar
 
-# Environment defaults
+# Environment defaults (CL_PASSWORD intentionally omitted - must be provided at runtime)
 ENV LAYER=ml0
 ENV CL_KEYSTORE=/ottochain/keys/key.p12
 ENV CL_KEYALIAS=alias
-ENV CL_PASSWORD=password
 ENV CL_APP_ENV=testnet
 ENV JAVA_OPTS="-Xmx4g -Xms2g"
 

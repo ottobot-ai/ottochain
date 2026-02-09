@@ -1,0 +1,46 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Build artifacts
+target/
+project/target/
+project/project/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.bsp/
+
+# Logs
+*.log
+logs/
+
+# Local config
+.env
+.env.*
+*.local
+
+# Documentation (not needed in image)
+docs/
+*.md
+!README.md
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.circleci/
+
+# Test data
+test-data/
+*.test.*
+
+# macOS
+.DS_Store
+
+# Misc
+*.swp
+*.swo
+*~

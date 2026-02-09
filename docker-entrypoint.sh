@@ -62,9 +62,13 @@ ARGS=""
 
 # Add keystore if exists
 if [ -f "${CL_KEYSTORE}" ]; then
+  if [ -z "${CL_PASSWORD}" ]; then
+    echo "Error: CL_PASSWORD is required when using a keystore"
+    exit 1
+  fi
   ARGS="${ARGS} --keystore ${CL_KEYSTORE}"
   ARGS="${ARGS} --alias ${CL_KEYALIAS:-alias}"
-  ARGS="${ARGS} --password ${CL_PASSWORD:-password}"
+  ARGS="${ARGS} --password ${CL_PASSWORD}"
 fi
 
 # Add environment
@@ -125,5 +129,8 @@ fi
 # Add any extra args passed to container
 ARGS="${ARGS} $@"
 
-echo "Running: java ${JAVA_OPTS} -jar ${JAR} ${RUN_MODE} ${ARGS}"
-exec java ${JAVA_OPTS} -jar "${JAR}" ${RUN_MODE} ${ARGS}
+# Build final command (use eval to properly handle JAVA_OPTS word splitting)
+# Note: JAVA_OPTS should not contain values with embedded spaces
+CMD="java ${JAVA_OPTS} -jar \"${JAR}\" ${RUN_MODE} ${ARGS}"
+echo "Running: $CMD"
+eval exec $CMD
