@@ -23,7 +23,7 @@ import type { OttochainMessage, CreateStateMachine } from '@ottochain/sdk';
 function parseArgs() {
   const args = process.argv.slice(2);
   const opts: Record<string, string> = {
-    target: process.env.CI ? 'ci' : 'local',
+    target: 'local',
     maxRetries: '30',
     retryDelay: '5',
   };
