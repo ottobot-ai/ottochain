@@ -11,6 +11,7 @@ import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.metagraph_sdk.syntax.all.L1ContextOps
 import io.constellationnetwork.security.signature.Signed
 
+import xyz.kd5ujc.buildinfo.BuildInfo
 import xyz.kd5ujc.schema.OnChain
 import xyz.kd5ujc.schema.Updates.OttochainMessage
 
@@ -26,6 +27,21 @@ class DataL1CustomRoutes[F[_]: Async](implicit
 ) extends MetagraphPublicRoutes[F] {
 
   private val v1Routes: HttpRoutes[F] = HttpRoutes.of[F] {
+    // Version endpoint for monitoring integration
+    case GET -> Root / "version" =>
+      Ok(
+        Json.obj(
+          "service"             -> "ottochain-dl1".asJson,
+          "version"             -> BuildInfo.version.asJson,
+          "name"                -> BuildInfo.name.asJson,
+          "scalaVersion"        -> BuildInfo.scalaVersion.asJson,
+          "sbtVersion"          -> BuildInfo.sbtVersion.asJson,
+          "gitCommit"           -> BuildInfo.gitCommit.asJson,
+          "buildTime"           -> BuildInfo.buildTime.asJson,
+          "tessellationVersion" -> io.constellationnetwork.BuildInfo.version.asJson
+        )
+      )
+
     case req @ POST -> Root / "util" / "hash" =>
       req.asR[Signed[OttochainMessage]] { msg =>
         msg.value.computeDigest.flatMap { digest =>

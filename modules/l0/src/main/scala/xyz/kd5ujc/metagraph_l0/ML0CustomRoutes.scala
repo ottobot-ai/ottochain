@@ -12,6 +12,7 @@ import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.metagraph_sdk.syntax.all.L0ContextOps
 import io.constellationnetwork.security.signature.Signed
 
+import xyz.kd5ujc.buildinfo.BuildInfo
 import xyz.kd5ujc.metagraph_l0.webhooks.{SubscribeRequest, SubscribeResponse, SubscriberRegistry}
 import xyz.kd5ujc.schema.Updates.OttochainMessage
 import xyz.kd5ujc.schema.fiber.FiberLogEntry.{EventReceipt, OracleInvocation}
@@ -39,6 +40,21 @@ class ML0CustomRoutes[F[_]: Async](
   object StatusQueryParam extends OptionalQueryParamDecoderMatcher[FiberStatus]("status")
 
   private val v1Routes: HttpRoutes[F] = HttpRoutes.of[F] {
+
+    // Version endpoint for monitoring integration
+    case GET -> Root / "version" =>
+      Ok(
+        Json.obj(
+          "service"             -> "ottochain-ml0".asJson,
+          "version"             -> BuildInfo.version.asJson,
+          "name"                -> BuildInfo.name.asJson,
+          "scalaVersion"        -> BuildInfo.scalaVersion.asJson,
+          "sbtVersion"          -> BuildInfo.sbtVersion.asJson,
+          "gitCommit"           -> BuildInfo.gitCommit.asJson,
+          "buildTime"           -> BuildInfo.buildTime.asJson,
+          "tessellationVersion" -> io.constellationnetwork.BuildInfo.version.asJson
+        )
+      )
 
     case req @ POST -> Root / "util" / "hash" =>
       req.asR[Signed[OttochainMessage]] { msg =>
