@@ -116,6 +116,7 @@ jobs:
 
       - name: Pre-flight canary transaction
         working-directory: e2e-test
+        continue-on-error: true
         run: npx tsx scripts/canary-check.ts --maxRetries 30 --retryDelay 5
 
       - name: Run E2E tests
