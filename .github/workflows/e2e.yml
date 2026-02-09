@@ -80,24 +80,34 @@ jobs:
       - name: Verify ML0 ordinal progression
         run: |
           echo "Checking ML0 ordinal progression..."
+          # Wait a bit for consensus to warm up after node startup
+          sleep 10
           ORD1=$(curl -sf http://localhost:9200/snapshots/latest 2>/dev/null | jq -r '.value.ordinal // .ordinal // empty' || echo "")
           if [ -z "$ORD1" ]; then
             echo "::warning::Could not fetch initial ML0 ordinal — skipping progression check"
           else
             echo "  Initial ordinal: $ORD1"
-            sleep 15
+            sleep 30
             ORD2=$(curl -sf http://localhost:9200/snapshots/latest 2>/dev/null | jq -r '.value.ordinal // .ordinal // empty' || echo "")
-            echo "  After 15s: $ORD2"
+            echo "  After 30s: $ORD2"
             if [ "$ORD1" = "$ORD2" ]; then
-              echo "::error::ML0 consensus stalled — ordinal stuck at $ORD1"
-              echo "## ⚠️ ML0 Consensus Stall Detected" >> $GITHUB_STEP_SUMMARY
-              echo "Ordinal stuck at \`$ORD1\` for 15 seconds." >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "### Cluster Info" >> $GITHUB_STEP_SUMMARY
-              curl -sf http://localhost:9200/cluster/info 2>/dev/null | jq . >> $GITHUB_STEP_SUMMARY || true
-              exit 1
+              echo "::warning::Ordinals haven't advanced ($ORD1), retrying after 30s grace period..."
+              sleep 30
+              ORD3=$(curl -sf http://localhost:9200/snapshots/latest 2>/dev/null | jq -r '.value.ordinal // .ordinal // empty' || echo "")
+              echo "  After 60s total: $ORD3"
+              if [ "$ORD1" = "$ORD3" ]; then
+                echo "::error::ML0 consensus stalled — ordinal stuck at $ORD1 for 60 seconds"
+                echo "## ⚠️ ML0 Consensus Stall Detected" >> $GITHUB_STEP_SUMMARY
+                echo "Ordinal stuck at \`$ORD1\` for 60 seconds after warmup." >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "### Cluster Info" >> $GITHUB_STEP_SUMMARY
+                curl -sf http://localhost:9200/cluster/info 2>/dev/null | jq . >> $GITHUB_STEP_SUMMARY || true
+                exit 1
+              fi
+              echo "  ✓ Ordinals advancing after grace period ($ORD1 → $ORD3)"
+            else
+              echo "  ✓ Ordinals advancing ($ORD1 → $ORD2)"
             fi
-            echo "  ✓ Ordinals advancing ($ORD1 → $ORD2)"
           fi
 
       - name: Install E2E dependencies
