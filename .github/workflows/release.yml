@@ -52,7 +52,8 @@ jobs:
         id: version
         run: |
           # sbt-dynver automatically determines version from git tags
-          VERSION=$(sbt -Dsbt.log.noformat=true --error "print version" | tail -1)
+          # Use xargs to strip whitespace from sbt output
+          VERSION=$(sbt -Dsbt.log.noformat=true --error "print version" | tail -1 | xargs)
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "Dynver version: $VERSION"
 
