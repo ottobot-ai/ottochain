@@ -1,0 +1,135 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  JAVA_VERSION: '21'
+
+jobs:
+  build-and-release:
+    name: Build and Release JARs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup sbt
+        uses: sbt/setup-sbt@v1
+
+      - name: Cache sbt
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.sbt
+            ~/.ivy2/cache
+            ~/.cache/coursier
+          key: ${{ runner.os }}-sbt-${{ hashFiles('**/*.sbt', 'project/plugins.sbt', 'project/build.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-sbt-
+
+      - name: Get version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Tag version: $VERSION"
+
+      - name: Set version in sbt
+        run: |
+          echo 'ThisBuild / version := "${{ steps.version.outputs.VERSION }}"' > version.sbt
+
+      - name: Build JARs
+        run: |
+          echo "Building JAR artifacts..."
+          sbt assembly
+
+      - name: Collect and verify JAR artifacts
+        run: |
+          mkdir -p release-jars
+          VERSION="${{ steps.version.outputs.VERSION }}"
+
+          # Copy JARs with explicit paths
+          cp modules/l0/target/scala-2.13/*-assembly-*.jar release-jars/metagraph-l0-${VERSION}.jar
+          cp modules/l1/target/scala-2.13/*-assembly-*.jar release-jars/currency-l1-${VERSION}.jar
+          cp modules/data_l1/target/scala-2.13/*-assembly-*.jar release-jars/data-l1-${VERSION}.jar
+
+          # Verify all JARs exist
+          echo "Verifying JAR artifacts..."
+          for jar in metagraph-l0 currency-l1 data-l1; do
+            if [ ! -f "release-jars/${jar}-${VERSION}.jar" ]; then
+              echo "❌ Missing: ${jar}-${VERSION}.jar"
+              exit 1
+            fi
+            echo "✅ Found: ${jar}-${VERSION}.jar ($(du -h release-jars/${jar}-${VERSION}.jar | cut -f1))"
+          done
+
+          ls -la release-jars/
+
+      - name: Generate changelog
+        run: |
+          # Get previous tag for changelog
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          if [ -n "$PREV_TAG" ]; then
+            echo "## Changes since $PREV_TAG" > CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            git log ${PREV_TAG}..HEAD --oneline --pretty=format:"- %s" >> CHANGELOG.md
+          else
+            echo "## Initial Release" > CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            echo "First automated release of OttoChain metagraph JARs." >> CHANGELOG.md
+          fi
+
+          echo "" >> CHANGELOG.md
+          echo "---" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### Artifacts" >> CHANGELOG.md
+          echo "- \`metagraph-l0-${{ steps.version.outputs.VERSION }}.jar\` - Metagraph L0 layer" >> CHANGELOG.md
+          echo "- \`currency-l1-${{ steps.version.outputs.VERSION }}.jar\` - Currency L1 layer" >> CHANGELOG.md
+          echo "- \`data-l1-${{ steps.version.outputs.VERSION }}.jar\` - Data L1 layer" >> CHANGELOG.md
+
+      - name: Create Release and Upload JARs
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-jars/metagraph-l0-${{ steps.version.outputs.VERSION }}.jar
+            release-jars/currency-l1-${{ steps.version.outputs.VERSION }}.jar
+            release-jars/data-l1-${{ steps.version.outputs.VERSION }}.jar
+          body_path: CHANGELOG.md
+          prerelease: ${{ contains(steps.version.outputs.VERSION, 'alpha') || contains(steps.version.outputs.VERSION, 'beta') || contains(steps.version.outputs.VERSION, 'rc') }}
+          generate_release_notes: false
+
+      - name: Notify deploy repo
+        if: success() && env.DEPLOY_TOKEN != ''
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_REPO_TOKEN }}
+        run: |
+          curl -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token $DEPLOY_TOKEN" \
+            https://api.github.com/repos/ottobot-ai/ottochain-deploy/dispatches \
+            -d '{"event_type":"version-bump","client_payload":{"component":"ottochain","version":"${{ steps.version.outputs.VERSION }}"}}'
+          echo "✅ Notified deploy repo to bump ottochain to v${{ steps.version.outputs.VERSION }}"
+
+      - name: Summary
+        run: |
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** v${{ steps.version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **JARs:** 3 artifacts uploaded" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deploy notification:** Sent to ottochain-deploy" >> $GITHUB_STEP_SUMMARY
