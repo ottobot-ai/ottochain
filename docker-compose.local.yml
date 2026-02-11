@@ -1,0 +1,154 @@
+# OttoChain Local Development Stack
+# Usage: just up / just down / just logs
+#
+# This spins up the full 5-layer metagraph locally for testing.
+# Ports: GL0=9000, GL1=9100, ML0=9200, CL1=9300, DL1=9400
+
+services:
+  gl0:
+    image: ghcr.io/scasplte2/ottochain-metagraph:local
+    container_name: ottochain-gl0
+    environment:
+      - LAYER=gl0
+      - RUN_MODE=run-genesis
+      - CL_KEYSTORE=/ottochain/keys/key.p12
+      - CL_KEYALIAS=alias
+      - CL_PASSWORD=${CL_PASSWORD:-password}
+      - CL_APP_ENV=dev
+      - CL_EXTERNAL_IP=gl0
+      - JAVA_OPTS=-Xmx2g -Xms1g
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+      - "9002:9002"
+    volumes:
+      - ./.local/keys:/ottochain/keys:ro
+      - ./.local/data/gl0:/ottochain/data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9000/node/info"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    networks:
+      - ottochain
+
+  gl1:
+    image: ghcr.io/scasplte2/ottochain-metagraph:local
+    container_name: ottochain-gl1
+    environment:
+      - LAYER=gl1
+      - RUN_MODE=run-validator
+      - CL_KEYSTORE=/ottochain/keys/key.p12
+      - CL_KEYALIAS=alias
+      - CL_PASSWORD=${CL_PASSWORD:-password}
+      - CL_APP_ENV=dev
+      - CL_EXTERNAL_IP=gl1
+      - CL_L0_PEER_ID=${GL0_PEER_ID}
+      - CL_L0_PEER_HOST=gl0
+      - CL_L0_PEER_PORT=9000
+      - JAVA_OPTS=-Xmx2g -Xms1g
+    ports:
+      - "9100:9100"
+      - "9101:9101"
+      - "9102:9102"
+    volumes:
+      - ./.local/keys:/ottochain/keys:ro
+      - ./.local/data/gl1:/ottochain/data
+    depends_on:
+      gl0:
+        condition: service_healthy
+    networks:
+      - ottochain
+
+  ml0:
+    image: ghcr.io/scasplte2/ottochain-metagraph:local
+    container_name: ottochain-ml0
+    environment:
+      - LAYER=ml0
+      - RUN_MODE=run-genesis
+      - CL_KEYSTORE=/ottochain/keys/key.p12
+      - CL_KEYALIAS=alias
+      - CL_PASSWORD=${CL_PASSWORD:-password}
+      - CL_APP_ENV=dev
+      - CL_EXTERNAL_IP=ml0
+      - CL_GLOBAL_L0_PEER_ID=${GL0_PEER_ID}
+      - CL_GLOBAL_L0_PEER_HOST=gl0
+      - CL_GLOBAL_L0_PEER_PORT=9000
+      - JAVA_OPTS=-Xmx2g -Xms1g
+    ports:
+      - "9200:9200"
+      - "9201:9201"
+      - "9202:9202"
+    volumes:
+      - ./.local/keys:/ottochain/keys:ro
+      - ./.local/data/ml0:/ottochain/data
+      - ./.local/genesis:/ottochain/genesis:ro
+    depends_on:
+      gl0:
+        condition: service_healthy
+    networks:
+      - ottochain
+
+  cl1:
+    image: ghcr.io/scasplte2/ottochain-metagraph:local
+    container_name: ottochain-cl1
+    environment:
+      - LAYER=cl1
+      - RUN_MODE=run-validator
+      - CL_KEYSTORE=/ottochain/keys/key.p12
+      - CL_KEYALIAS=alias
+      - CL_PASSWORD=${CL_PASSWORD:-password}
+      - CL_APP_ENV=dev
+      - CL_EXTERNAL_IP=cl1
+      - CL_GLOBAL_L0_PEER_ID=${GL0_PEER_ID}
+      - CL_GLOBAL_L0_PEER_HOST=gl0
+      - CL_GLOBAL_L0_PEER_PORT=9000
+      - CL_L0_PEER_ID=${ML0_PEER_ID}
+      - CL_L0_PEER_HOST=ml0
+      - CL_L0_PEER_PORT=9200
+      - JAVA_OPTS=-Xmx2g -Xms1g
+    ports:
+      - "9300:9300"
+      - "9301:9301"
+      - "9302:9302"
+    volumes:
+      - ./.local/keys:/ottochain/keys:ro
+      - ./.local/data/cl1:/ottochain/data
+    depends_on:
+      - ml0
+    networks:
+      - ottochain
+
+  dl1:
+    image: ghcr.io/scasplte2/ottochain-metagraph:local
+    container_name: ottochain-dl1
+    environment:
+      - LAYER=dl1
+      - RUN_MODE=run-validator
+      - CL_KEYSTORE=/ottochain/keys/key.p12
+      - CL_KEYALIAS=alias
+      - CL_PASSWORD=${CL_PASSWORD:-password}
+      - CL_APP_ENV=dev
+      - CL_EXTERNAL_IP=dl1
+      - CL_GLOBAL_L0_PEER_ID=${GL0_PEER_ID}
+      - CL_GLOBAL_L0_PEER_HOST=gl0
+      - CL_GLOBAL_L0_PEER_PORT=9000
+      - CL_L0_PEER_ID=${ML0_PEER_ID}
+      - CL_L0_PEER_HOST=ml0
+      - CL_L0_PEER_PORT=9200
+      - JAVA_OPTS=-Xmx2g -Xms1g
+    ports:
+      - "9400:9400"
+      - "9401:9401"
+      - "9402:9402"
+    volumes:
+      - ./.local/keys:/ottochain/keys:ro
+      - ./.local/data/dl1:/ottochain/data
+    depends_on:
+      - ml0
+    networks:
+      - ottochain
+
+networks:
+  ottochain:
+    driver: bridge

@@ -133,3 +133,7 @@ htmlcov/
 poetry.lock
 .venv/
 .aider*
+
+# Local development
+.local/
+.env
