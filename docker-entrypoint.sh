@@ -60,22 +60,22 @@ RUN_MODE="${RUN_MODE:-run-validator}"
 # Build command line args
 ARGS=""
 
-# Add keystore if exists
+# Verify keystore and password are set (passed via env vars to JAR)
 if [ -f "${CL_KEYSTORE}" ]; then
   if [ -z "${CL_PASSWORD}" ]; then
     echo "Error: CL_PASSWORD is required when using a keystore"
     exit 1
   fi
-  ARGS="${ARGS} --keystore ${CL_KEYSTORE}"
-  ARGS="${ARGS} --alias ${CL_KEYALIAS:-alias}"
-  ARGS="${ARGS} --password ${CL_PASSWORD}"
+  # Note: CL_KEYSTORE, CL_KEYALIAS, CL_PASSWORD are read directly
+  # by tessellation from env vars (not CLI flags as of v4.x)
+  echo "Using keystore: ${CL_KEYSTORE}"
 fi
 
 # Add environment
 ARGS="${ARGS} --env ${CL_APP_ENV:-testnet}"
 
 # Add ports
-ARGS="${ARGS} --http-port ${PORT}"
+ARGS="${ARGS} --public-port ${PORT}"
 ARGS="${ARGS} --p2p-port ${P2P_PORT}"
 ARGS="${ARGS} --cli-port ${CLI_PORT}"
 
@@ -116,7 +116,7 @@ case "${LAYER,,}" in
     
     # Token ID for metagraph layers
     if [ -n "${CL_TOKEN_ID}" ]; then
-      ARGS="${ARGS} --token-id ${CL_TOKEN_ID}"
+      ARGS="${ARGS} --l0-token-identifier ${CL_TOKEN_ID}"
     fi
     ;;
 esac
