@@ -56,126 +56,54 @@ jobs:
           export TESSELLATION_VERSION="${TESSELLATION_VERSION}"
           just up --metagraph="${GITHUB_WORKSPACE}" --dl1 --data
 
-      - name: Wait for genesis nodes
+      - name: Wait for cluster health
         run: |
+          # Tessellation auto-join handles validator joining via CL_DOCKER_JOIN=true
+          # DL1 validators have initial delays: node 1 = 42s, node 2 = 54s
+          # Plus 10 retries * 10s delay = up to 154s for full join
+          # We wait up to 4 minutes (240s) for all nodes to be Ready
+          
           wait_for_node() {
-            local name=$1 port=$2
-            for i in $(seq 1 60); do
+            local name=$1 port=$2 max_wait=${3:-120}
+            local iterations=$((max_wait / 2))
+            for i in $(seq 1 $iterations); do
               if curl -sf "http://localhost:${port}/node/info" 2>/dev/null | grep -q '"state":"Ready"'; then
-                echo "  $name (port $port): Ready"
+                echo "  ✓ $name (port $port): Ready"
                 return 0
               fi
               sleep 2
             done
-            echo "  $name (port $port): TIMEOUT" && return 1
+            echo "  ✗ $name (port $port): TIMEOUT after ${max_wait}s" && return 1
           }
           
-          echo "Waiting for genesis nodes..."
-          wait_for_node "GL0" 9000
-          wait_for_node "ML0" 9200
-          wait_for_node "DL1-0" 9400
-          # NOTE: DL1-1 and DL1-2 are validators - they need explicit join before Ready
-
-      - name: Join DL1 validators to cluster
+          echo "Waiting for genesis nodes (120s timeout)..."
+          wait_for_node "GL0" 9000 120
+          wait_for_node "ML0" 9200 120
+          wait_for_node "DL1-0" 9400 120
+          
+          echo ""
+          echo "Waiting for DL1 validators (240s timeout - they have join delays)..."
+          wait_for_node "DL1-1" 9410 240
+          wait_for_node "DL1-2" 9420 240
+          
+      - name: Verify DL1 cluster size
         run: |
-          echo "=== Joining DL1 validators to cluster ==="
+          echo "Verifying DL1 cluster formation..."
+          CLUSTER_SIZE=$(curl -s http://localhost:9400/cluster/info | jq 'length' 2>/dev/null || echo "0")
+          echo "DL1 cluster size: $CLUSTER_SIZE"
           
-          # Get DL1-0 (genesis) peer ID for join payload
-          DL1_PEER_ID=$(curl -s http://localhost:9400/node/info | jq -r '.id')
-          # DL1-0 is on the tessellation_common network at 172.32.0.50
-          DL1_IP="172.32.0.50"
-          DL1_P2P_PORT="9401"
-          
-          echo "DL1 genesis peer: ${DL1_PEER_ID:0:32}..."
-          echo "DL1 genesis IP: $DL1_IP"
-          
-          # Wait for DL1-1 and DL1-2 to reach ReadyToJoin state (with longer timeout)
-          echo "Waiting for DL1 validators to reach ReadyToJoin state..."
-          for port in 9410 9420; do
-            for i in $(seq 1 60); do
-              STATE=$(curl -s http://localhost:$port/node/state 2>/dev/null | tr -d '"' || echo "unknown")
-              if [ "$STATE" = "ReadyToJoin" ]; then
-                echo "✓ DL1 (port $port) ready to join"
-                break
-              fi
-              # Already joined/ready - skip
-              if [ "$STATE" = "Observing" ] || [ "$STATE" = "Ready" ]; then
-                echo "✓ DL1 (port $port) already past join phase (state: $STATE)"
-                break
-              fi
-              if [ "$i" = "60" ]; then
-                echo "::error::DL1 (port $port) did not reach ReadyToJoin state (current: $STATE)"
-                exit 1
-              fi
-              sleep 2
-            done
-          done
-          
-          # Check current cluster size
-          INITIAL_SIZE=$(curl -s http://localhost:9400/cluster/info | jq 'length' 2>/dev/null || echo "0")
-          echo "Initial DL1 cluster size: $INITIAL_SIZE"
-          
-          if [ "$INITIAL_SIZE" -ge 3 ]; then
-            echo "✓ DL1 cluster already has $INITIAL_SIZE peers, skipping manual join"
-          else
-            # Join DL1-1 and DL1-2 to cluster
-            echo "Joining DL1 validators to cluster..."
-            JOIN_PAYLOAD=$(printf '{"id":"%s","ip":"%s","p2pPort":%s}' "$DL1_PEER_ID" "$DL1_IP" "$DL1_P2P_PORT")
-            echo "JOIN_PAYLOAD: $JOIN_PAYLOAD"
-            
-            for container in dl1-1 dl1-2; do
-              echo "Joining $container..."
-              # Retry join a few times in case of timing issues
-              for attempt in 1 2 3; do
-                if docker exec $container curl -sf -X POST http://localhost:9042/cluster/join \
-                    -H 'Content-Type: application/json' \
-                    -d "$JOIN_PAYLOAD" 2>/dev/null; then
-                  echo "✓ $container join initiated"
-                  break
-                else
-                  if [ "$attempt" = "3" ]; then
-                    echo "::warning::$container join failed after 3 attempts"
-                  else
-                    echo "  Attempt $attempt failed, retrying in 2s..."
-                    sleep 2
-                  fi
-                fi
-              done
-            done
-            
-            # Wait for cluster to stabilize
-            echo "Waiting for DL1 cluster to stabilize..."
-            sleep 15
-          fi
-          
-          # Verify final cluster size
-          FINAL_SIZE=$(curl -s http://localhost:9400/cluster/info | jq 'length' 2>/dev/null || echo "0")
-          echo "Final DL1 cluster size: $FINAL_SIZE"
-          
-          if [ "$FINAL_SIZE" -lt 3 ]; then
-            echo "::error::DL1 cluster size is $FINAL_SIZE (expected 3)"
+          if [ "$CLUSTER_SIZE" -lt 3 ]; then
+            echo "::error::DL1 cluster size is $CLUSTER_SIZE (expected 3)"
+            echo ""
+            echo "Cluster info:"
             curl -s http://localhost:9400/cluster/info | jq . || true
+            echo ""
+            echo "DL1-1 state: $(curl -s http://localhost:9410/node/state 2>/dev/null || echo 'unreachable')"
+            echo "DL1-2 state: $(curl -s http://localhost:9420/node/state 2>/dev/null || echo 'unreachable')"
             exit 1
-          else
-            echo "✓ DL1 cluster has $FINAL_SIZE peers"
           fi
           
-      - name: Wait for DL1 validators Ready
-        run: |
-          echo "Waiting for DL1 validators to become Ready..."
-          for port in 9410 9420; do
-            for i in $(seq 1 60); do
-              STATE=$(curl -s http://localhost:$port/node/state 2>/dev/null | tr -d '"' || echo "unknown")
-              if [ "$STATE" = "Ready" ]; then
-                echo "✓ DL1 (port $port): Ready"
-                break
-              fi
-              if [ "$i" = "60" ]; then
-                echo "::warning::DL1 (port $port) did not reach Ready state (current: $STATE)"
-              fi
-              sleep 2
-            done
-          done
+          echo "✓ DL1 cluster has $CLUSTER_SIZE peers"
 
       - name: Verify ML0 ordinal progression
         run: |
