@@ -58,24 +58,52 @@ jobs:
 
       - name: Wait for cluster health
         run: |
+          # Tessellation auto-join handles validator joining via CL_DOCKER_JOIN=true
+          # DL1 validators have initial delays: node 1 = 42s, node 2 = 54s
+          # Plus 10 retries * 10s delay = up to 154s for full join
+          # We wait up to 4 minutes (240s) for all nodes to be Ready
+          
           wait_for_node() {
-            local name=$1 port=$2
-            for i in $(seq 1 60); do
+            local name=$1 port=$2 max_wait=${3:-120}
+            local iterations=$((max_wait / 2))
+            for i in $(seq 1 $iterations); do
               if curl -sf "http://localhost:${port}/node/info" 2>/dev/null | grep -q '"state":"Ready"'; then
-                echo "  $name (port $port): Ready"
+                echo "  ✓ $name (port $port): Ready"
                 return 0
               fi
               sleep 2
             done
-            echo "  $name (port $port): TIMEOUT" && return 1
+            echo "  ✗ $name (port $port): TIMEOUT after ${max_wait}s" && return 1
           }
           
-          echo "Waiting for nodes..."
-          wait_for_node "GL0" 9000
-          wait_for_node "ML0" 9200
-          wait_for_node "DL1-0" 9400
-          wait_for_node "DL1-1" 9410
-          wait_for_node "DL1-2" 9420
+          echo "Waiting for genesis nodes (120s timeout)..."
+          wait_for_node "GL0" 9000 120
+          wait_for_node "ML0" 9200 120
+          wait_for_node "DL1-0" 9400 120
+          
+          echo ""
+          echo "Waiting for DL1 validators (240s timeout - they have join delays)..."
+          wait_for_node "DL1-1" 9410 240
+          wait_for_node "DL1-2" 9420 240
+          
+      - name: Verify DL1 cluster size
+        run: |
+          echo "Verifying DL1 cluster formation..."
+          CLUSTER_SIZE=$(curl -s http://localhost:9400/cluster/info | jq 'length' 2>/dev/null || echo "0")
+          echo "DL1 cluster size: $CLUSTER_SIZE"
+          
+          if [ "$CLUSTER_SIZE" -lt 3 ]; then
+            echo "::error::DL1 cluster size is $CLUSTER_SIZE (expected 3)"
+            echo ""
+            echo "Cluster info:"
+            curl -s http://localhost:9400/cluster/info | jq . || true
+            echo ""
+            echo "DL1-1 state: $(curl -s http://localhost:9410/node/state 2>/dev/null || echo 'unreachable')"
+            echo "DL1-2 state: $(curl -s http://localhost:9420/node/state 2>/dev/null || echo 'unreachable')"
+            exit 1
+          fi
+          
+          echo "✓ DL1 cluster has $CLUSTER_SIZE peers"
 
       - name: Verify ML0 ordinal progression
         run: |
@@ -114,10 +142,8 @@ jobs:
         working-directory: e2e-test
         run: npm ci
 
-      - name: Pre-flight canary transaction
-        working-directory: e2e-test
-        continue-on-error: true
-        run: npx tsx scripts/canary-check.ts --maxRetries 30 --retryDelay 5
+      # Note: Canary check removed - it was causing false failures during DL1 warmup.
+      # The actual E2E tests handle retries properly.
 
       - name: Run E2E tests
         working-directory: e2e-test

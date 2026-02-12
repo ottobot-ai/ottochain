@@ -1,8 +1,9 @@
 package xyz.kd5ujc.schema.fiber
 
+import enumeratum.EnumEntry.Uppercase
 import enumeratum._
 
-sealed trait InputKind extends EnumEntry
+sealed trait InputKind extends EnumEntry with Uppercase
 
 object InputKind extends Enum[InputKind] with CirceEnum[InputKind] {
   case object Transition extends InputKind

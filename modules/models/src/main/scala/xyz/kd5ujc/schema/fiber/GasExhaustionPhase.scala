@@ -1,9 +1,10 @@
 package xyz.kd5ujc.schema.fiber
 
+import enumeratum.EnumEntry.Uppercase
 import enumeratum.{CirceEnum, Enum, EnumEntry}
 
 /** Phase where gas was exhausted during execution */
-sealed trait GasExhaustionPhase extends EnumEntry
+sealed trait GasExhaustionPhase extends EnumEntry with Uppercase
 
 object GasExhaustionPhase extends Enum[GasExhaustionPhase] with CirceEnum[GasExhaustionPhase] {
   val values: IndexedSeq[GasExhaustionPhase] = findValues

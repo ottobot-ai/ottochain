@@ -53,9 +53,9 @@ export const validator = ({ cid, statesMap }: { cid: string; statesMap: StatesMa
       );
     }
 
-    if (finalRecord.status !== 'Active') {
+    if (finalRecord.status !== 'ACTIVE') {
       throw new Error(
-        `\x1b[33m[createScript.validator]\x1b[0m Expected oracle status "Active" but found "${finalRecord.status}" for fiberId = ${cid} at ${url}.`
+        `\x1b[33m[createScript.validator]\x1b[0m Expected oracle status "ACTIVE" but found "${finalRecord.status}" for fiberId = ${cid} at ${url}.`
       );
     }
 

@@ -1403,33 +1403,33 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           bobfiberId     <- UUIDGen.randomUUID[IO]
           charliefiberId <- UUIDGen.randomUUID[IO]
           davefiberId    <- UUIDGen.randomUUID[IO]
-          _evefiberId    <- UUIDGen.randomUUID[IO]
+          _              <- UUIDGen.randomUUID[IO]
 
-          _faythefiberId <- UUIDGen.randomUUID[IO]
-          gracefiberId   <- UUIDGen.randomUUID[IO]
-          heidifiberId   <- UUIDGen.randomUUID[IO]
-          ivanfiberId    <- UUIDGen.randomUUID[IO]
-          _judyfiberId   <- UUIDGen.randomUUID[IO]
-          _karlfiberId   <- UUIDGen.randomUUID[IO]
+          _            <- UUIDGen.randomUUID[IO]
+          gracefiberId <- UUIDGen.randomUUID[IO]
+          heidifiberId <- UUIDGen.randomUUID[IO]
+          ivanfiberId  <- UUIDGen.randomUUID[IO]
+          _            <- UUIDGen.randomUUID[IO]
+          _            <- UUIDGen.randomUUID[IO]
 
-          _lancefiberId   <- UUIDGen.randomUUID[IO]
-          _malloryfiberId <- UUIDGen.randomUUID[IO]
-          niajfiberId     <- UUIDGen.randomUUID[IO]
+          _           <- UUIDGen.randomUUID[IO]
+          _           <- UUIDGen.randomUUID[IO]
+          niajfiberId <- UUIDGen.randomUUID[IO]
 
           oscarfiberId   <- UUIDGen.randomUUID[IO]
           peggyfiberId   <- UUIDGen.randomUUID[IO]
           quentinfiberId <- UUIDGen.randomUUID[IO]
 
-          ruthfiberId    <- UUIDGen.randomUUID[IO]
-          sybilfiberId   <- UUIDGen.randomUUID[IO]
-          _trentfiberId  <- UUIDGen.randomUUID[IO]
-          _ursulafiberId <- UUIDGen.randomUUID[IO]
-          victorfiberId  <- UUIDGen.randomUUID[IO]
-          _walterfiberId <- UUIDGen.randomUUID[IO]
+          ruthfiberId   <- UUIDGen.randomUUID[IO]
+          sybilfiberId  <- UUIDGen.randomUUID[IO]
+          _             <- UUIDGen.randomUUID[IO]
+          _             <- UUIDGen.randomUUID[IO]
+          victorfiberId <- UUIDGen.randomUUID[IO]
+          _             <- UUIDGen.randomUUID[IO]
 
           xavierfiberId  <- UUIDGen.randomUUID[IO]
           yolandafiberId <- UUIDGen.randomUUID[IO]
-          _zoefiberId    <- UUIDGen.randomUUID[IO]
+          _              <- UUIDGen.randomUUID[IO]
 
           // Create initial state data for each participant type
           manufacturerInitialData = MapValue(
@@ -2325,19 +2325,19 @@ object RiverdaleEconomyStateMachineSuite extends SimpleIOSuite with Checkers {
           finalYolandaFiber = state54.fiberRecord(yolandafiberId)
 
           // Extract auction states
-          _finalAuction1Fiber = state54.fiberRecord(auctionfiberId)
+          _ = state54.fiberRecord(auctionfiberId)
           finalAuction2Fiber = state54.fiberRecord(auction2fiberId)
 
           // Extract intermediate states for Ruth's payment
-          _ruthAfterPayment = state28.fiberRecord(ruthfiberId)
-          _oscarAfterPayment = state28.fiberRecord(oscarfiberId)
+          _ = state28.fiberRecord(ruthfiberId)
+          _ = state28.fiberRecord(oscarfiberId)
 
           // Extract states after Ruth's service provision
-          _ruthAfterService = state38.fiberRecord(ruthfiberId)
+          _ = state38.fiberRecord(ruthfiberId)
 
           // Extract states for Ivan and Dave supply chain
-          _ivanAfterInventoryCheck = state37.fiberRecord(ivanfiberId)
-          _daveAfterFulfillment = state37.fiberRecord(davefiberId)
+          _ = state37.fiberRecord(ivanfiberId)
+          _ = state37.fiberRecord(davefiberId)
 
           // Extract Xavier's final state after tax collection
           finalXavierFiber = state54.fiberRecord(xavierfiberId)

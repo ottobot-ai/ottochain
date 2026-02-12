@@ -630,7 +630,7 @@ async function runFlow(
           if (!data || typeof data !== 'object') return false;
           const record = data as { sequenceNumber?: number; status?: string };
           if (isCreateStep) {
-            return record.status === 'Active';
+            return record.status === 'ACTIVE';
           }
           // For transitions/invocations: sequenceNumber must have increased
           return (record.sequenceNumber ?? -1) > preSendSeqNum;
