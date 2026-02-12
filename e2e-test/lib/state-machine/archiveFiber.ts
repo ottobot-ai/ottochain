@@ -26,9 +26,9 @@ export const validator = ({ cid, statesMap }: { cid: string; statesMap: StatesMa
       );
     }
 
-    if (finalRecord.status !== 'Archived') {
+    if (finalRecord.status !== 'ARCHIVED') {
       throw new Error(
-        `\x1b[33m[archiveFiber.validator]\x1b[0m Expected fiber status "Archived" but found "${finalRecord.status}" for fiberId = ${cid} at ${url}.`
+        `\x1b[33m[archiveFiber.validator]\x1b[0m Expected fiber status "ARCHIVED" but found "${finalRecord.status}" for fiberId = ${cid} at ${url}.`
       );
     }
 

@@ -53,9 +53,9 @@ export const validator = ({ cid, statesMap, options }: { cid: string; statesMap:
       );
     }
 
-    if (finalRecord.status !== 'Active') {
+    if (finalRecord.status !== 'ACTIVE') {
       throw new Error(
-        `\x1b[33m[createFiber.validator]\x1b[0m Expected fiber status "Active" but found "${finalRecord.status}" for fiberId = ${cid} at ${url}.`
+        `\x1b[33m[createFiber.validator]\x1b[0m Expected fiber status "ACTIVE" but found "${finalRecord.status}" for fiberId = ${cid} at ${url}.`
       );
     }
 
