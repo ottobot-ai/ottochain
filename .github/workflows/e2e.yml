@@ -56,7 +56,7 @@ jobs:
           export TESSELLATION_VERSION="${TESSELLATION_VERSION}"
           just up --metagraph="${GITHUB_WORKSPACE}" --dl1 --data
 
-      - name: Wait for cluster health
+      - name: Wait for genesis nodes
         run: |
           wait_for_node() {
             local name=$1 port=$2
@@ -70,12 +70,11 @@ jobs:
             echo "  $name (port $port): TIMEOUT" && return 1
           }
           
-          echo "Waiting for nodes..."
+          echo "Waiting for genesis nodes..."
           wait_for_node "GL0" 9000
           wait_for_node "ML0" 9200
           wait_for_node "DL1-0" 9400
-          wait_for_node "DL1-1" 9410
-          wait_for_node "DL1-2" 9420
+          # NOTE: DL1-1 and DL1-2 are validators - they need explicit join before Ready
 
       - name: Join DL1 validators to cluster
         run: |
@@ -90,6 +89,28 @@ jobs:
           echo "DL1 genesis peer: ${DL1_PEER_ID:0:32}..."
           echo "DL1 genesis IP: $DL1_IP"
           
+          # Wait for DL1-1 and DL1-2 to reach ReadyToJoin state (with longer timeout)
+          echo "Waiting for DL1 validators to reach ReadyToJoin state..."
+          for port in 9410 9420; do
+            for i in $(seq 1 60); do
+              STATE=$(curl -s http://localhost:$port/node/state 2>/dev/null | tr -d '"' || echo "unknown")
+              if [ "$STATE" = "ReadyToJoin" ]; then
+                echo "✓ DL1 (port $port) ready to join"
+                break
+              fi
+              # Already joined/ready - skip
+              if [ "$STATE" = "Observing" ] || [ "$STATE" = "Ready" ]; then
+                echo "✓ DL1 (port $port) already past join phase (state: $STATE)"
+                break
+              fi
+              if [ "$i" = "60" ]; then
+                echo "::error::DL1 (port $port) did not reach ReadyToJoin state (current: $STATE)"
+                exit 1
+              fi
+              sleep 2
+            done
+          done
+          
           # Check current cluster size
           INITIAL_SIZE=$(curl -s http://localhost:9400/cluster/info | jq 'length' 2>/dev/null || echo "0")
           echo "Initial DL1 cluster size: $INITIAL_SIZE"
@@ -97,22 +118,6 @@ jobs:
           if [ "$INITIAL_SIZE" -ge 3 ]; then
             echo "✓ DL1 cluster already has $INITIAL_SIZE peers, skipping manual join"
           else
-            # Wait for DL1-1 and DL1-2 to reach ReadyToJoin state
-            echo "Waiting for DL1 validators to reach ReadyToJoin state..."
-            for port in 9410 9420; do
-              for i in $(seq 1 30); do
-                STATE=$(curl -s http://localhost:$port/node/state 2>/dev/null | tr -d '"' || echo "unknown")
-                if [ "$STATE" = "ReadyToJoin" ] || [ "$STATE" = "Observing" ] || [ "$STATE" = "Ready" ]; then
-                  echo "✓ DL1 (port $port) ready to join (state: $STATE)"
-                  break
-                fi
-                if [ "$i" = "30" ]; then
-                  echo "::warning::DL1 (port $port) did not reach ReadyToJoin state (current: $STATE)"
-                fi
-                sleep 2
-              done
-            done
-            
             # Join DL1-1 and DL1-2 to cluster
             echo "Joining DL1 validators to cluster..."
             JOIN_PAYLOAD=$(printf '{"id":"%s","ip":"%s","p2pPort":%s}' "$DL1_PEER_ID" "$DL1_IP" "$DL1_P2P_PORT")
@@ -120,18 +125,27 @@ jobs:
             
             for container in dl1-1 dl1-2; do
               echo "Joining $container..."
-              if docker exec $container curl -sf -X POST http://localhost:9042/cluster/join \
-                  -H 'Content-Type: application/json' \
-                  -d "$JOIN_PAYLOAD"; then
-                echo "✓ $container join initiated"
-              else
-                echo "::warning::$container join may have failed"
-              fi
+              # Retry join a few times in case of timing issues
+              for attempt in 1 2 3; do
+                if docker exec $container curl -sf -X POST http://localhost:9042/cluster/join \
+                    -H 'Content-Type: application/json' \
+                    -d "$JOIN_PAYLOAD" 2>/dev/null; then
+                  echo "✓ $container join initiated"
+                  break
+                else
+                  if [ "$attempt" = "3" ]; then
+                    echo "::warning::$container join failed after 3 attempts"
+                  else
+                    echo "  Attempt $attempt failed, retrying in 2s..."
+                    sleep 2
+                  fi
+                fi
+              done
             done
             
             # Wait for cluster to stabilize
             echo "Waiting for DL1 cluster to stabilize..."
-            sleep 10
+            sleep 15
           fi
           
           # Verify final cluster size
@@ -139,11 +153,29 @@ jobs:
           echo "Final DL1 cluster size: $FINAL_SIZE"
           
           if [ "$FINAL_SIZE" -lt 3 ]; then
-            echo "::warning::DL1 cluster size is $FINAL_SIZE (expected 3)"
+            echo "::error::DL1 cluster size is $FINAL_SIZE (expected 3)"
             curl -s http://localhost:9400/cluster/info | jq . || true
+            exit 1
           else
             echo "✓ DL1 cluster has $FINAL_SIZE peers"
           fi
+          
+      - name: Wait for DL1 validators Ready
+        run: |
+          echo "Waiting for DL1 validators to become Ready..."
+          for port in 9410 9420; do
+            for i in $(seq 1 60); do
+              STATE=$(curl -s http://localhost:$port/node/state 2>/dev/null | tr -d '"' || echo "unknown")
+              if [ "$STATE" = "Ready" ]; then
+                echo "✓ DL1 (port $port): Ready"
+                break
+              fi
+              if [ "$i" = "60" ]; then
+                echo "::warning::DL1 (port $port) did not reach Ready state (current: $STATE)"
+              fi
+              sleep 2
+            done
+          done
 
       - name: Verify ML0 ordinal progression
         run: |
