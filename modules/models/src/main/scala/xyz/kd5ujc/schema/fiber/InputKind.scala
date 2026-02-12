@@ -1,7 +1,7 @@
 package xyz.kd5ujc.schema.fiber
 
-import enumeratum._
 import enumeratum.EnumEntry.Uppercase
+import enumeratum._
 
 sealed trait InputKind extends EnumEntry with Uppercase
 

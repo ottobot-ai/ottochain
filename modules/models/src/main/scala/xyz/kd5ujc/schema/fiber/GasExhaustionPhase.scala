@@ -1,7 +1,7 @@
 package xyz.kd5ujc.schema.fiber
 
-import enumeratum.{CirceEnum, Enum, EnumEntry}
 import enumeratum.EnumEntry.Uppercase
+import enumeratum.{CirceEnum, Enum, EnumEntry}
 
 /** Phase where gas was exhausted during execution */
 sealed trait GasExhaustionPhase extends EnumEntry with Uppercase

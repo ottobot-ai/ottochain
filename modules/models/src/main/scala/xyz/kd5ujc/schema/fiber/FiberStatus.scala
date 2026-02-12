@@ -1,7 +1,7 @@
 package xyz.kd5ujc.schema.fiber
 
-import enumeratum.{CirceEnum, Enum, EnumEntry}
 import enumeratum.EnumEntry.Uppercase
+import enumeratum.{CirceEnum, Enum, EnumEntry}
 
 sealed trait FiberStatus extends EnumEntry with Uppercase
 
