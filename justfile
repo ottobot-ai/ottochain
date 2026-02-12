@@ -174,3 +174,185 @@ validate tag="local":
 # Quick smoke test on existing image
 smoke tag="local":
     just test-image {{tag}}
+
+# ============ E2E Tests ============
+# Requires tessellation repo at ~/repos/tessellation
+
+TESSELLATION_DIR := env_var_or_default("TESSELLATION_DIR", env_var("HOME") + "/repos/tessellation")
+
+# Run full E2E test suite (start cluster, test, stop)
+e2e:
+    #!/usr/bin/env bash
+    set -e
+    echo "🚀 Running E2E test suite..."
+    echo ""
+    
+    # Source SDKMAN and export to subprocesses
+    source ~/.sdkman/bin/sdkman-init.sh
+    export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(which java)")")")"
+    export PATH="$HOME/.sdkman/candidates/sbt/current/bin:$HOME/.sdkman/candidates/java/current/bin:$PATH"
+    
+    # Check tessellation exists
+    if [ ! -d "{{ TESSELLATION_DIR }}" ]; then
+        echo "❌ Tessellation not found at {{ TESSELLATION_DIR }}"
+        echo "   Clone it with: git clone https://github.com/Constellation-Labs/tessellation.git {{ TESSELLATION_DIR }}"
+        exit 1
+    fi
+    
+    # Apply patches if needed
+    echo "📦 Checking tessellation patches..."
+    cd "{{ TESSELLATION_DIR }}"
+    git diff --quiet || echo "   (tessellation has local changes)"
+    
+    OTTOCHAIN_DIR="{{ justfile_directory() }}"
+    for patch in "$OTTOCHAIN_DIR/e2e-test/patches"/*.patch; do
+        if [ -f "$patch" ]; then
+            git apply --check "$patch" 2>/dev/null && git apply "$patch" && echo "   Applied $(basename $patch)" || echo "   Patch already applied: $(basename $patch)"
+        fi
+    done
+    
+    # Start cluster
+    echo ""
+    echo "🔧 Starting E2E cluster..."
+    just up --metagraph="$OTTOCHAIN_DIR" --dl1 --data
+    
+    cd "$OTTOCHAIN_DIR"
+    
+    # Wait for cluster
+    just _e2e-wait
+    
+    # Run tests
+    echo ""
+    echo "🧪 Running E2E tests..."
+    cd e2e-test
+    npm install --silent
+    npm test
+    
+    echo ""
+    echo "✅ E2E tests complete!"
+    
+    # Cleanup
+    cd "{{ TESSELLATION_DIR }}"
+    just down
+
+# Start E2E cluster (for interactive development)
+e2e-up:
+    #!/usr/bin/env bash
+    set -e
+    
+    # Source SDKMAN and export to subprocesses
+    source ~/.sdkman/bin/sdkman-init.sh
+    export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(which java)")")")"
+    export PATH="$HOME/.sdkman/candidates/sbt/current/bin:$HOME/.sdkman/candidates/java/current/bin:$PATH"
+    
+    if [ ! -d "{{ TESSELLATION_DIR }}" ]; then
+        echo "❌ Tessellation not found at {{ TESSELLATION_DIR }}"
+        exit 1
+    fi
+    
+    cd "{{ TESSELLATION_DIR }}"
+    
+    # Apply patches
+    OTTOCHAIN_DIR="{{ justfile_directory() }}"
+    for patch in "$OTTOCHAIN_DIR/e2e-test/patches"/*.patch; do
+        if [ -f "$patch" ]; then
+            git apply --check "$patch" 2>/dev/null && git apply "$patch" || true
+        fi
+    done
+    
+    just up --metagraph="$OTTOCHAIN_DIR" --dl1 --data
+    
+    cd "$OTTOCHAIN_DIR"
+    just _e2e-wait
+    just e2e-health
+
+# Stop E2E cluster
+e2e-down:
+    cd "{{ TESSELLATION_DIR }}" && just down
+
+# Health check E2E cluster
+e2e-health:
+    #!/usr/bin/env bash
+    echo "🏥 E2E Cluster Health"
+    echo ""
+    
+    check_health() {
+        local name=$1
+        local port=$2
+        local info=$(curl -sf http://localhost:$port/node/info 2>/dev/null)
+        if [ -n "$info" ]; then
+            local state=$(echo "$info" | jq -r '.state')
+            printf "  %-10s :%d  %s\n" "$name" "$port" "$state"
+        else
+            printf "  %-10s :%d  DOWN\n" "$name" "$port"
+        fi
+    }
+    
+    check_cluster() {
+        local name=$1
+        local port=$2
+        local size=$(curl -sf http://localhost:$port/cluster/info 2>/dev/null | jq 'length' || echo "0")
+        printf "  %-10s cluster size: %s\n" "$name" "$size"
+    }
+    
+    echo "Nodes:"
+    check_health "GL0" 9000
+    check_health "ML0" 9200
+    check_health "DL1-0" 9400
+    check_health "DL1-1" 9410
+    check_health "DL1-2" 9420
+    
+    echo ""
+    echo "Clusters:"
+    check_cluster "GL0" 9000
+    check_cluster "ML0" 9200
+    check_cluster "DL1" 9400
+
+# Run E2E tests against already-running cluster
+e2e-test:
+    cd e2e-test && npm install --silent && npm test
+
+# Interactive E2E terminal
+e2e-terminal:
+    cd e2e-test && npm install --silent && npm run terminal
+
+# Internal: wait for E2E cluster to be healthy
+_e2e-wait:
+    #!/usr/bin/env bash
+    echo "⏳ Waiting for cluster to be ready..."
+    
+    wait_for_node() {
+        local name=$1 port=$2 max_wait=${3:-120}
+        local iterations=$((max_wait / 2))
+        for i in $(seq 1 $iterations); do
+            if curl -sf "http://localhost:${port}/node/info" 2>/dev/null | grep -q '"state":"Ready"'; then
+                echo "  ✓ $name (port $port): Ready"
+                return 0
+            fi
+            sleep 2
+        done
+        echo "  ✗ $name (port $port): TIMEOUT after ${max_wait}s"
+        return 1
+    }
+    
+    echo ""
+    echo "Genesis nodes (120s timeout):"
+    wait_for_node "GL0" 9000 120
+    wait_for_node "ML0" 9200 120
+    wait_for_node "DL1-0" 9400 120
+    
+    echo ""
+    echo "DL1 validators (240s timeout):"
+    wait_for_node "DL1-1" 9410 240
+    wait_for_node "DL1-2" 9420 240
+    
+    echo ""
+    echo "Verifying cluster sizes..."
+    sleep 5
+    
+    DL1_SIZE=$(curl -s http://localhost:9400/cluster/info 2>/dev/null | jq 'length' || echo "0")
+    if [ "$DL1_SIZE" -lt 3 ]; then
+        echo "⚠️  DL1 cluster size is $DL1_SIZE (expected 3)"
+    else
+        echo "✅ DL1 cluster size: $DL1_SIZE"
+    fi

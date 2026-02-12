@@ -142,10 +142,8 @@ jobs:
         working-directory: e2e-test
         run: npm ci
 
-      - name: Pre-flight canary transaction
-        working-directory: e2e-test
-        continue-on-error: true
-        run: npx tsx scripts/canary-check.ts --maxRetries 30 --retryDelay 5
+      # Note: Canary check removed - it was causing false failures during DL1 warmup.
+      # The actual E2E tests handle retries properly.
 
       - name: Run E2E tests
         working-directory: e2e-test
