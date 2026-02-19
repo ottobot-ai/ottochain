@@ -7,9 +7,11 @@ import cats.effect.Async
 import cats.syntax.all._
 
 import io.constellationnetwork.metagraph_sdk.json_logic._
+import io.constellationnetwork.schema.SnapshotOrdinal
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.signature.SignatureProof
 
+import xyz.kd5ujc.schema.delegation.DelegationContext
 import xyz.kd5ujc.schema.fiber.FiberLogEntry.OracleInvocation
 import xyz.kd5ujc.schema.fiber.{FiberInput, ReservedKeys}
 import xyz.kd5ujc.schema.{CalculatedState, Records}
@@ -63,8 +65,14 @@ object ContextProvider {
 
   /**
    * Create a ContextProvider with access to CalculatedState for dependency resolution.
+   *
+   * @param calculatedState The current on-chain calculated state (fiber records + delegations)
+   * @param currentOrdinal  The current snapshot ordinal (used for delegation expiry checks)
    */
-  def make[F[_]: Async: SecurityProvider](calculatedState: CalculatedState): ContextProvider[F] =
+  def make[F[_]: Async: SecurityProvider](
+    calculatedState: CalculatedState,
+    currentOrdinal:  SnapshotOrdinal = SnapshotOrdinal.MinValue
+  ): ContextProvider[F] =
     new ContextProvider[F] {
 
       def buildContext(
@@ -100,11 +108,12 @@ object ContextProvider {
         dependencies: Set[UUID]
       ): F[JsonLogicValue] =
         for {
-          proofsData   <- buildProofsContext(proofs)
-          machinesData <- buildMachinesContext(dependencies)
-          parentData   <- buildParentContext(fiber)
-          childrenData <- buildChildrenContext(fiber)
-          oraclesData  <- buildOraclesContext(dependencies)
+          proofsData    <- buildProofsContext(proofs)
+          machinesData  <- buildMachinesContext(dependencies)
+          parentData    <- buildParentContext(fiber)
+          childrenData  <- buildChildrenContext(fiber)
+          oraclesData   <- buildOraclesContext(dependencies)
+          delegationCtx <- buildDelegationContext(proofs)
         } yield MapValue(
           Map(
             ReservedKeys.STATE            -> fiber.stateData,
@@ -118,8 +127,36 @@ object ContextProvider {
             ReservedKeys.PARENT           -> parentData,
             ReservedKeys.CHILDREN         -> childrenData,
             ReservedKeys.SCRIPT_ORACLES   -> oraclesData
-          )
+          ) ++ delegationCtx.value
         )
+
+      // === Delegation Context ===
+
+      /**
+       * Build delegation context for the JLVM.
+       *
+       * Looks up an active delegation where the first signer (relayer) is authorized
+       * to act on behalf of a delegator. If found, injects delegation state as
+       * `delegation.*` context variables for use in policy expressions.
+       *
+       * If no delegation is found, injects `{ "delegation": { "active": false } }`
+       * so that delegation predicates evaluate to false gracefully.
+       */
+      private def buildDelegationContext(proofs: List[SignatureProof]): F[MapValue] =
+        proofs.headOption match {
+          case None => DelegationContext.noDelegation.pure[F]
+          case Some(signerProof) =>
+            signerProof.id.toAddress.map { signerAddress =>
+              val ordinalLong = currentOrdinal.value.value
+              val activeDelegation = calculatedState.delegations.values.find { d =>
+                d.relayerAddr == signerAddress.show && d.isActive(ordinalLong)
+              }
+              activeDelegation match {
+                case Some(credential) => DelegationContext.fromCredential(credential, ordinalLong)
+                case None             => DelegationContext.noDelegation
+              }
+            }
+        }
 
       // === Oracle Context ===
 

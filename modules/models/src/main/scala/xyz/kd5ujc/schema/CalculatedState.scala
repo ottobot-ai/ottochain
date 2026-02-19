@@ -6,13 +6,16 @@ import scala.collection.immutable.SortedMap
 
 import io.constellationnetwork.currency.dataApplication.DataCalculatedState
 
+import xyz.kd5ujc.schema.delegation.DelegationCredential
+
 import derevo.circe.magnolia.{decoder, encoder}
 import derevo.derive
 
 @derive(encoder, decoder)
 case class CalculatedState(
   stateMachines: SortedMap[UUID, Records.StateMachineFiberRecord],
-  scripts:       SortedMap[UUID, Records.ScriptFiberRecord]
+  scripts:       SortedMap[UUID, Records.ScriptFiberRecord],
+  delegations:   SortedMap[UUID, DelegationCredential] = SortedMap.empty
 ) extends DataCalculatedState
 
 object CalculatedState {

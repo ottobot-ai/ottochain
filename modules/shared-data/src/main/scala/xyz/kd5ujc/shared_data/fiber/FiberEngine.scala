@@ -203,7 +203,7 @@ object FiberEngine {
               val processor = SpawnProcessor.make[F, FiberT[F, *]]
               for {
                 contextData <- ContextProvider
-                  .make[F](calculatedState)
+                  .make[F](calculatedState, ordinal)
                   .buildTriggerContext(updatedFiber, input)
                   .liftFiber
                 knownFibers = calculatedState.stateMachines.keySet ++ calculatedState.scripts.keySet

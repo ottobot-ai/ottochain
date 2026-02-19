@@ -80,5 +80,18 @@ object ReservedKeys {
   val STATUS = "status"
   val LAST_INVOCATION = "lastInvocation"
 
+  // Delegation Context Keys — injected into JLVM context when a relayer submits on behalf of a delegator.
+  // Delegation predicates can reference these via {"var": "delegation.active"} etc.
+  val DELEGATION_ACTIVE = "delegation.active"
+  val DELEGATION_EXPIRES = "delegation.expiresAt"
+  val DELEGATION_SCOPE = "delegation.scope"
+  val DELEGATION_SPEND_LIMIT = "delegation.spendLimit"
+  val DELEGATION_SPEND_USED = "delegation.spendUsed"
+  val DELEGATION_SPEND_REMAIN = "delegation.spendRemaining"
+  val DELEGATION_DELEGATOR = "delegation.delegator"
+  val DELEGATION_RELAYER = "delegation.relayer"
+  val DELEGATION_SESSION_KEY = "delegation.sessionKey"
+  val DELEGATION_BONDED_STAKE = "delegation.bondedStake"
+
   def isInternal(key: String): Boolean = key.startsWith("_")
 }
