@@ -79,7 +79,7 @@ lazy val buildInfoSettings = Seq(
 lazy val root = (project in file("."))
   .settings(
     name := "ottochain"
-  ).aggregate(proto, models, sharedData, currencyL0, currencyL1, dataL1)
+  ).aggregate(proto, models, fiberEngine, sharedData, currencyL0, currencyL1, dataL1)
 
 lazy val proto = (project in file("modules/proto"))
   .dependsOn(models)
@@ -109,6 +109,24 @@ lazy val models = (project in file("modules/models"))
     name := "ottochain-models"
   )
 
+/**
+ * Fiber Engine — standalone, publishable module.
+ *
+ * Implements the JLVM fiber execution engine for state machines and scripts.
+ * Depends on the proto module for ScalaPB-generated types (used at the
+ * serialization boundary) and on models for Constellation-compatible runtime types.
+ *
+ * This module can be published as a separate JAR and used independently
+ * of the full OttoChain application.
+ */
+lazy val fiberEngine = (project in file("modules/fiber-engine"))
+  .dependsOn(proto, models)
+  .settings(
+    commonSettings,
+    commonTestSettings,
+    name := "ottochain-fiber-engine",
+  )
+
 lazy val sharedTest = (project in file("modules/shared-test"))
   .dependsOn(models)
   .settings(
@@ -118,7 +136,7 @@ lazy val sharedTest = (project in file("modules/shared-test"))
   )
 
 lazy val sharedData = (project in file("modules/shared-data"))
-  .dependsOn(sharedTest, models)
+  .dependsOn(sharedTest, fiberEngine)
   .settings(
     commonSettings,
     commonTestSettings,

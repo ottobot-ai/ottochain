@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber
+package xyz.kd5ujc.fiber
 
 import java.util.UUID
 
@@ -15,15 +15,15 @@ import io.constellationnetwork.schema.address.Address
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.signature.SignatureProof
 
+import xyz.kd5ujc.fiber.core.FiberTInstances._
+import xyz.kd5ujc.fiber.core._
+import xyz.kd5ujc.fiber.evaluation._
+import xyz.kd5ujc.fiber.spawning.SpawnProcessor
+import xyz.kd5ujc.fiber.syntax.CalculatedStateSyntax._
+import xyz.kd5ujc.fiber.triggers.TriggerDispatcher
 import xyz.kd5ujc.schema.fiber.FiberLogEntry.{EventReceipt, OracleInvocation}
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, Records}
-import xyz.kd5ujc.shared_data.fiber.core.FiberTInstances._
-import xyz.kd5ujc.shared_data.fiber.core._
-import xyz.kd5ujc.shared_data.fiber.evaluation._
-import xyz.kd5ujc.shared_data.fiber.spawning.SpawnProcessor
-import xyz.kd5ujc.shared_data.fiber.triggers.TriggerDispatcher
-import xyz.kd5ujc.shared_data.syntax.calculatedState._
 
 /**
  * Top-level orchestrator for fiber processing using FiberT monad transformer.

@@ -4,14 +4,15 @@ import cats.effect.Async
 import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataState, L0NodeContext}
+import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.schema.address.Address
 import io.constellationnetwork.security.SecurityProvider
+import io.constellationnetwork.security.hash.Hash
 import io.constellationnetwork.security.signature.Signed
 
+import xyz.kd5ujc.fiber.FiberEngine
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
-import xyz.kd5ujc.shared_data.fiber.FiberEngine
-import xyz.kd5ujc.shared_data.fiber.evaluation.ScriptProcessor
 import xyz.kd5ujc.shared_data.syntax.all._
 
 /**
@@ -32,13 +33,32 @@ class ScriptCombiner[F[_]: Async: SecurityProvider](
   /**
    * Creates a new script from the update.
    *
-   * Delegates to ScriptProcessor for the actual creation logic.
+   * Computes hashes and persists the script record atomically to both
+   * CalculatedState and OnChain.
    */
   def createScript(
     update: Signed[Updates.CreateScript]
   ): CombineResult[F] = for {
     currentOrdinal <- ctx.getCurrentOrdinal
-    result         <- ScriptProcessor.createScript(current, update, currentOrdinal)
+
+    owners <- update.proofs.toList.traverse(_.id.toAddress).map(Set.from)
+
+    stateDataHashOpt <- update.initialState.traverse[F, Hash](_.computeDigest)
+
+    oracleRecord = Records.ScriptFiberRecord(
+      fiberId = update.fiberId,
+      creationOrdinal = currentOrdinal,
+      latestUpdateOrdinal = currentOrdinal,
+      scriptProgram = update.scriptProgram,
+      stateData = update.initialState,
+      stateDataHash = stateDataHashOpt,
+      accessControl = update.accessControl,
+      sequenceNumber = FiberOrdinal.MinValue,
+      owners = owners,
+      status = FiberStatus.Active
+    )
+
+    result <- current.withRecord[F](update.fiberId, oracleRecord)
   } yield result
 
   /**

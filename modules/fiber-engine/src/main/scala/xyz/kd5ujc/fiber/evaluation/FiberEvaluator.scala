@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber.evaluation
+package xyz.kd5ujc.fiber.evaluation
 
 import java.util.UUID
 
@@ -15,11 +15,11 @@ import io.constellationnetwork.metagraph_sdk.std.JsonBinaryCodec
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.signature.SignatureProof
 
+import xyz.kd5ujc.fiber.core._
+import xyz.kd5ujc.fiber.syntax.all._
 import xyz.kd5ujc.schema.fiber.FiberResult.FailureReasonOps
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, Records}
-import xyz.kd5ujc.shared_data.fiber.core._
-import xyz.kd5ujc.shared_data.syntax.all._
 
 /**
  * Unified evaluator for both state machine and oracle fibers.

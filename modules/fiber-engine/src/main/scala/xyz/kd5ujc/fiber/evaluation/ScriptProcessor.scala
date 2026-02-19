@@ -1,23 +1,24 @@
-package xyz.kd5ujc.shared_data.fiber.evaluation
+package xyz.kd5ujc.fiber.evaluation
 
 import java.util.UUID
 
 import cats.effect.Async
 import cats.syntax.all._
 
-import io.constellationnetwork.currency.dataApplication.DataState
 import io.constellationnetwork.metagraph_sdk.json_logic.{JsonLogicValue, MapValue, NullValue}
-import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
-import io.constellationnetwork.schema.SnapshotOrdinal
 import io.constellationnetwork.schema.address.Address
-import io.constellationnetwork.security.SecurityProvider
-import io.constellationnetwork.security.hash.Hash
-import io.constellationnetwork.security.signature.Signed
 
-import xyz.kd5ujc.schema._
-import xyz.kd5ujc.schema.fiber.{FiberOrdinal, _}
-import xyz.kd5ujc.shared_data.syntax.all._
+import xyz.kd5ujc.fiber.syntax.all._
+import xyz.kd5ujc.schema.CalculatedState
+import xyz.kd5ujc.schema.fiber._
 
+/**
+ * Fiber engine operations for script (oracle) processing.
+ *
+ * Note: Script creation (`createScript`) is intentionally excluded — it requires
+ * DataState hash computation which belongs in the shared-data combiner layer.
+ * See `ScriptCombiner.createScript` in the shared-data module.
+ */
 object ScriptProcessor {
 
   def extractStateAndResult[F[_]: Async](
@@ -39,31 +40,6 @@ object ScriptProcessor {
       case other =>
         (other.some, other).pure[F]
     }
-
-  def createScript[F[_]: Async: SecurityProvider](
-    current:        DataState[OnChain, CalculatedState],
-    update:         Signed[Updates.CreateScript],
-    currentOrdinal: SnapshotOrdinal
-  ): F[DataState[OnChain, CalculatedState]] = for {
-    owners <- update.proofs.toList.traverse(_.id.toAddress).map(Set.from)
-
-    stateDataHashOpt <- update.initialState.traverse[F, Hash](_.computeDigest)
-
-    oracleRecord = Records.ScriptFiberRecord(
-      fiberId = update.fiberId,
-      creationOrdinal = currentOrdinal,
-      latestUpdateOrdinal = currentOrdinal,
-      scriptProgram = update.scriptProgram,
-      stateData = update.initialState,
-      stateDataHash = stateDataHashOpt,
-      accessControl = update.accessControl,
-      sequenceNumber = FiberOrdinal.MinValue,
-      owners = owners,
-      status = FiberStatus.Active
-    )
-
-    result <- current.withRecord[F](update.fiberId, oracleRecord)
-  } yield result
 
   def validateAccess[F[_]: Async](
     policy:     AccessControlPolicy,

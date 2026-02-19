@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber.evaluation
+package xyz.kd5ujc.fiber.evaluation
 
 import java.util.UUID
 
@@ -13,8 +13,8 @@ import io.constellationnetwork.metagraph_sdk.json_logic.core.StrValue
 import io.constellationnetwork.metagraph_sdk.json_logic.gas.GasLimit
 import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluator
 
+import xyz.kd5ujc.fiber.core._
 import xyz.kd5ujc.schema.fiber._
-import xyz.kd5ujc.shared_data.fiber.core._
 
 /**
  * Extracts side effects from transition effect results.

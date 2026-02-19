@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber.triggers
+package xyz.kd5ujc.fiber.triggers
 
 import cats.data.EitherT
 import cats.effect.Async
@@ -14,12 +14,12 @@ import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluat
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 
+import xyz.kd5ujc.fiber.core._
+import xyz.kd5ujc.fiber.evaluation.{FiberEvaluator, ScriptProcessor}
+import xyz.kd5ujc.fiber.syntax.all._
 import xyz.kd5ujc.schema.fiber.FiberLogEntry.{EventReceipt, OracleInvocation}
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, Records}
-import xyz.kd5ujc.shared_data.fiber.core._
-import xyz.kd5ujc.shared_data.fiber.evaluation.{FiberEvaluator, ScriptProcessor}
-import xyz.kd5ujc.shared_data.syntax.all._
 
 /**
  * Handles individual trigger processing in G[_] with gas tracked via StateT

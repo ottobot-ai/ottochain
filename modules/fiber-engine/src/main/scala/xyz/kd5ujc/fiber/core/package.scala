@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber
+package xyz.kd5ujc.fiber
 
 import cats.data.{ReaderT, StateT}
 import cats.mtl.{Ask, Stateful}

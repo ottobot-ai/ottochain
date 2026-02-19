@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber.core
+package xyz.kd5ujc.fiber.core
 
 import java.util.UUID
 

@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber.spawning
+package xyz.kd5ujc.fiber.spawning
 
 import java.util.UUID
 
@@ -14,10 +14,10 @@ import io.constellationnetwork.metagraph_sdk.json_logic.gas.GasLimit
 import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluator
 import io.constellationnetwork.schema.address.{Address, DAGAddressRefined}
 
+import xyz.kd5ujc.fiber.core._
+import xyz.kd5ujc.fiber.syntax.all._
 import xyz.kd5ujc.schema.Records
 import xyz.kd5ujc.schema.fiber.{FailureReason, FiberContext, GasExhaustionPhase, SpawnDirective}
-import xyz.kd5ujc.shared_data.fiber.core._
-import xyz.kd5ujc.shared_data.syntax.all._
 
 import eu.timepit.refined.refineV
 

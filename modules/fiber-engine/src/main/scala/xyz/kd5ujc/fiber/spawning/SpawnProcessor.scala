@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber.spawning
+package xyz.kd5ujc.fiber.spawning
 
 import java.util.UUID
 
@@ -13,9 +13,9 @@ import io.constellationnetwork.metagraph_sdk.json_logic.gas.GasLimit
 import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluator
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 
+import xyz.kd5ujc.fiber.core._
 import xyz.kd5ujc.schema.Records
 import xyz.kd5ujc.schema.fiber.{FailureReason, FiberContext, FiberOrdinal, FiberStatus, SpawnDirective}
-import xyz.kd5ujc.shared_data.fiber.core._
 
 /**
  * Processes spawn directives to create child fibers.

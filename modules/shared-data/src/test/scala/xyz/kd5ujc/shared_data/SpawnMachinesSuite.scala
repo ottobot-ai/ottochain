@@ -14,9 +14,9 @@ import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.Signed
 
+import xyz.kd5ujc.fiber.FiberEngine
 import xyz.kd5ujc.schema.fiber.{FiberOrdinal, _}
 import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records, Updates}
-import xyz.kd5ujc.shared_data.fiber.FiberEngine
 import xyz.kd5ujc.shared_data.lifecycle.Combiner
 import xyz.kd5ujc.shared_test.Participant._
 import xyz.kd5ujc.shared_test.TestFixture

@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.syntax
+package xyz.kd5ujc.fiber.syntax
 
 import cats.Monad
 import cats.mtl.{Ask, Stateful}

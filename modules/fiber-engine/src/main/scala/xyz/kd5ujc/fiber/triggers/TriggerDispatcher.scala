@@ -1,4 +1,4 @@
-package xyz.kd5ujc.shared_data.fiber.triggers
+package xyz.kd5ujc.fiber.triggers
 
 import cats.effect.Async
 import cats.mtl.{Ask, Stateful}
@@ -7,10 +7,10 @@ import cats.{Monad, ~>}
 
 import io.constellationnetwork.security.SecurityProvider
 
+import xyz.kd5ujc.fiber.core._
+import xyz.kd5ujc.fiber.syntax.CalculatedStateSyntax._
 import xyz.kd5ujc.schema.fiber._
 import xyz.kd5ujc.schema.{CalculatedState, Records}
-import xyz.kd5ujc.shared_data.fiber.core._
-import xyz.kd5ujc.shared_data.syntax.calculatedState._
 
 import org.typelevel.log4cats.SelfAwareStructuredLogger
 import org.typelevel.log4cats.slf4j.Slf4jLogger

@@ -13,9 +13,9 @@ import io.constellationnetwork.metagraph_sdk.json_logic.runtime.JsonLogicEvaluat
 import io.constellationnetwork.metagraph_sdk.std.JsonBinaryHasher.HasherOps
 import io.constellationnetwork.security.SecurityProvider
 
+import xyz.kd5ujc.fiber.FiberEngine
 import xyz.kd5ujc.schema.fiber.{FiberOrdinal, _}
 import xyz.kd5ujc.schema.{CalculatedState, Records}
-import xyz.kd5ujc.shared_data.fiber.FiberEngine
 import xyz.kd5ujc.shared_test.{Participant, TestFixture}
 
 import weaver.SimpleIOSuite
