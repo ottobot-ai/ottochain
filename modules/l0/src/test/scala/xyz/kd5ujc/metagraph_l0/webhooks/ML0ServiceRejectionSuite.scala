@@ -1,25 +1,35 @@
 package xyz.kd5ujc.metagraph_l0.webhooks
 
-import cats.effect.{IO, Ref}
-import cats.data.{NonEmptyChain, NonEmptyList, Validated}
-import cats.syntax.all._
 import java.util.UUID
-import weaver.SimpleIOSuite
+
+import cats.data.{NonEmptyChain, NonEmptyList, Validated}
+import cats.effect.{Async, IO, Ref}
+import cats.syntax.all._
 
 import io.constellationnetwork.currency.dataApplication.{DataApplicationValidationError, DataState}
+import io.constellationnetwork.metagraph_sdk.json_logic.NullValue
 import io.constellationnetwork.schema.SnapshotOrdinal
 import io.constellationnetwork.security.signature.Signed
-import io.constellationnetwork.security.SecurityProvider
 
 import xyz.kd5ujc.schema.Updates.{CreateStateMachine, OttochainMessage}
+import xyz.kd5ujc.schema.fiber.{State, StateId, StateMachineDefinition}
 import xyz.kd5ujc.schema.{CalculatedState, OnChain}
-import xyz.kd5ujc.shared_data.lifecycle.Validator
-import xyz.kd5ujc.shared_test.TestFixture
 import xyz.kd5ujc.shared_test.Participant._
+import xyz.kd5ujc.shared_test.TestFixture
 
+import weaver.SimpleIOSuite
+
+/**
+ * Behavioural tests for ML0Service rejection webhook dispatch.
+ *
+ * These tests use a MockValidator that simulates the per-update validation and
+ * fire-and-forget rejection dispatch that the real ML0Service.validateData
+ * should implement. They verify dispatch semantics without a full L0 node harness.
+ */
 object ML0ServiceRejectionSuite extends SimpleIOSuite {
 
-  // Reuse types from WebhookDispatcherSuite
+  // ── Types ──────────────────────────────────────────────────────────────────
+
   case class RejectionNotification(
     event:     String,
     ordinal:   Long,
@@ -27,76 +37,32 @@ object ML0ServiceRejectionSuite extends SimpleIOSuite {
   )
 
   case class RejectedUpdate(
-    updateType:           String,
-    fiberId:              String,
-    errors:               List[ValidationError],
-    signers:              List[String],
-    updateHash:           String,
-    targetSequenceNumber: Option[Int] = None
+    updateType: String,
+    fiberId:    String,
+    errors:     List[ValidationError],
+    signers:    List[String],
+    updateHash: String
   )
 
-  case class ValidationError(
-    code:    String,
-    message: String
-  )
+  case class ValidationError(code: String, message: String)
 
-  // Mock ML0Service-like validator that can be configured to return specific validation results
-  case class MockValidator(
-    validationResults: Map[UUID, Boolean] // fiberId -> isValid
-  ) {
+  // ── Test error types ───────────────────────────────────────────────────────
 
-    def validateDataParallel(
-      state:             DataState[OnChain, CalculatedState],
-      updates:           NonEmptyList[Signed[OttochainMessage]],
-      webhookDispatcher: Option[WebhookDispatcher[IO]]
-    )(implicit
-      context: xyz.kd5ujc.metagraph_l0.L0NodeContext[IO]
-    ): IO[cats.data.Validated[NonEmptyChain[DataApplicationValidationError], Unit]] = {
-
-      val validationResults = updates.toList.map { signedUpdate =>
-        val fiberId = signedUpdate.value match {
-          case CreateStateMachine(fid, _, _, _, _, _, _) => fid
-          case other                                     => UUID.randomUUID() // fallback
-        }
-
-        val isValid = this.validationResults.getOrElse(fiberId, true)
-
-        if (isValid) {
-          Validated.valid(())
-        } else {
-          val error = new DataApplicationValidationError("FiberAlreadyExists") {
-            override def getMessage: String = "Fiber already exists"
-          }
-
-          // Simulate rejection dispatch (fire-and-forget like the real implementation should do)
-          webhookDispatcher.foreach { dispatcher =>
-            cats.effect.unsafe.IORuntime.global.unsafeRunAndForget(
-              dispatcher.dispatchRejection(
-                SnapshotOrdinal.unsafeFrom(1L),
-                signedUpdate,
-                NonEmptyChain.one(error)
-              )
-            )
-          }
-
-          Validated.invalid(NonEmptyChain.one(error))
-        }
-      }
-
-      val combined = validationResults.reduce { (acc, result) =>
-        (acc, result) match {
-          case (Validated.Valid(_), Validated.Valid(_))                  => Validated.valid(())
-          case (Validated.Valid(_), Validated.Invalid(errors))           => Validated.invalid(errors)
-          case (Validated.Invalid(accErrors), Validated.Valid(_))        => Validated.invalid(accErrors)
-          case (Validated.Invalid(accErrors), Validated.Invalid(errors)) => Validated.invalid(accErrors ++ errors)
-        }
-      }
-
-      IO.pure(combined)
-    }
+  case object FiberAlreadyExists extends DataApplicationValidationError {
+    val message = "Fiber already exists"
   }
 
-  // Spy dispatcher for capturing rejections
+  // ── Minimal state machine definition ──────────────────────────────────────
+
+  private val activeId  = StateId("Active")
+  private val simpleDef = StateMachineDefinition(
+    states       = Map(activeId -> State(activeId)),
+    initialState = activeId,
+    transitions  = List.empty
+  )
+
+  // ── Spy dispatcher ─────────────────────────────────────────────────────────
+
   def spyDispatcher(spy: Ref[IO, List[RejectionNotification]]): WebhookDispatcher[IO] =
     new WebhookDispatcher[IO] {
 
@@ -113,18 +79,20 @@ object ML0ServiceRejectionSuite extends SimpleIOSuite {
         errors:  NonEmptyChain[DataApplicationValidationError]
       ): IO[Unit] = {
         val fiberId = update.value match {
-          case CreateStateMachine(fid, _, _, _, _, _, _) => fid.toString
-          case other                                     => "unknown"
+          case u: CreateStateMachine => u.fiberId.toString
+          case _                     => "unknown"
         }
 
         val notification = RejectionNotification(
-          event = "transaction.rejected",
+          event   = "transaction.rejected",
           ordinal = ordinal.value.value,
           rejection = RejectedUpdate(
-            updateType = "CreateStateMachine",
-            fiberId = fiberId,
-            errors = errors.toList.map(e => ValidationError(e.getClass.getSimpleName, e.getMessage)),
-            signers = update.proofs.map(_.id.hex.value).toList,
+            updateType = update.value.getClass.getSimpleName,
+            fiberId    = fiberId,
+            errors     = errors.toList.map(e =>
+              ValidationError(e.getClass.getSimpleName.replace("$", ""), e.message)
+            ),
+            signers    = update.proofs.map(_.id.hex.value).toList,
             updateHash = "mock-hash"
           )
         )
@@ -133,236 +101,244 @@ object ML0ServiceRejectionSuite extends SimpleIOSuite {
       }
     }
 
+  // ── MockValidator: simulates ML0Service.validateData per-update semantics ─
+  //
+  // ML0Service.validateData:
+  //  1. Runs validateSignedUpdate per update in parallel
+  //  2. For each Invalid result, fires dispatchRejection fire-and-forget
+  //  3. Returns combined validation result (Valid/Invalid)
+  //
+  // MockValidator reproduces this logic for behavioural testing.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  final case class MockValidator(validationResults: Map[UUID, Boolean]) {
+
+    def validateDataParallel(
+      state:             DataState[OnChain, CalculatedState],
+      updates:           NonEmptyList[Signed[OttochainMessage]],
+      webhookDispatcher: Option[WebhookDispatcher[IO]],
+      ordinal:           SnapshotOrdinal
+    ): IO[Validated[NonEmptyChain[DataApplicationValidationError], Unit]] = {
+
+      updates.toList
+        .traverse { signedUpdate =>
+          val fiberId = signedUpdate.value match {
+            case u: CreateStateMachine => u.fiberId
+            case _                     => UUID.randomUUID()
+          }
+
+          val isValid = validationResults.getOrElse(fiberId, true)
+
+          if (isValid) {
+            IO.pure(Validated.valid[NonEmptyChain[DataApplicationValidationError], Unit](()))
+          } else {
+            val error: DataApplicationValidationError = FiberAlreadyExists
+            val result: Validated[NonEmptyChain[DataApplicationValidationError], Unit] =
+              Validated.invalid(NonEmptyChain.one(error))
+
+            // Fire-and-forget rejection dispatch — mirrors ML0Service.validateData
+            val dispatchEffect = webhookDispatcher match {
+              case Some(dispatcher) =>
+                Async[IO]
+                  .start(
+                    dispatcher
+                      .dispatchRejection(ordinal, signedUpdate, NonEmptyChain.one(error))
+                      .handleErrorWith(err => IO(println(s"Rejection webhook error: ${err.getMessage}")))
+                  )
+                  .void
+              case None =>
+                IO.unit
+            }
+
+            dispatchEffect.as(result)
+          }
+        }
+        .map(
+          _.reduce { (a, b) =>
+            (a, b) match {
+              case (Validated.Valid(_), Validated.Valid(_))          => Validated.valid(())
+              case (Validated.Valid(_), inv @ Validated.Invalid(_))  => inv
+              case (inv @ Validated.Invalid(_), Validated.Valid(_))  => inv
+              case (Validated.Invalid(e1), Validated.Invalid(e2))    => Validated.invalid(e1 ++ e2)
+            }
+          }
+        )
+    }
+  }
+
+  // Helper: sign an update with Alice's key via registry
+  private def sign(fixture: TestFixture, update: OttochainMessage): IO[Signed[OttochainMessage]] =
+    fixture.registry.generateProofs(update, Set(Alice)).map(Signed(update, _))
+
+  // ── Tests ──────────────────────────────────────────────────────────────────
+
   test("validateData dispatches rejection for each invalid update") {
-    TestFixture.resource().use { implicit context =>
+    TestFixture.resource().use { fixture =>
       for {
-        spy <- Ref.of[IO, List[RejectionNotification]](List.empty)
+        spy       <- Ref.of[IO, List[RejectionNotification]](List.empty)
         dispatcher = Some(spyDispatcher(spy))
 
-        validFiberId   <- IO.pure(UUID.randomUUID())
-        invalidFiberId <- IO.pure(UUID.randomUUID())
+        validFid   = UUID.randomUUID()
+        invalidFid = UUID.randomUUID()
 
-        validUpdate   <- IO.pure(CreateStateMachine(validFiberId, "Valid", "Initial", 0, "create", Map.empty, None))
-        invalidUpdate <- IO.pure(CreateStateMachine(invalidFiberId, "Invalid", "Initial", 0, "create", Map.empty, None))
+        signedValid   <- sign(fixture, CreateStateMachine(validFid, simpleDef, NullValue, None))
+        signedInvalid <- sign(fixture, CreateStateMachine(invalidFid, simpleDef, NullValue, None))
 
-        signedValid   <- context.securityProvider.sign(validUpdate, participant1.keyPair)
-        signedInvalid <- context.securityProvider.sign(invalidUpdate, participant1.keyPair)
-
-        updates = NonEmptyList.of(signedValid, signedInvalid)
-        state = DataState(OnChain.genesis, CalculatedState.genesis)
-
-        // Configure mock validator: valid=true, invalid=false
-        validator = MockValidator(Map(validFiberId -> true, invalidFiberId -> false))
-
-        result <- validator.validateDataParallel(state, updates, dispatcher)
+        updates   = NonEmptyList.of(signedValid, signedInvalid)
+        state     = DataState(OnChain.genesis, CalculatedState.genesis)
+        validator = MockValidator(Map(validFid -> true, invalidFid -> false))
+        result   <- validator.validateDataParallel(state, updates, dispatcher, fixture.ordinal)
 
         notifications <- spy.get
 
-        // Should have exactly one rejection (for the invalid update)
-        _ <- IO(assert(notifications.length == 1))
-        _ <- IO(assert(notifications.head.rejection.fiberId == invalidFiberId.toString))
-
-        // validateData should return Invalid because one update failed
+        _ <- IO(assert(notifications.length == 1, s"Expected 1 rejection, got ${notifications.length}"))
+        _ <- IO(assert(notifications.head.rejection.fiberId == invalidFid.toString))
         _ <- IO(assert(result.isInvalid))
-      } yield succeed
+      } yield success
     }
   }
 
   test("validateData does NOT dispatch rejection for valid-only batch") {
-    TestFixture.resource().use { implicit context =>
+    TestFixture.resource().use { fixture =>
       for {
-        spy <- Ref.of[IO, List[RejectionNotification]](List.empty)
+        spy       <- Ref.of[IO, List[RejectionNotification]](List.empty)
         dispatcher = Some(spyDispatcher(spy))
 
-        fiberId1 <- IO.pure(UUID.randomUUID())
-        fiberId2 <- IO.pure(UUID.randomUUID())
+        fid1 = UUID.randomUUID()
+        fid2 = UUID.randomUUID()
 
-        update1 <- IO.pure(CreateStateMachine(fiberId1, "Valid1", "Initial", 0, "create", Map.empty, None))
-        update2 <- IO.pure(CreateStateMachine(fiberId2, "Valid2", "Initial", 0, "create", Map.empty, None))
+        s1 <- sign(fixture, CreateStateMachine(fid1, simpleDef, NullValue, None))
+        s2 <- sign(fixture, CreateStateMachine(fid2, simpleDef, NullValue, None))
 
-        signedUpdate1 <- context.securityProvider.sign(update1, participant1.keyPair)
-        signedUpdate2 <- context.securityProvider.sign(update2, participant1.keyPair)
-
-        updates = NonEmptyList.of(signedUpdate1, signedUpdate2)
-        state = DataState(OnChain.genesis, CalculatedState.genesis)
-
-        // Both updates are valid
-        validator = MockValidator(Map(fiberId1 -> true, fiberId2 -> true))
-
-        result <- validator.validateDataParallel(state, updates, dispatcher)
+        updates   = NonEmptyList.of(s1, s2)
+        state     = DataState(OnChain.genesis, CalculatedState.genesis)
+        validator = MockValidator(Map(fid1 -> true, fid2 -> true))
+        result   <- validator.validateDataParallel(state, updates, dispatcher, fixture.ordinal)
 
         notifications <- spy.get
 
-        // Should have zero rejections
-        _ <- IO(assert(notifications.isEmpty))
-
-        // validateData should return Valid
+        _ <- IO(assert(notifications.isEmpty, "Expected no rejections for valid-only batch"))
         _ <- IO(assert(result.isValid))
-      } yield succeed
+      } yield success
     }
   }
 
   test("validateData dispatches all rejections in a mixed batch") {
-    TestFixture.resource().use { implicit context =>
+    TestFixture.resource().use { fixture =>
       for {
-        spy <- Ref.of[IO, List[RejectionNotification]](List.empty)
+        spy       <- Ref.of[IO, List[RejectionNotification]](List.empty)
         dispatcher = Some(spyDispatcher(spy))
 
-        validFiberId    <- IO.pure(UUID.randomUUID())
-        invalidFiberId1 <- IO.pure(UUID.randomUUID())
-        invalidFiberId2 <- IO.pure(UUID.randomUUID())
+        validFid    = UUID.randomUUID()
+        invalidFid1 = UUID.randomUUID()
+        invalidFid2 = UUID.randomUUID()
 
-        validUpdate <- IO.pure(CreateStateMachine(validFiberId, "Valid", "Initial", 0, "create", Map.empty, None))
-        invalidUpdate1 <- IO
-          .pure(CreateStateMachine(invalidFiberId1, "Invalid1", "Initial", 0, "create", Map.empty, None))
-        invalidUpdate2 <- IO
-          .pure(CreateStateMachine(invalidFiberId2, "Invalid2", "Initial", 0, "create", Map.empty, None))
+        sv  <- sign(fixture, CreateStateMachine(validFid, simpleDef, NullValue, None))
+        si1 <- sign(fixture, CreateStateMachine(invalidFid1, simpleDef, NullValue, None))
+        si2 <- sign(fixture, CreateStateMachine(invalidFid2, simpleDef, NullValue, None))
 
-        signedValid    <- context.securityProvider.sign(validUpdate, participant1.keyPair)
-        signedInvalid1 <- context.securityProvider.sign(invalidUpdate1, participant1.keyPair)
-        signedInvalid2 <- context.securityProvider.sign(invalidUpdate2, participant1.keyPair)
+        updates = NonEmptyList.of(sv, si1, si2)
+        state   = DataState(OnChain.genesis, CalculatedState.genesis)
 
-        updates = NonEmptyList.of(signedValid, signedInvalid1, signedInvalid2)
-        state = DataState(OnChain.genesis, CalculatedState.genesis)
-
-        // First valid, second and third invalid
-        validator = MockValidator(
-          Map(
-            validFiberId    -> true,
-            invalidFiberId1 -> false,
-            invalidFiberId2 -> false
-          )
-        )
-
-        result <- validator.validateDataParallel(state, updates, dispatcher)
+        validator = MockValidator(Map(validFid -> true, invalidFid1 -> false, invalidFid2 -> false))
+        result   <- validator.validateDataParallel(state, updates, dispatcher, fixture.ordinal)
 
         notifications <- spy.get
+        rejectedFids   = notifications.map(_.rejection.fiberId).toSet
+        expectedFids   = Set(invalidFid1.toString, invalidFid2.toString)
 
-        // Should have exactly two rejections
-        _ <- IO(assert(notifications.length == 2))
-
-        rejectedFiberIds = notifications.map(_.rejection.fiberId).toSet
-        expectedFiberIds = Set(invalidFiberId1.toString, invalidFiberId2.toString)
-
-        _ <- IO(assert(rejectedFiberIds == expectedFiberIds))
-
-        // validateData should return Invalid (because some updates failed)
+        _ <- IO(assert(notifications.length == 2, s"Expected 2 rejections, got ${notifications.length}"))
+        _ <- IO(assert(rejectedFids == expectedFids))
         _ <- IO(assert(result.isInvalid))
-      } yield succeed
+      } yield success
     }
   }
 
   test("validateData does NOT dispatch when webhookDispatcher is None") {
-    TestFixture.resource().use { implicit context =>
+    TestFixture.resource().use { fixture =>
       for {
-        // No dispatcher provided (None)
-        invalidFiberId <- IO.pure(UUID.randomUUID())
-        invalidUpdate <- IO.pure(CreateStateMachine(invalidFiberId, "Invalid", "Initial", 0, "create", Map.empty, None))
-        signedInvalid <- context.securityProvider.sign(invalidUpdate, participant1.keyPair)
+        invalidFid <- IO(UUID.randomUUID())
+        signed     <- sign(fixture, CreateStateMachine(invalidFid, simpleDef, NullValue, None))
 
-        updates = NonEmptyList.of(signedInvalid)
-        state = DataState(OnChain.genesis, CalculatedState.genesis)
+        updates   = NonEmptyList.of(signed)
+        state     = DataState(OnChain.genesis, CalculatedState.genesis)
+        validator = MockValidator(Map(invalidFid -> false))
+        // None dispatcher — dispatchRejection must not be called
+        result <- validator.validateDataParallel(state, updates, None, fixture.ordinal)
 
-        validator = MockValidator(Map(invalidFiberId -> false))
-
-        // Call with None dispatcher - should not cause any side effects
-        result <- validator.validateDataParallel(state, updates, None)
-
-        // Should still return Invalid (rejection tracking doesn't affect validation result)
+        // Validation still reflects invalid update
         _ <- IO(assert(result.isInvalid))
-      } yield succeed
+      } yield success
     }
   }
 
-  test("validateData returns combined errors — regression test") {
-    TestFixture.resource().use { implicit context =>
+  test("validateData returns combined errors for all-invalid batch") {
+    TestFixture.resource().use { fixture =>
       for {
-        spy <- Ref.of[IO, List[RejectionNotification]](List.empty)
+        spy       <- Ref.of[IO, List[RejectionNotification]](List.empty)
         dispatcher = Some(spyDispatcher(spy))
 
-        // Create three updates that will each fail with different numbers of errors
-        // (This is a simplified test - real implementation would have multiple error types)
-        fiberId1 <- IO.pure(UUID.randomUUID())
-        fiberId2 <- IO.pure(UUID.randomUUID())
-        fiberId3 <- IO.pure(UUID.randomUUID())
+        fid1 = UUID.randomUUID()
+        fid2 = UUID.randomUUID()
+        fid3 = UUID.randomUUID()
 
-        update1 <- IO.pure(CreateStateMachine(fiberId1, "Invalid1", "Initial", 0, "create", Map.empty, None))
-        update2 <- IO.pure(CreateStateMachine(fiberId2, "Invalid2", "Initial", 0, "create", Map.empty, None))
-        update3 <- IO.pure(CreateStateMachine(fiberId3, "Invalid3", "Initial", 0, "create", Map.empty, None))
+        s1 <- sign(fixture, CreateStateMachine(fid1, simpleDef, NullValue, None))
+        s2 <- sign(fixture, CreateStateMachine(fid2, simpleDef, NullValue, None))
+        s3 <- sign(fixture, CreateStateMachine(fid3, simpleDef, NullValue, None))
 
-        signedUpdate1 <- context.securityProvider.sign(update1, participant1.keyPair)
-        signedUpdate2 <- context.securityProvider.sign(update2, participant1.keyPair)
-        signedUpdate3 <- context.securityProvider.sign(update3, participant1.keyPair)
+        updates = NonEmptyList.of(s1, s2, s3)
+        state   = DataState(OnChain.genesis, CalculatedState.genesis)
 
-        updates = NonEmptyList.of(signedUpdate1, signedUpdate2, signedUpdate3)
-        state = DataState(OnChain.genesis, CalculatedState.genesis)
+        validator = MockValidator(Map(fid1 -> false, fid2 -> false, fid3 -> false))
+        result   <- validator.validateDataParallel(state, updates, dispatcher, fixture.ordinal)
 
-        // All invalid - should produce combined errors
-        validator = MockValidator(
-          Map(
-            fiberId1 -> false,
-            fiberId2 -> false,
-            fiberId3 -> false
-          )
-        )
-
-        result <- validator.validateDataParallel(state, updates, dispatcher)
-
-        // Should have 3 total errors (1 per invalid update in this simplified case)
         _ <- result match {
           case Validated.Invalid(errors) =>
-            IO(assert(errors.length == 3))
+            IO(assert(errors.length == 3L, s"Expected 3 combined errors, got ${errors.length}"))
           case Validated.Valid(_) =>
-            IO(failure("Expected validation to fail with combined errors"))
+            IO.raiseError(new AssertionError("Expected validation to fail for all-invalid batch"))
         }
-      } yield succeed
+      } yield success
     }
   }
 
-  test("validateData rejection dispatch is fire-and-forget — does not block") {
-    // This test verifies that webhook dispatch doesn't block validation
-    // In the real implementation, it should use Async[F].start(...).void
-    TestFixture.resource().use { implicit context =>
+  test("validateData rejection dispatch is fire-and-forget — does not block validation") {
+    TestFixture.resource().use { fixture =>
       for {
-        startTime <- IO(System.currentTimeMillis())
+        slowDispatcher <- IO.delay {
+          new WebhookDispatcher[IO] {
+            def dispatch(
+              snapshot: io.constellationnetwork.security.Hashed[
+                io.constellationnetwork.currency.schema.currency.CurrencyIncrementalSnapshot
+              ],
+              stats: NotificationStats
+            ): IO[Unit] = IO.unit
 
-        // Create a slow dispatcher that sleeps 500ms
-        slowDispatcher = new WebhookDispatcher[IO] {
-          def dispatch(
-            snapshot: io.constellationnetwork.security.Hashed[
-              io.constellationnetwork.currency.schema.currency.CurrencyIncrementalSnapshot
-            ],
-            stats: NotificationStats
-          ): IO[Unit] = IO.unit
-
-          def dispatchRejection(
-            ordinal: SnapshotOrdinal,
-            update:  Signed[OttochainMessage],
-            errors:  NonEmptyChain[DataApplicationValidationError]
-          ): IO[Unit] = IO.sleep(scala.concurrent.duration.FiniteDuration(500, "milliseconds"))
+            def dispatchRejection(
+              ordinal: SnapshotOrdinal,
+              update:  Signed[OttochainMessage],
+              errors:  NonEmptyChain[DataApplicationValidationError]
+            ): IO[Unit] = IO.sleep(scala.concurrent.duration.FiniteDuration(500, "milliseconds"))
+          }
         }
 
-        invalidFiberId <- IO.pure(UUID.randomUUID())
-        invalidUpdate <- IO.pure(CreateStateMachine(invalidFiberId, "Invalid", "Initial", 0, "create", Map.empty, None))
-        signedInvalid <- context.securityProvider.sign(invalidUpdate, participant1.keyPair)
+        invalidFid <- IO(UUID.randomUUID())
+        signed     <- sign(fixture, CreateStateMachine(invalidFid, simpleDef, NullValue, None))
 
-        updates = NonEmptyList.of(signedInvalid)
-        state = DataState(OnChain.genesis, CalculatedState.genesis)
+        updates   = NonEmptyList.of(signed)
+        state     = DataState(OnChain.genesis, CalculatedState.genesis)
+        validator = MockValidator(Map(invalidFid -> false))
 
-        validator = MockValidator(Map(invalidFiberId -> false))
+        startMs <- IO(System.currentTimeMillis())
+        result  <- validator.validateDataParallel(state, updates, Some(slowDispatcher), fixture.ordinal)
+        endMs   <- IO(System.currentTimeMillis())
 
-        result <- validator.validateDataParallel(state, updates, Some(slowDispatcher))
+        elapsedMs = endMs - startMs
 
-        endTime <- IO(System.currentTimeMillis())
-        elapsedMs = endTime - startTime
-
-        // validateData should return BEFORE 500ms elapses (fire-and-forget)
-        // Give some buffer for test execution overhead
-        _ <- IO(assert(elapsedMs < 400, s"validateData took ${elapsedMs}ms, should be fire-and-forget"))
-
-        // Should still return Invalid
+        // Dispatch is fire-and-forget via IO.start — should return well under 500ms
+        _ <- IO(assert(elapsedMs < 400, s"validateData blocked for ${elapsedMs}ms (expected <400ms)"))
         _ <- IO(assert(result.isInvalid))
-      } yield succeed
+      } yield success
     }
   }
 }

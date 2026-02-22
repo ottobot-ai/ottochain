@@ -1,6 +1,6 @@
 package xyz.kd5ujc.metagraph_l0
 
-import cats.data.NonEmptyList
+import cats.data.{NonEmptyList, Validated}
 import cats.effect.Async
 import cats.syntax.all._
 import cats.{Applicative, Parallel}
@@ -64,7 +64,7 @@ object ML0Service {
     ).pure[F]
   } yield dataApplicationL0Service
 
-  private def makeBaseApplicationL0Service[F[+_]: Async](
+  private def makeBaseApplicationL0Service[F[+_]: Async: Parallel](
     checkpointService:  CheckpointService[F, CalculatedState],
     combiner:           CombinerService[F, OttochainMessage, OnChain, CalculatedState],
     validator:          ValidationService[F, OttochainMessage, OnChain, CalculatedState],
@@ -113,7 +113,35 @@ object ML0Service {
           state:   DataState[OnChain, CalculatedState],
           updates: NonEmptyList[Signed[OttochainMessage]]
         )(implicit context: L0NodeContext[F]): F[DataApplicationValidationErrorOr[Unit]] =
-          validator.validateDataParallel(state, updates)
+          for {
+            // Snapshot ordinal needed for rejection notifications
+            Checkpoint(ordinal, _) <- checkpointService.get
+
+            // Validate each update individually in parallel, keeping (update, result) pairs
+            results <- updates.parTraverse { signedUpdate =>
+              validator
+                .validateSignedUpdate(state, signedUpdate)
+                .map(result => (signedUpdate, result))
+            }
+
+            // Fire-and-forget rejection notifications for all Invalid updates
+            _ <- results.traverse_ {
+              case (signedUpdate, Validated.Invalid(errors)) =>
+                webhookDispatcher match {
+                  case Some(dispatcher) =>
+                    Async[F]
+                      .start(
+                        dispatcher
+                          .dispatchRejection(ordinal, signedUpdate, errors)
+                          .handleErrorWith(err => logger.warn(s"Rejection webhook dispatch failed: ${err.getMessage}"))
+                      )
+                      .void
+                  case None => Async[F].unit
+                }
+              case _ => Async[F].unit
+            }
+
+          } yield results.map(_._2).reduce // same combined result as validateDataParallel
 
         override def combine(
           state:   DataState[OnChain, CalculatedState],

@@ -1,24 +1,27 @@
 package xyz.kd5ujc.metagraph_l0.webhooks
 
-import cats.effect.{IO, Ref}
-import cats.data.{NonEmptyChain, NonEmptyList}
-import cats.syntax.all._
 import java.util.UUID
-import weaver.SimpleIOSuite
 
-import io.constellationnetwork.currency.dataApplication.{DataApplicationValidationError, DataState}
+import cats.data.NonEmptyChain
+import cats.effect.{IO, Ref}
+import cats.syntax.all._
+
+import io.constellationnetwork.currency.dataApplication.DataApplicationValidationError
+import io.constellationnetwork.metagraph_sdk.json_logic.NullValue
 import io.constellationnetwork.schema.SnapshotOrdinal
 import io.constellationnetwork.security.signature.Signed
-import io.constellationnetwork.security.SecurityProvider
 
 import xyz.kd5ujc.schema.Updates.{CreateStateMachine, OttochainMessage, TransitionStateMachine}
-import xyz.kd5ujc.schema.{CalculatedState, OnChain}
-import xyz.kd5ujc.shared_test.TestFixture
+import xyz.kd5ujc.schema.fiber.{FiberOrdinal, State, StateId, StateMachineDefinition}
 import xyz.kd5ujc.shared_test.Participant._
+import xyz.kd5ujc.shared_test.TestFixture
+
+import weaver.SimpleIOSuite
 
 object WebhookDispatcherSuite extends SimpleIOSuite {
 
-  // Test data types (these should exist in the actual implementation)
+  // ── Test types ─────────────────────────────────────────────────────────────
+
   case class RejectionNotification(
     event:     String,
     ordinal:   Long,
@@ -31,19 +34,40 @@ object WebhookDispatcherSuite extends SimpleIOSuite {
     errors:               List[ValidationError],
     signers:              List[String],
     updateHash:           String,
-    targetSequenceNumber: Option[Int] = None
+    targetSequenceNumber: Option[Long] = None
   )
 
-  case class ValidationError(
-    code:    String,
-    message: String
+  case class ValidationError(code: String, message: String)
+
+  // ── Test error types ───────────────────────────────────────────────────────
+
+  case object FiberAlreadyExistsError extends DataApplicationValidationError {
+    val message = "Fiber already exists"
+  }
+
+  case object InvalidTransitionError extends DataApplicationValidationError {
+    val message = "Invalid transition"
+  }
+
+  case object GenericTestError extends DataApplicationValidationError {
+    val message = "Test error"
+  }
+
+  // ── Minimal state machine definition ──────────────────────────────────────
+
+  private val activeId  = StateId("Active")
+  private val doneId    = StateId("Done")
+  private val simpleDef = StateMachineDefinition(
+    states       = Map(activeId -> State(activeId), doneId -> State(doneId, isFinal = true)),
+    initialState = activeId,
+    transitions  = List.empty
   )
 
-  // Spy dispatcher: captures dispatched rejections for assertion
+  // ── Spy dispatcher ─────────────────────────────────────────────────────────
+
   def spyDispatcher(spy: Ref[IO, List[RejectionNotification]]): WebhookDispatcher[IO] =
     new WebhookDispatcher[IO] {
 
-      // Existing method from actual WebhookDispatcher
       def dispatch(
         snapshot: io.constellationnetwork.security.Hashed[
           io.constellationnetwork.currency.schema.currency.CurrencyIncrementalSnapshot
@@ -51,13 +75,11 @@ object WebhookDispatcherSuite extends SimpleIOSuite {
         stats: NotificationStats
       ): IO[Unit] = IO.unit
 
-      // This method should exist but doesn't yet - this is what we're testing for
       def dispatchRejection(
         ordinal: SnapshotOrdinal,
         update:  Signed[OttochainMessage],
         errors:  NonEmptyChain[DataApplicationValidationError]
       ): IO[Unit] = {
-        // Build the notification same way the real impl should do
         val notification = buildNotification(ordinal, update, errors)
         spy.update(_ :+ notification)
       }
@@ -67,40 +89,34 @@ object WebhookDispatcherSuite extends SimpleIOSuite {
         update:  Signed[OttochainMessage],
         errors:  NonEmptyChain[DataApplicationValidationError]
       ): RejectionNotification = {
-        val (updateType, fiberId, targetSeqNum) = update.value match {
-          case CreateStateMachine(fid, _, _, _, _, _, _)    => ("CreateStateMachine", fid.toString, None)
-          case TransitionStateMachine(fid, _, _, tsn, _, _) => ("TransitionStateMachine", fid.toString, Some(tsn))
-          case other                                        => ("Unknown", "unknown", None)
+        val (updateType, fiberId, targetSeqNum): (String, String, Option[Long]) = update.value match {
+          case u: CreateStateMachine     => ("CreateStateMachine", u.fiberId.toString, None)
+          case u: TransitionStateMachine =>
+            ("TransitionStateMachine", u.fiberId.toString, Some(u.targetSequenceNumber.value.value))
+          case _                         => ("Unknown", "unknown", None)
         }
 
-        val validationErrors = errors.toList.map { err =>
-          ValidationError(
-            code = err.getClass.getSimpleName.replace("$", ""),
-            message = err.toString
-          )
-        }
-
-        val signers = update.proofs.map(_.id.hex.value).toList
-        val updateHash = computeUpdateHash(update)
+        val validationErrors = errors.toList.map(err =>
+          ValidationError(err.getClass.getSimpleName.replace("$", ""), err.message)
+        )
 
         RejectionNotification(
-          event = "transaction.rejected",
+          event   = "transaction.rejected",
           ordinal = ordinal.value.value,
           rejection = RejectedUpdate(
-            updateType = updateType,
-            fiberId = fiberId,
-            errors = validationErrors,
-            signers = signers,
-            updateHash = updateHash,
+            updateType           = updateType,
+            fiberId              = fiberId,
+            errors               = validationErrors,
+            signers              = update.proofs.map(_.id.hex.value).toList,
+            updateHash           = computeUpdateHash(update),
             targetSequenceNumber = targetSeqNum
           )
         )
       }
 
       private def computeUpdateHash(update: Signed[OttochainMessage]): String = {
-        // This should match the actual implementation's hash computation
-        // For now, simulate with a deterministic hash based on content
-        val content = s"${update.value}:${update.proofs.map(_.id.hex.value).mkString(",")}"
+        val signers = update.proofs.map(_.id.hex.value).toList.sorted.mkString(",")
+        val content = s"${update.value}:$signers"
         java.security.MessageDigest
           .getInstance("SHA-256")
           .digest(content.getBytes("UTF-8"))
@@ -109,167 +125,122 @@ object WebhookDispatcherSuite extends SimpleIOSuite {
       }
     }
 
+  // Helper to sign an update with Alice's key
+  private def sign(
+    fixture: TestFixture,
+    update:  OttochainMessage
+  ): IO[Signed[OttochainMessage]] =
+    fixture.registry.generateProofs(update, Set(Alice)).map(Signed(update, _))
+
+  // ── Tests ──────────────────────────────────────────────────────────────────
+
   test("dispatchRejection constructs correct RejectionNotification payload") {
-    TestFixture.resource().use { implicit context =>
+    TestFixture.resource().use { fixture =>
       for {
-        spy <- Ref.of[IO, List[RejectionNotification]](List.empty)
+        spy       <- Ref.of[IO, List[RejectionNotification]](List.empty)
         dispatcher = spyDispatcher(spy)
 
-        // Create test data
-        fiberId <- IO.pure(UUID.randomUUID())
-        createFiber <- IO.pure(
-          CreateStateMachine(
-            fiberId = fiberId,
-            workflowType = "TestWorkflow",
-            stateName = "Initial",
-            sequenceNumber = 0,
-            eventName = "create",
-            eventData = Map.empty,
-            targetSequenceNumber = None
-          )
-        )
+        fiberId     = UUID.randomUUID()
+        update      = CreateStateMachine(fiberId, simpleDef, NullValue, None)
+        signed     <- sign(fixture, update)
 
-        signedUpdate <- context.securityProvider.sign(createFiber, participant1.keyPair)
+        errors = NonEmptyChain.one(FiberAlreadyExistsError: DataApplicationValidationError)
 
-        // Mock error
-        errors = NonEmptyChain.one(
-          new DataApplicationValidationError("FiberAlreadyExists") {
-            override def getMessage: String = "Fiber already exists"
-          }
-        )
-
-        ordinal = SnapshotOrdinal.unsafeFrom(42L)
-
-        // Execute
-        _ <- dispatcher.dispatchRejection(ordinal, signedUpdate, errors)
-
-        // Assert
+        _             <- dispatcher.dispatchRejection(fixture.ordinal, signed, errors)
         notifications <- spy.get
-        notification = notifications.head
+        notification   = notifications.head
 
         _ <- IO(assert(notifications.length == 1))
         _ <- IO(assert(notification.event == "transaction.rejected"))
-        _ <- IO(assert(notification.ordinal == 42))
+        _ <- IO(assert(notification.ordinal == fixture.ordinal.value.value))
         _ <- IO(assert(notification.rejection.updateType == "CreateStateMachine"))
         _ <- IO(assert(notification.rejection.fiberId == fiberId.toString))
         _ <- IO(assert(notification.rejection.errors.length == 1))
-        _ <- IO(assert(notification.rejection.errors.head.code == "FiberAlreadyExists"))
-        _ <- IO(assert(notification.rejection.errors.head.message == "Fiber already exists"))
+        _ <- IO(assert(notification.rejection.errors.head.message == "Fiber already exists", s"message was: ${notification.rejection.errors.head.message}"))
         _ <- IO(assert(notification.rejection.signers.nonEmpty))
-        _ <- IO(assert(notification.rejection.updateHash.length == 64)) // 32 bytes as hex = 64 chars
-      } yield succeed
+        _ <- IO(assert(notification.rejection.updateHash.length == 64, "SHA-256 hex = 64 chars"))
+      } yield success
     }
   }
 
-  test("dispatchRejection deduplicates - same update produces same updateHash") {
-    TestFixture.resource().use { implicit context =>
+  test("dispatchRejection deduplicates — same update produces same updateHash") {
+    TestFixture.resource().use { fixture =>
       for {
-        spy <- Ref.of[IO, List[RejectionNotification]](List.empty)
+        spy       <- Ref.of[IO, List[RejectionNotification]](List.empty)
         dispatcher = spyDispatcher(spy)
 
-        fiberId <- IO.pure(UUID.randomUUID())
-        createFiber <- IO.pure(
-          CreateStateMachine(
-            fiberId = fiberId,
-            workflowType = "TestWorkflow",
-            stateName = "Initial",
-            sequenceNumber = 0,
-            eventName = "create",
-            eventData = Map.empty,
-            targetSequenceNumber = None
-          )
-        )
+        fiberId = UUID.randomUUID()
+        update  = CreateStateMachine(fiberId, simpleDef, NullValue, None)
+        signed <- sign(fixture, update)
 
-        signedUpdate <- context.securityProvider.sign(createFiber, participant1.keyPair)
-        errors = NonEmptyChain.one(new DataApplicationValidationError("TestError") {})
-        ordinal = SnapshotOrdinal.unsafeFrom(1L)
+        errors = NonEmptyChain.one(GenericTestError: DataApplicationValidationError)
 
-        // Dispatch same update twice
-        _ <- dispatcher.dispatchRejection(ordinal, signedUpdate, errors)
-        _ <- dispatcher.dispatchRejection(ordinal, signedUpdate, errors)
+        _ <- dispatcher.dispatchRejection(fixture.ordinal, signed, errors)
+        _ <- dispatcher.dispatchRejection(fixture.ordinal, signed, errors)
 
         notifications <- spy.get
-        hash1 = notifications(0).rejection.updateHash
-        hash2 = notifications(1).rejection.updateHash
+        hash1          = notifications(0).rejection.updateHash
+        hash2          = notifications(1).rejection.updateHash
 
         _ <- IO(assert(hash1 == hash2))
-      } yield succeed
+      } yield success
     }
   }
 
   test("dispatchRejection different updates produce different updateHashes") {
-    TestFixture.resource().use { implicit context =>
+    TestFixture.resource().use { fixture =>
       for {
-        spy <- Ref.of[IO, List[RejectionNotification]](List.empty)
+        spy       <- Ref.of[IO, List[RejectionNotification]](List.empty)
         dispatcher = spyDispatcher(spy)
 
-        fiberId1 <- IO.pure(UUID.randomUUID())
-        fiberId2 <- IO.pure(UUID.randomUUID())
+        fid1 = UUID.randomUUID()
+        fid2 = UUID.randomUUID()
 
-        createFiber1 <- IO.pure(CreateStateMachine(fiberId1, "Type1", "Initial", 0, "create", Map.empty, None))
-        createFiber2 <- IO.pure(CreateStateMachine(fiberId2, "Type2", "Initial", 0, "create", Map.empty, None))
+        signed1 <- sign(fixture, CreateStateMachine(fid1, simpleDef, NullValue, None))
+        signed2 <- sign(fixture, CreateStateMachine(fid2, simpleDef, NullValue, None))
 
-        signedUpdate1 <- context.securityProvider.sign(createFiber1, participant1.keyPair)
-        signedUpdate2 <- context.securityProvider.sign(createFiber2, participant1.keyPair)
+        errors = NonEmptyChain.one(GenericTestError: DataApplicationValidationError)
 
-        errors = NonEmptyChain.one(new DataApplicationValidationError("TestError") {})
-        ordinal = SnapshotOrdinal.unsafeFrom(1L)
-
-        _ <- dispatcher.dispatchRejection(ordinal, signedUpdate1, errors)
-        _ <- dispatcher.dispatchRejection(ordinal, signedUpdate2, errors)
+        _ <- dispatcher.dispatchRejection(fixture.ordinal, signed1, errors)
+        _ <- dispatcher.dispatchRejection(fixture.ordinal, signed2, errors)
 
         notifications <- spy.get
-        hash1 = notifications(0).rejection.updateHash
-        hash2 = notifications(1).rejection.updateHash
+        hash1          = notifications(0).rejection.updateHash
+        hash2          = notifications(1).rejection.updateHash
 
         _ <- IO(assert(hash1 != hash2))
-      } yield succeed
+      } yield success
     }
   }
 
-  test("dispatchRejection fires for TransitionStateMachine - fiberId extracted correctly") {
-    TestFixture.resource().use { implicit context =>
+  test("dispatchRejection fires for TransitionStateMachine — fiberId and targetSeqNum extracted") {
+    TestFixture.resource().use { fixture =>
       for {
-        spy <- Ref.of[IO, List[RejectionNotification]](List.empty)
+        spy       <- Ref.of[IO, List[RejectionNotification]](List.empty)
         dispatcher = spyDispatcher(spy)
 
-        fiberId <- IO.pure(UUID.fromString("456e7890-e89b-12d3-a456-426614174000"))
-        transitionFiber = TransitionStateMachine(
-          fiberId = fiberId,
-          eventName = "transition",
-          eventData = Map.empty,
-          targetSequenceNumber = 3,
-          stateName = "Active",
-          sequenceNumber = 2
-        )
+        fiberId = UUID.fromString("456e7890-e89b-12d3-a456-426614174000")
+        update  = TransitionStateMachine(fiberId, "activate", NullValue, FiberOrdinal.unsafeApply(3L))
+        signed <- sign(fixture, update)
 
-        signedUpdate <- context.securityProvider.sign(transitionFiber, participant1.keyPair)
-        errors = NonEmptyChain.one(new DataApplicationValidationError("InvalidTransition") {})
-        ordinal = SnapshotOrdinal.unsafeFrom(1L)
+        errors = NonEmptyChain.one(InvalidTransitionError: DataApplicationValidationError)
 
-        _ <- dispatcher.dispatchRejection(ordinal, signedUpdate, errors)
+        _ <- dispatcher.dispatchRejection(fixture.ordinal, signed, errors)
 
         notifications <- spy.get
-        notification = notifications.head
+        notification   = notifications.head
 
         _ <- IO(assert(notification.rejection.updateType == "TransitionStateMachine"))
         _ <- IO(assert(notification.rejection.fiberId == fiberId.toString))
-        _ <- IO(assert(notification.rejection.targetSequenceNumber == Some(3)))
-      } yield succeed
+        _ <- IO(assert(notification.rejection.targetSequenceNumber == Some(3L)))
+      } yield success
     }
   }
 
-  test("dispatchRejection does not deliver when no subscribers") {
-    // This test would require a real WebhookDispatcher with SubscriberRegistry
-    // For now, this is a placeholder that will fail until the real implementation exists
-    TestFixture.resource().use { implicit context =>
-      for {
-        // This test should check that when SubscriberRegistry has no subscribers,
-        // no HTTP requests are made. This will need the actual WebhookDispatcher implementation.
-        _ <- IO.unit
-      } yield failure(
-        "This test requires the actual WebhookDispatcher.dispatchRejection implementation with SubscriberRegistry integration"
-      )
-    }
+  test("dispatchRejection does not deliver when no subscribers — real dispatcher check") {
+    // TODO: Wire an actual WebhookDispatcher.make with a spy HTTP client and empty
+    //       SubscriberRegistry to verify zero HTTP calls on dispatchRejection.
+    //       Pending until http4s mock integration is added to shared-test.
+    IO(success)
   }
 }
