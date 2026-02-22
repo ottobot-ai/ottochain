@@ -7,9 +7,10 @@ import io.constellationnetwork.metagraph_sdk.json_logic.JsonLogicValue
 import io.constellationnetwork.schema.SnapshotOrdinal
 import io.constellationnetwork.schema.address.Address
 
+import xyz.kd5ujc.schema.CodecConfiguration._
 import xyz.kd5ujc.schema.Records
 
-import derevo.circe.magnolia.{decoder, encoder}
+import derevo.circe.magnolia.{customizableDecoder, customizableEncoder}
 import derevo.derive
 
 /**
@@ -20,14 +21,14 @@ import derevo.derive
  *
  * These are collected per-ordinal in OnChain.latestLogs for external signaling.
  */
-@derive(encoder, decoder)
+@derive(customizableEncoder, customizableDecoder)
 sealed trait FiberLogEntry {
   def fiberId: UUID
 }
 
 object FiberLogEntry {
 
-  @derive(encoder, decoder)
+  @derive(customizableEncoder, customizableDecoder)
   final case class EventReceipt(
     fiberId:        UUID,
     sequenceNumber: FiberOrdinal,
@@ -88,7 +89,7 @@ object FiberLogEntry {
     )
   }
 
-  @derive(encoder, decoder)
+  @derive(customizableEncoder, customizableDecoder)
   final case class OracleInvocation(
     fiberId:   UUID,
     method:    String,

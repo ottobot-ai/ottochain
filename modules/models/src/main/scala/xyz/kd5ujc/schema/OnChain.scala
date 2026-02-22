@@ -7,19 +7,20 @@ import scala.collection.immutable.SortedMap
 import io.constellationnetwork.currency.dataApplication.DataOnChainState
 import io.constellationnetwork.security.hash.Hash
 
+import xyz.kd5ujc.schema.CodecConfiguration._
 import xyz.kd5ujc.schema.fiber.{FiberLogEntry, FiberOrdinal}
 
-import derevo.circe.magnolia.{decoder, encoder}
+import derevo.circe.magnolia.{customizableDecoder, customizableEncoder}
 import derevo.derive
 
-@derive(decoder, encoder)
+@derive(customizableDecoder, customizableEncoder)
 case class FiberCommit(
   recordHash:     Hash,
   stateDataHash:  Option[Hash],
   sequenceNumber: FiberOrdinal
 )
 
-@derive(decoder, encoder)
+@derive(customizableDecoder, customizableEncoder)
 case class OnChain(
   fiberCommits: SortedMap[UUID, FiberCommit],
   latestLogs:   SortedMap[UUID, List[FiberLogEntry]]

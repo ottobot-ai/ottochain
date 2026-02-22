@@ -4,10 +4,12 @@ import java.util.UUID
 
 import io.constellationnetwork.schema.address.Address
 
-import derevo.circe.magnolia.{decoder, encoder}
+import xyz.kd5ujc.schema.CodecConfiguration._
+
+import derevo.circe.magnolia.{customizableDecoder, customizableEncoder}
 import derevo.derive
 
-@derive(encoder, decoder)
+@derive(customizableEncoder, customizableDecoder)
 sealed trait AccessControlPolicy
 
 object AccessControlPolicy {

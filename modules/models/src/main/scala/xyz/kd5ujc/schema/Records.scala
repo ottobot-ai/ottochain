@@ -7,10 +7,11 @@ import io.constellationnetwork.schema.SnapshotOrdinal
 import io.constellationnetwork.schema.address.Address
 import io.constellationnetwork.security.hash.Hash
 
+import xyz.kd5ujc.schema.CodecConfiguration._
 import xyz.kd5ujc.schema.fiber.FiberLogEntry.{EventReceipt, OracleInvocation}
 import xyz.kd5ujc.schema.fiber._
 
-import derevo.circe.magnolia.{decoder, encoder}
+import derevo.circe.magnolia.{customizableDecoder, customizableEncoder}
 import derevo.derive
 
 object Records {
@@ -24,7 +25,7 @@ object Records {
     def sequenceNumber: FiberOrdinal
   }
 
-  @derive(encoder, decoder)
+  @derive(customizableEncoder, customizableDecoder)
   final case class StateMachineFiberRecord(
     fiberId:               UUID,
     creationOrdinal:       SnapshotOrdinal,
@@ -42,7 +43,7 @@ object Records {
     childFiberIds:         Set[UUID] = Set.empty
   ) extends FiberRecord
 
-  @derive(encoder, decoder)
+  @derive(customizableEncoder, customizableDecoder)
   final case class ScriptFiberRecord(
     fiberId:             UUID,
     creationOrdinal:     SnapshotOrdinal,

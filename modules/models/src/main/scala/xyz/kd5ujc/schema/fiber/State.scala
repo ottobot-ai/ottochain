@@ -2,10 +2,12 @@ package xyz.kd5ujc.schema.fiber
 
 import io.constellationnetwork.metagraph_sdk.json_logic.JsonLogicValue
 
-import derevo.circe.magnolia.{decoder, encoder}
+import xyz.kd5ujc.schema.CodecConfiguration._
+
+import derevo.circe.magnolia.{customizableDecoder, customizableEncoder}
 import derevo.derive
 
-@derive(encoder, decoder)
+@derive(customizableEncoder, customizableDecoder)
 case class State(
   id:       StateId,
   isFinal:  Boolean = false,

@@ -6,9 +6,10 @@ import io.constellationnetwork.currency.dataApplication.DataUpdate
 import io.constellationnetwork.metagraph_sdk.json_logic.{JsonLogicExpression, JsonLogicValue}
 import io.constellationnetwork.security.signature.Signed
 
+import xyz.kd5ujc.schema.CodecConfiguration._
 import xyz.kd5ujc.schema.fiber.{AccessControlPolicy, FiberOrdinal, StateMachineDefinition}
 
-import derevo.circe.magnolia.{decoder, encoder}
+import derevo.circe.magnolia.{customizableDecoder, customizableEncoder}
 import derevo.derive
 import io.circe._
 import io.circe.syntax.EncoderOps
@@ -35,7 +36,7 @@ object Updates {
 
   sealed trait StateMachineFiberOp
 
-  @derive(decoder, encoder)
+  @derive(customizableDecoder, customizableEncoder)
   final case class CreateStateMachine(
     fiberId:       UUID,
     definition:    StateMachineDefinition,
@@ -51,7 +52,7 @@ object Updates {
    * @param eventName Type of event to trigger
    * @param payload Event payload data
    */
-  @derive(decoder, encoder)
+  @derive(customizableDecoder, customizableEncoder)
   final case class TransitionStateMachine(
     fiberId:              UUID,
     eventName:            String,
@@ -61,7 +62,7 @@ object Updates {
       with OttochainMessage
       with Sequenced
 
-  @derive(decoder, encoder)
+  @derive(customizableDecoder, customizableEncoder)
   final case class ArchiveStateMachine(
     fiberId:              UUID,
     targetSequenceNumber: FiberOrdinal
@@ -71,7 +72,7 @@ object Updates {
 
   sealed trait ScriptFiberOp
 
-  @derive(decoder, encoder)
+  @derive(customizableDecoder, customizableEncoder)
   final case class CreateScript(
     fiberId:       UUID,
     scriptProgram: JsonLogicExpression,
@@ -80,7 +81,7 @@ object Updates {
   ) extends ScriptFiberOp
       with OttochainMessage
 
-  @derive(decoder, encoder)
+  @derive(customizableDecoder, customizableEncoder)
   final case class InvokeScript(
     fiberId:              UUID,
     method:               String,
