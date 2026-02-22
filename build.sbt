@@ -112,7 +112,7 @@ lazy val sharedData = (project in file("modules/shared-data"))
 
 lazy val currencyL0 = (project in file("modules/l0"))
   .enablePlugins(BuildInfoPlugin)
-  .dependsOn(sharedData)
+  .dependsOn(sharedData, sharedTest % Test)
   .settings(
     buildInfoSettings,
     commonSettings,
