@@ -6,10 +6,12 @@ import scala.collection.immutable.SortedMap
 
 import io.constellationnetwork.currency.dataApplication.DataCalculatedState
 
-import derevo.circe.magnolia.{decoder, encoder}
+import xyz.kd5ujc.schema.CodecConfiguration._
+
+import derevo.circe.magnolia.{customizableDecoder, customizableEncoder}
 import derevo.derive
 
-@derive(encoder, decoder)
+@derive(customizableEncoder, customizableDecoder)
 case class CalculatedState(
   stateMachines: SortedMap[UUID, Records.StateMachineFiberRecord],
   scripts:       SortedMap[UUID, Records.ScriptFiberRecord]
