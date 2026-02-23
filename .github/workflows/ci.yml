@@ -111,6 +111,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-sbt-
 
+      - name: Compile and test proto module
+        run: sbt proto/compile proto/test
+
       - name: Run tests with coverage
         run: sbt clean coverage sharedData/test coverageReport
 
