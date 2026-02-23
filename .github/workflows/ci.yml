@@ -73,7 +73,7 @@ jobs:
             ${{ runner.os }}-sbt-
 
       - name: Run tests with coverage
-        run: sbt clean coverage sharedData/test coverageReport
+        run: sbt clean coverage proto/compile proto/test sharedData/test coverageReport
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
