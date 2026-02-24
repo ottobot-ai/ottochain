@@ -4,7 +4,7 @@ import cats.effect.IO
 
 import io.constellationnetwork.currency.dataApplication.DataUpdate
 
-import ottochain.v1.{CreateStateMachine, TransitionStateMachine}
+import ottochain.v1._
 import weaver.SimpleIOSuite
 
 object ScalaPBIntegrationTest extends SimpleIOSuite {
@@ -40,6 +40,82 @@ object ScalaPBIntegrationTest extends SimpleIOSuite {
 
       expect(transitionSM.fiberId == "test-fiber-id") &&
       expect(transitionSM.eventName == "test-event") &&
+      expect(dataUpdate.isInstanceOf[DataUpdate])
+    }
+  }
+
+  test("Generated ArchiveStateMachine extends DataUpdate") {
+    IO {
+      val archiveSM = ArchiveStateMachine(
+        fiberId = "test-archive-id",
+        targetSequenceNumber = Some(FiberOrdinal(value = 42))
+      )
+
+      // This should compile successfully if DataUpdate mixin works
+      val dataUpdate: DataUpdate = archiveSM
+
+      expect(archiveSM.fiberId == "test-archive-id") &&
+      expect(archiveSM.targetSequenceNumber.exists(_.value == 42)) &&
+      expect(dataUpdate.isInstanceOf[DataUpdate])
+    }
+  }
+
+  test("Generated CreateScript extends DataUpdate") {
+    IO {
+      val createScript = CreateScript(
+        fiberId = "test-script-id",
+        scriptProgram = None,
+        initialState = None,
+        accessControl = Some(AccessControlPolicy())
+      )
+
+      // This should compile successfully if DataUpdate mixin works
+      val dataUpdate: DataUpdate = createScript
+
+      expect(createScript.fiberId == "test-script-id") &&
+      expect(createScript.accessControl.isDefined) &&
+      expect(dataUpdate.isInstanceOf[DataUpdate])
+    }
+  }
+
+  test("Generated InvokeScript extends DataUpdate") {
+    IO {
+      val invokeScript = InvokeScript(
+        fiberId = "test-invoke-id",
+        method = "execute",
+        args = None,
+        targetSequenceNumber = Some(FiberOrdinal(value = 10))
+      )
+
+      // This should compile successfully if DataUpdate mixin works
+      val dataUpdate: DataUpdate = invokeScript
+
+      expect(invokeScript.fiberId == "test-invoke-id") &&
+      expect(invokeScript.method == "execute") &&
+      expect(invokeScript.targetSequenceNumber.exists(_.value == 10)) &&
+      expect(dataUpdate.isInstanceOf[DataUpdate])
+    }
+  }
+
+  test("Generated OttochainMessage union extends DataUpdate") {
+    IO {
+      // Test with CreateStateMachine variant
+      val createSM = CreateStateMachine(
+        fiberId = "union-test-id",
+        definition = None,
+        initialData = None,
+        parentFiberId = None
+      )
+
+      val ottochainMessage = OttochainMessage(
+        message = OttochainMessage.Message.CreateStateMachine(createSM)
+      )
+
+      // This should compile successfully if DataUpdate mixin works
+      val dataUpdate: DataUpdate = ottochainMessage
+
+      expect(ottochainMessage.message.isCreateStateMachine) &&
+      expect(ottochainMessage.message.createStateMachine.exists(_.fiberId == "union-test-id")) &&
       expect(dataUpdate.isInstanceOf[DataUpdate])
     }
   }
