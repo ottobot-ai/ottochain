@@ -2,16 +2,69 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    types: [opened, synchronize, reopened]
   push:
-    branches: [main]
+    branches: [main, develop]
 
 jobs:
-  # Code quality: formatting and linting
-  # Note: Conventional commit validation is in commit-validation.yml
+  # Commit message validation (runs on all PRs and pushes to main/develop)
+  validate-commits:
+    name: Validate Conventional Commits
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate Conventional Commits
+        uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: .commitlintrc.json
+          failOnWarnings: false
+          helpURL: 'https://www.conventionalcommits.org/'
+
+  # PR title validation (only on pull_request events)
+  validate-pr-title:
+    name: Validate PR Title
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Validate PR Title
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          requireScope: false
+          disallowScopes: |
+            release
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            The subject "{subject}" found in the pull request title "{title}"
+            didn't match the configured pattern. Please ensure that the subject
+            doesn't start with an uppercase character.
+
+  # Code quality: formatting and linting (PRs targeting main and pushes to main only)
   code-quality:
     name: Code Quality
     runs-on: ubuntu-latest
+    if: >
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' && github.base_ref == 'main')
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,10 +96,13 @@ jobs:
       - name: Check linting (scalafix)
         run: sbt "scalafixAll --check"
 
-  # Unit tests with coverage
+  # Unit tests with coverage (PRs targeting main and pushes to main only)
   test:
     name: Unit Tests & Coverage
     runs-on: ubuntu-latest
+    if: >
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' && github.base_ref == 'main')
     steps:
       - uses: actions/checkout@v4
         with:
