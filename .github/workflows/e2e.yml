@@ -6,9 +6,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-
-env:
-  TESSELLATION_VERSION: "4.0.0-rc.2"
+    inputs:
+      tessellation_version:
+        description: 'Tessellation version override (e.g., v4.0.0-rc.6)'
+        required: false
+        type: string
 
 jobs:
   e2e:
@@ -39,30 +41,88 @@ jobs:
       - name: Install just
         uses: extractions/setup-just@v3
 
-      - name: Clone tessellation
+      # Resolve tessellation version from the dependency chain:
+      #   ottochain → metakit (version in Dependencies.scala)
+      #   metakit POM on Maven Central → tessellation-sdk version
+      - name: Resolve tessellation version
+        id: versions
         run: |
-          git clone --depth 1 --branch "v${TESSELLATION_VERSION}" \
+          METAKIT_VER=$(grep 'val metakit =' project/Dependencies.scala | head -1 | grep -o '"[^"]*"' | tr -d '"')
+          echo "metakit=${METAKIT_VER}" >> $GITHUB_OUTPUT
+
+          # Allow workflow_dispatch override
+          if [ -n "${{ inputs.tessellation_version }}" ]; then
+            TESS_VER="${{ inputs.tessellation_version }}"
+            TESS_VER="${TESS_VER#v}"
+            echo "tessellation=${TESS_VER}" >> $GITHUB_OUTPUT
+            echo "Dependency chain: ottochain → metakit ${METAKIT_VER} → tessellation ${TESS_VER} (override)"
+          else
+            # Resolve from metakit POM on Maven Central
+            TESS_VER=$(curl -sf "https://repo1.maven.org/maven2/io/constellationnetwork/metakit_2.13/${METAKIT_VER}/metakit_2.13-${METAKIT_VER}.pom" \
+              | grep -A1 'tessellation-sdk' | grep '<version>' | grep -o '[0-9][^<]*')
+            echo "tessellation=${TESS_VER}" >> $GITHUB_OUTPUT
+            echo "Dependency chain: ottochain → metakit ${METAKIT_VER} → tessellation ${TESS_VER}"
+          fi
+
+      # Clone tessellation develop for Docker infrastructure (compose-runner, Dockerfiles, scripts).
+      # Develop has the latest compose-runner with SKIP_ASSEMBLY support for pre-staged JARs.
+      # We do NOT build tessellation — all deps resolve from Maven Central.
+      - name: Clone tessellation infrastructure
+        run: |
+          git clone --depth 1 --branch develop \
             https://github.com/Constellation-Labs/tessellation.git tessellation
 
-      - name: Apply tessellation patches
-        working-directory: tessellation
+      # Download pre-built GL0/GL1/keytool/wallet JARs from tessellation GitHub release.
+      # metakit and tessellation-sdk resolve from Maven Central via sbt — no publishLocal needed.
+      - name: Download tessellation release JARs
         run: |
-          git apply ../e2e-test/patches/v4.0.0-rc.2-compile-fix.patch
-          git apply ../e2e-test/patches/v4.0.0-rc.2-java21-deps.patch
+          TESS_TAG="v${{ steps.versions.outputs.tessellation }}"
+          REPO="Constellation-Labs/tessellation"
+          BASE_URL="https://github.com/${REPO}/releases/download/${TESS_TAG}"
+          JARS_DIR="tessellation/docker/jars"
+          mkdir -p "$JARS_DIR"
 
+          echo "Downloading tessellation JARs from release ${TESS_TAG}..."
+          declare -A JAR_MAP=(
+            ["cl-node.jar"]="gl0.jar"
+            ["cl-dag-l1.jar"]="gl1.jar"
+            ["cl-keytool.jar"]="keytool.jar"
+            ["cl-wallet.jar"]="wallet.jar"
+          )
+
+          for release_name in "${!JAR_MAP[@]}"; do
+            local_name="${JAR_MAP[$release_name]}"
+            echo "  ${release_name} → ${local_name}"
+            curl -fsSL -o "${JARS_DIR}/${local_name}" "${BASE_URL}/${release_name}"
+            echo "    ✓ $(stat -c%s "${JARS_DIR}/${local_name}") bytes"
+          done
+          ls -la "$JARS_DIR"
+
+      # Only build ottochain metagraph JARs from source.
+      # metakit + tessellation-sdk are resolved from Maven Central.
+      - name: Build metagraph JARs
+        run: sbt --error "currencyL0/assembly" "currencyL1/assembly" "dataL1/assembly"
+
+      - name: Stage metagraph JARs
+        run: |
+          for layer in l0:ml0 l1:cl1 data_l1:dl1; do
+            module="${layer%%:*}"; target="${layer#*:}"
+            jar=$(ls -1t modules/${module}/target/scala-2.13/*-assembly*.jar | head -1)
+            cp "$jar" tessellation/docker/jars/${target}.jar
+            echo "✓ ${target}.jar ($(stat -c%s "$jar") bytes)"
+          done
+          ls -la tessellation/docker/jars/
+
+      # Start cluster with SKIP_ASSEMBLY since all JARs are pre-staged in docker/jars/.
+      # --hypergraph-release sets TESSELLATION_VERSION for the Docker image tag.
       - name: Start cluster
         working-directory: tessellation
         run: |
-          export TESSELLATION_VERSION="${TESSELLATION_VERSION}"
-          just up --metagraph="${GITHUB_WORKSPACE}" --dl1 --data
+          just up --hypergraph-release="v${{ steps.versions.outputs.tessellation }}" \
+            --skip-assembly --metagraph="${GITHUB_WORKSPACE}" --dl1 --data
 
       - name: Wait for cluster health
         run: |
-          # Tessellation auto-join handles validator joining via CL_DOCKER_JOIN=true
-          # DL1 validators have initial delays: node 1 = 42s, node 2 = 54s
-          # Plus 10 retries * 10s delay = up to 154s for full join
-          # We wait up to 4 minutes (240s) for all nodes to be Ready
-          
           wait_for_node() {
             local name=$1 port=$2 max_wait=${3:-120}
             local iterations=$((max_wait / 2))
@@ -94,21 +154,14 @@ jobs:
           
           if [ "$CLUSTER_SIZE" -lt 3 ]; then
             echo "::error::DL1 cluster size is $CLUSTER_SIZE (expected 3)"
-            echo ""
-            echo "Cluster info:"
             curl -s http://localhost:9400/cluster/info | jq . || true
-            echo ""
-            echo "DL1-1 state: $(curl -s http://localhost:9410/node/state 2>/dev/null || echo 'unreachable')"
-            echo "DL1-2 state: $(curl -s http://localhost:9420/node/state 2>/dev/null || echo 'unreachable')"
             exit 1
           fi
-          
           echo "✓ DL1 cluster has $CLUSTER_SIZE peers"
 
       - name: Verify ML0 ordinal progression
         run: |
           echo "Checking ML0 ordinal progression..."
-          # Wait a bit for consensus to warm up after node startup
           sleep 10
           ORD1=$(curl -sf http://localhost:9200/snapshots/latest 2>/dev/null | jq -r '.value.ordinal // .ordinal // empty' || echo "")
           if [ -z "$ORD1" ]; then
@@ -125,11 +178,6 @@ jobs:
               echo "  After 60s total: $ORD3"
               if [ "$ORD1" = "$ORD3" ]; then
                 echo "::error::ML0 consensus stalled — ordinal stuck at $ORD1 for 60 seconds"
-                echo "## ⚠️ ML0 Consensus Stall Detected" >> $GITHUB_STEP_SUMMARY
-                echo "Ordinal stuck at \`$ORD1\` for 60 seconds after warmup." >> $GITHUB_STEP_SUMMARY
-                echo "" >> $GITHUB_STEP_SUMMARY
-                echo "### Cluster Info" >> $GITHUB_STEP_SUMMARY
-                curl -sf http://localhost:9200/cluster/info 2>/dev/null | jq . >> $GITHUB_STEP_SUMMARY || true
                 exit 1
               fi
               echo "  ✓ Ordinals advancing after grace period ($ORD1 → $ORD3)"
@@ -141,9 +189,6 @@ jobs:
       - name: Install E2E dependencies
         working-directory: e2e-test
         run: npm ci
-
-      # Note: Canary check removed - it was causing false failures during DL1 warmup.
-      # The actual E2E tests handle retries properly.
 
       - name: Run E2E tests
         working-directory: e2e-test
@@ -159,25 +204,16 @@ jobs:
           echo '```json' >> $GITHUB_STEP_SUMMARY
           curl -sf http://localhost:9200/cluster/info 2>/dev/null | jq . >> $GITHUB_STEP_SUMMARY || echo "Failed to fetch" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          echo "### ML0 Latest Snapshot Ordinal" >> $GITHUB_STEP_SUMMARY
-          echo '```json' >> $GITHUB_STEP_SUMMARY
-          curl -sf http://localhost:9200/snapshots/latest 2>/dev/null | jq '{ordinal: (.value.ordinal // .ordinal), hash: (.value.hash // .hash)}' >> $GITHUB_STEP_SUMMARY || echo "Failed to fetch" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "### GL0 Cluster Info" >> $GITHUB_STEP_SUMMARY
           echo '```json' >> $GITHUB_STEP_SUMMARY
           curl -sf http://localhost:9000/cluster/info 2>/dev/null | jq . >> $GITHUB_STEP_SUMMARY || echo "Failed to fetch" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "### DL1-0 Cluster Info" >> $GITHUB_STEP_SUMMARY
           echo '```json' >> $GITHUB_STEP_SUMMARY
           curl -sf http://localhost:9400/cluster/info 2>/dev/null | jq . >> $GITHUB_STEP_SUMMARY || echo "Failed to fetch" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "### Container Logs (last 50 lines)" >> $GITHUB_STEP_SUMMARY
           for container in gl0-0 ml0-0 dl1-0; do
@@ -185,7 +221,6 @@ jobs:
             echo '```' >> $GITHUB_STEP_SUMMARY
             docker logs "$container" --tail 50 2>&1 >> $GITHUB_STEP_SUMMARY || echo "Container not found" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
           done
 
       - name: Cleanup
