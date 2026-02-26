@@ -39,7 +39,8 @@ object Records {
     status:                FiberStatus,
     lastReceipt:           Option[EventReceipt] = None,
     parentFiberId:         Option[UUID] = None,
-    childFiberIds:         Set[UUID] = Set.empty
+    childFiberIds:         Set[UUID] = Set.empty,
+    stateRoot:             Option[Hash] = None
   ) extends FiberRecord
 
   @derive(encoder, decoder)
