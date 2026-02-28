@@ -14,7 +14,7 @@ import io.constellationnetwork.security.SecurityProvider
 import io.constellationnetwork.security.signature.signature.SignatureProof
 
 import xyz.kd5ujc.schema.fiber.{FiberOrdinal, FiberStatus, StateId, StateMachineDefinition}
-import xyz.kd5ujc.schema.{CalculatedState, OnChain}
+import xyz.kd5ujc.schema.{CalculatedState, OnChain, Records}
 import xyz.kd5ujc.shared_data.lifecycle.validate.{Limits, ValidationResult}
 import xyz.kd5ujc.shared_data.syntax.calculatedState._
 
@@ -287,6 +287,30 @@ object FiberRules {
     )
 
     /** Validates that a transition exists for the given state+event combination */
+
+    /** Validates that the update is signed by an owner OR an authorized participant. */
+    def updateSignedByOwnerOrParticipant[F[_]: Async: SecurityProvider](
+      cid:    UUID,
+      proofs: NonEmptySet[SignatureProof],
+      state:  CalculatedState
+    ): F[ValidationResult] = (for {
+      record          <- state.getFiberRecord(cid)
+      signerAddresses <- EitherT.liftF(proofs.toList.traverse(_.id.toAddress))
+      signerSet = signerAddresses.toSet
+      authorizedSet = record match {
+        case sm: Records.StateMachineFiberRecord => sm.owners ++ sm.authorizedSigners
+        case other                               => other.owners
+      }
+      result <- EitherT.cond[F](
+        signerSet.intersect(authorizedSet).nonEmpty,
+        (),
+        Errors.NotSignedByAuthorizedParty: DataApplicationValidationError
+      )
+    } yield result).fold(
+      _.invalidNec[Unit],
+      _.validNec[DataApplicationValidationError]
+    )
+
     def transitionExists[F[_]: Monad](
       cid:       UUID,
       eventName: String,
@@ -410,6 +434,9 @@ object FiberRules {
       override val message: String = "Update not signed by any fiber owner"
     }
 
+    final case object NotSignedByAuthorizedParty extends DataApplicationValidationError {
+      override val message: String = "Update not signed by any fiber owner or authorized participant"
+    }
     // --- Sequence number errors ---
 
     final case class SequenceNumberMismatch(

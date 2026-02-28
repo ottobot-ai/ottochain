@@ -59,7 +59,8 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
       sequenceNumber = FiberOrdinal.MinValue,
       owners = owners,
       status = FiberStatus.Active,
-      parentFiberId = update.parentFiberId
+      parentFiberId = update.parentFiberId,
+      authorizedSigners = update.participants.getOrElse(Set.empty)
     )
 
     result <- current.withRecord[F](update.fiberId, record)
