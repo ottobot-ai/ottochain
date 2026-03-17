@@ -11,7 +11,6 @@ import xyz.kd5ujc.schema.fiber.{AccessControlPolicy, FiberOrdinal, StateMachineD
 import derevo.circe.magnolia.{decoder, encoder}
 import derevo.derive
 import io.circe._
-import io.circe.generic.semiauto.deriveEncoder
 import io.circe.syntax.EncoderOps
 
 object Updates {
@@ -23,7 +22,7 @@ object Updates {
 
   sealed trait StateMachineFiberOp
 
-  @derive(decoder)
+  @derive(decoder, encoder)
   final case class CreateStateMachine(
     fiberId:       UUID,
     definition:    StateMachineDefinition,
@@ -32,12 +31,6 @@ object Updates {
     participants:  Option[Set[Address]] = None
   ) extends StateMachineFiberOp
       with OttochainMessage
-
-  object CreateStateMachine {
-
-    implicit val encoder: Encoder[CreateStateMachine] =
-      deriveEncoder[CreateStateMachine].mapJson(_.dropNullValues)
-  }
 
   /**
    * Event to trigger a state machine transition.
