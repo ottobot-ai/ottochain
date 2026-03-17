@@ -4,6 +4,7 @@ import java.util.UUID
 
 import io.constellationnetwork.currency.dataApplication.DataUpdate
 import io.constellationnetwork.metagraph_sdk.json_logic.{JsonLogicExpression, JsonLogicValue}
+import io.constellationnetwork.schema.address.Address
 
 import xyz.kd5ujc.schema.fiber.{AccessControlPolicy, FiberOrdinal, StateMachineDefinition}
 
@@ -26,7 +27,8 @@ object Updates {
     fiberId:       UUID,
     definition:    StateMachineDefinition,
     initialData:   JsonLogicValue,
-    parentFiberId: Option[UUID] = None
+    parentFiberId: Option[UUID] = None,
+    participants:  Option[Set[Address]] = None
   ) extends StateMachineFiberOp
       with OttochainMessage
 

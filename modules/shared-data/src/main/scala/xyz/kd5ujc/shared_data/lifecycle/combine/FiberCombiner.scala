@@ -47,6 +47,9 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
     owners          <- update.proofs.toList.traverse(_.id.toAddress).map(Set.from)
     initialDataHash <- update.initialData.computeDigest
 
+    // participants declared in CreateStateMachine become authorized signers for transitions
+    authorizedSigners = update.participants.getOrElse(Set.empty)
+
     record = Records.StateMachineFiberRecord(
       fiberId = update.fiberId,
       creationOrdinal = currentOrdinal,
@@ -59,7 +62,8 @@ class FiberCombiner[F[_]: Async: SecurityProvider](
       sequenceNumber = FiberOrdinal.MinValue,
       owners = owners,
       status = FiberStatus.Active,
-      parentFiberId = update.parentFiberId
+      parentFiberId = update.parentFiberId,
+      authorizedSigners = authorizedSigners
     )
 
     result <- current.withRecord[F](update.fiberId, record)
