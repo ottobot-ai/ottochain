@@ -14,7 +14,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@ottochain/sdk": "github:ottobot-ai/ottochain-sdk#main",
+    "@ottochain/sdk": "github:ottobot-ai/ottochain-sdk#fix/normalize-processevent-fields",
     "commander": "13.1.0",
     "dotenv": "^16.4.7"
   },
