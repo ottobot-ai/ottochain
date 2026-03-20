@@ -30,6 +30,8 @@ message StateMachineFiberRecord {
   optional EventReceipt last_receipt = 12;
   optional string parent_fiber_id = 13;
   repeated string child_fiber_ids = 14;
+  // Phase 1: per-fiber MPT state root (optional — None until first transition)
+  optional HashValue state_root = 15;
 }
 
 // Script fiber record - on-chain representation
@@ -69,4 +71,6 @@ message FiberLogEntryList {
 message CalculatedState {
   map<string, StateMachineFiberRecord> state_machines = 1;
   map<string, ScriptFiberRecord> scripts = 2;
+  // Phase 1: metagraph-level MPT root over all fiber stateRoots (optional — None until fibers exist)
+  optional HashValue metagraph_state_root = 3;
 }
