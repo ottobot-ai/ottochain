@@ -36,8 +36,8 @@ object StandardAppsConformanceSuite extends SimpleIOSuite {
       FieldShape("address", 2, "string"),
       FieldShape("public_key", 3, "string"),
       FieldShape("display_name", 4, "string"),
-      FieldShape("identity_type", 5, "ottochain.apps.identity.v1.IdentityType"),
-      FieldShape("state", 6, "ottochain.apps.identity.v1.IdentityState"),
+      FieldShape("identity_type", 5, "ottochain.apps.identity.v1.Type"),
+      FieldShape("state", 6, "ottochain.apps.identity.v1.State"),
       FieldShape("reputation", 7, "ottochain.apps.identity.v1.Reputation"),
       FieldShape("stake", 8, "int64"),
       FieldShape("domains", 9, "string", repeated = true),
@@ -70,7 +70,7 @@ object StandardAppsConformanceSuite extends SimpleIOSuite {
     "ottochain.apps.markets.v1.Market",
     List(
       FieldShape("id", 1, "string"),
-      FieldShape("market_type", 2, "ottochain.apps.markets.v1.MarketType"),
+      FieldShape("market_type", 2, "ottochain.apps.markets.v1.Type"),
       FieldShape("creator", 3, "string"),
       FieldShape("title", 4, "string"),
       FieldShape("terms", 5, "google.protobuf.Struct"),
@@ -80,7 +80,7 @@ object StandardAppsConformanceSuite extends SimpleIOSuite {
       FieldShape("oracles", 9, "string", repeated = true),
       FieldShape("quorum", 10, "int32"),
       FieldShape("resolutions", 11, "ottochain.apps.markets.v1.Resolution", repeated = true),
-      FieldShape("status", 12, "ottochain.apps.markets.v1.MarketState"),
+      FieldShape("status", 12, "ottochain.apps.markets.v1.State"),
       FieldShape("created_at", 13, "google.protobuf.Timestamp"),
       FieldShape("updated_at", 14, "google.protobuf.Timestamp")
     )

@@ -41,14 +41,14 @@
             {
               "name": "identity_type",
               "number": 5,
-              "typeName": "ottochain.apps.identity.v1.IdentityType",
+              "typeName": "ottochain.apps.identity.v1.Type",
               "repeated": false,
               "optional": false
             },
             {
               "name": "state",
               "number": 6,
-              "typeName": "ottochain.apps.identity.v1.IdentityState",
+              "typeName": "ottochain.apps.identity.v1.State",
               "repeated": false,
               "optional": false
             },
@@ -452,7 +452,7 @@
             {
               "name": "market_type",
               "number": 2,
-              "typeName": "ottochain.apps.markets.v1.MarketType",
+              "typeName": "ottochain.apps.markets.v1.Type",
               "repeated": false,
               "optional": false
             },
@@ -522,7 +522,7 @@
             {
               "name": "status",
               "number": 12,
-              "typeName": "ottochain.apps.markets.v1.MarketState",
+              "typeName": "ottochain.apps.markets.v1.State",
               "repeated": false,
               "optional": false
             },
