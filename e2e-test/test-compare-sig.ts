@@ -1,4 +1,4 @@
-import { batchSign, generateKeyPair } from '@ottochain/sdk';
+import { batchSign, dropNulls, generateKeyPair } from '@ottochain/sdk';
 
 const keyPair = generateKeyPair();
 console.log('E2E Test - Address:', keyPair.address);
@@ -18,8 +18,11 @@ const message = {
 };
 
 async function main() {
-  const signed = await batchSign(message, [keyPair.privateKey], { isDataUpdate: true });
-  
+  // metakit >= 1.8 hashes over null-dropped canonical bytes (content-hash rule):
+  // drop null object fields before signing so the node re-derives the same bytes.
+  const cleaned = dropNulls(message);
+  const signed = await batchSign(cleaned, [keyPair.privateKey], { isDataUpdate: true });
+
   console.log('\n=== E2E Signed Structure ===');
   console.log('Keys:', Object.keys(signed));
   console.log('Value keys:', Object.keys(signed.value));
